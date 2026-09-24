@@ -1,12 +1,12 @@
-"""示例外挂：python-subprocess runtime."""
+"""Example plugin: python-subprocess runtime."""
 
 
 def register(host):
     @host.tool(
         name="example.hello_sub",
-        description="子进程插件打招呼。参数 name 可选。",
-        props=[{"name": "name", "type": "string", "default": "世界"}],
+        description="The subprocess plugin says hello. The name parameter is optional.",
+        props=[{"name": "name", "type": "string", "default": "world"}],
     )
     async def hello(args):
-        name = (args or {}).get("name") or "世界"
-        return f"你好, {name}！（subprocess 插件 com.example.hello_sub）"
+        name = (args or {}).get("name") or "world"
+        return f"Hello, {name}! (subprocess plugin com.example.hello_sub)"

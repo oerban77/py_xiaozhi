@@ -158,7 +158,7 @@ class MusicPlayer:
             self.prepare_for_io()
             resolved = self._library.resolve(file_id)
             if resolved is None:
-                return {"status": "error", "message": f"Local file does not exist: {file_id}"}}
+                return {"status": "error", "message": f"Local file does not exist: {file_id}"}
 
             file_path, metadata = resolved
             eng.current_song = metadata.display_name()
@@ -194,7 +194,7 @@ class MusicPlayer:
             self.prepare_for_io()
             hit = await search_song(song_name, self.config)
             if hit is None:
-                return {"status": "error", "message": f"Song not found: {song_name}"}}
+                return {"status": "error", "message": f"Song not found: {song_name}"}
 
             eng.current_song = hit.display_name
             eng.song_id = hit.song_id
@@ -216,7 +216,7 @@ class MusicPlayer:
             return {"status": "error", "message": f"Playback failed: {detail}"}
         except Exception as e:
             logger.error(f"Search-and-play failed: {e}", exc_info=True)
-            return {"status": "error", "message": f"Operation failed: {str(e)}"}}
+            return {"status": "error", "message": f"Operation failed: {str(e)}"}
 
     async def get_lyrics(self) -> dict:
         if not self.lyrics:
