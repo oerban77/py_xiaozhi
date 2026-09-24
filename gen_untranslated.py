@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from apply_translations import TRANSLATIONS, SKIP_STRINGS  # noqa: E402
+from apply_translations import SKIP_STRINGS, TRANSLATIONS  # noqa: E402
 
 ROOT = Path(__file__).parent
 SRC = ROOT / "src"

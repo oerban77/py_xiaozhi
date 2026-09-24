@@ -1,7 +1,7 @@
 """Main interface ViewPort write paths: status / conversation / music / emotion."""
 
-from src.ui.gui.services import EmotionService
 from src.ui.gui.models import MainModel
+from src.ui.gui.services import EmotionService
 
 
 class MainWindowController:

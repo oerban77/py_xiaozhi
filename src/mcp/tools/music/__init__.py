@@ -7,8 +7,8 @@
 - register_music_tools: register tools with McpServer (closure holds the player)
 """
 
-from .register import register_music_tools
 from .music_player import MusicPlayer
+from .register import register_music_tools
 
 __all__ = [
     "MusicPlayer",
