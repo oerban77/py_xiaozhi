@@ -1,9 +1,9 @@
-"""日志格式化器模块.
+"""Log formatter module.
 
-提供多种日志格式化器：
-- 彩色控制台格式化器
-- JSON 结构化格式化器
-- 简单文本格式化器
+Provide multiple log formatters:
+- color console formatter
+- JSON structured formatter
+- simple text formatter
 """
 
 import json
@@ -20,15 +20,15 @@ def _empty_context() -> dict[str, Any]:
 
 class ColoredFormatter(logging.Formatter):
     """
-    彩色日志格式化器，用于控制台输出.
+    Color log formatter for console output.
     """
 
-    # ANSI 颜色代码
+    # ANSI color codes
     COLORS = {
         "RESET": "\033[0m",
         "BOLD": "\033[1m",
         "DIM": "\033[2m",
-        # 前景色
+        # foreground color
         "BLACK": "\033[30m",
         "RED": "\033[31m",
         "GREEN": "\033[32m",
@@ -37,7 +37,7 @@ class ColoredFormatter(logging.Formatter):
         "MAGENTA": "\033[35m",
         "CYAN": "\033[36m",
         "WHITE": "\033[37m",
-        # 高亮前景色
+        # highlight foreground color
         "BRIGHT_RED": "\033[91m",
         "BRIGHT_GREEN": "\033[92m",
         "BRIGHT_YELLOW": "\033[93m",
@@ -45,12 +45,12 @@ class ColoredFormatter(logging.Formatter):
         "BRIGHT_MAGENTA": "\033[95m",
         "BRIGHT_CYAN": "\033[96m",
         "BRIGHT_WHITE": "\033[97m",
-        # 背景色
+        # background color
         "BG_RED": "\033[41m",
         "BG_YELLOW": "\033[43m",
     }
 
-    # 日志级别对应的颜色
+    # Colors corresponding to log levels
     LEVEL_COLORS = {
         logging.DEBUG: "CYAN",
         logging.INFO: "GREEN",
@@ -59,7 +59,7 @@ class ColoredFormatter(logging.Formatter):
         logging.CRITICAL: "BRIGHT_WHITE",
     }
 
-    # 日志级别对应的背景色（用于 CRITICAL）
+    # Background color for the corresponding log level (used for CRITICAL)
     LEVEL_BG_COLORS = {
         logging.CRITICAL: "BG_RED",
     }
@@ -80,9 +80,9 @@ class ColoredFormatter(logging.Formatter):
 
     def _supports_color(self) -> bool:
         """
-        检查终端是否支持颜色.
+        Check whether the terminal supports color.
         """
-        # Windows 终端检查
+        # Windows terminal check
         if sys.platform == "win32":
             try:
                 import ctypes
@@ -93,12 +93,12 @@ class ColoredFormatter(logging.Formatter):
             except Exception:
                 return False
 
-        # Unix 系统检查
+        # Unix system check
         return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
     def _colorize(self, text: str, color: str) -> str:
         """
-        给文本添加颜色.
+        Add color to text.
         """
         if not self.use_colors:
             return text
@@ -108,15 +108,15 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """
-        格式化日志记录.
+        Format a log record.
         """
-        # 时间戳
+        # timestamp
         timestamp = datetime.fromtimestamp(record.created).strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )[:-3]
         timestamp_colored = self._colorize(timestamp, "DIM")
 
-        # 日志级别
+        # Log level
         level_color = self.LEVEL_COLORS.get(record.levelno, "WHITE")
         bg_color = self.LEVEL_BG_COLORS.get(record.levelno)
 
@@ -129,19 +129,19 @@ class ColoredFormatter(logging.Formatter):
         else:
             level_colored = self._colorize(level_name, level_color)
 
-        # Logger 名称（缩短显示）
+        # Logger name (shortened display)
         name = self._shorten_name(record.name)
         name_colored = self._colorize(f"[{name}]", "BLUE")
 
-        # 消息
+        # message
         message = record.getMessage()
         if record.levelno >= logging.ERROR:
             message = self._colorize(message, level_color)
 
-        # 构建基础日志行
+        # Build the base log line
         parts = [timestamp_colored, level_colored, name_colored, message]
 
-        # 添加 Trace ID
+        # Add Trace ID
         if self.show_trace_id:
             trace_id = getattr(record, "trace_id", None) or _empty_context().get(
                 "trace_id"
@@ -150,7 +150,7 @@ class ColoredFormatter(logging.Formatter):
                 trace_colored = self._colorize(f"[{trace_id[:8]}]", "MAGENTA")
                 parts.insert(3, trace_colored)
 
-        # 添加线程名
+        # Add thread name
         if self.show_thread:
             thread_name = record.threadName
             if thread_name != "MainThread":
@@ -159,7 +159,7 @@ class ColoredFormatter(logging.Formatter):
 
         log_line = " ".join(parts)
 
-        # 异常信息
+        # Exception info
         if record.exc_info:
             exc_text = self._format_exception(record.exc_info)
             log_line = f"{log_line}\n{exc_text}"
@@ -168,7 +168,7 @@ class ColoredFormatter(logging.Formatter):
 
     def _shorten_name(self, name: str, max_length: int = 25) -> str:
         """
-        缩短 logger 名称.
+        Shorten the logger name.
         """
         if len(name) <= max_length:
             return name
@@ -177,7 +177,7 @@ class ColoredFormatter(logging.Formatter):
         if len(parts) == 1:
             return name[:max_length]
 
-        # 保留最后一部分，缩写前面的部分
+        # Keep the last part and abbreviate the preceding part
         result = []
         for i, part in enumerate(parts[:-1]):
             if i == 0:
@@ -193,7 +193,7 @@ class ColoredFormatter(logging.Formatter):
 
     def _format_exception(self, exc_info: tuple) -> str:
         """
-        格式化异常信息.
+        Format exception information.
         """
         lines = traceback.format_exception(*exc_info)
         if self.use_colors:
@@ -203,7 +203,7 @@ class ColoredFormatter(logging.Formatter):
 
 class JsonFormatter(logging.Formatter):
     """
-    JSON 格式化器，用于日志聚合系统.
+    JSON formatter for the log aggregation system.
     """
 
     def __init__(
@@ -219,7 +219,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """
-        格式化日志记录为 JSON.
+        Format log records as JSON.
         """
         log_data: dict[str, Any] = {
             "timestamp": self._format_timestamp(record.created),
@@ -231,12 +231,12 @@ class JsonFormatter(logging.Formatter):
             "line": record.lineno,
         }
 
-        # 添加上下文信息
+        # Add context information
         context = _empty_context()
         if context:
             log_data["context"] = context
 
-        # 直接从 record 获取上下文（如果存在）
+        # Read context straight from the record (if present)
         for field in ("trace_id", "request_id", "user_id", "session_id"):
             value = getattr(record, field, None)
             if value and value != "-":
@@ -244,19 +244,19 @@ class JsonFormatter(logging.Formatter):
                     log_data["context"] = {}
                 log_data["context"][field] = value
 
-        # 添加线程信息
+        # Add thread info
         log_data["thread"] = {
             "id": record.thread,
             "name": record.threadName,
         }
 
-        # 添加进程信息
+        # Add process info
         log_data["process"] = {
             "id": record.process,
             "name": record.processName,
         }
 
-        # 添加异常信息
+        # Add exception info
         if record.exc_info and self.include_stack_trace:
             log_data["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
@@ -264,7 +264,7 @@ class JsonFormatter(logging.Formatter):
                 "stack_trace": self._format_stack_trace(record.exc_info),
             }
 
-        # 添加额外字段
+        # Add additional fields
         if self.include_extra:
             extra = self._extract_extra(record)
             if extra:
@@ -274,7 +274,7 @@ class JsonFormatter(logging.Formatter):
 
     def _format_timestamp(self, created: float) -> Union[str, float]:
         """
-        格式化时间戳.
+        Format timestamps.
         """
         if self.timestamp_format == "unix":
             return created
@@ -286,16 +286,16 @@ class JsonFormatter(logging.Formatter):
 
     def _format_stack_trace(self, exc_info: tuple) -> list[str]:
         """
-        格式化堆栈跟踪.
+        Format stack traces.
         """
         lines = traceback.format_exception(*exc_info)
         return [line.strip() for line in lines if line.strip()]
 
     def _extract_extra(self, record: logging.LogRecord) -> dict[str, Any]:
         """
-        提取额外字段.
+        Extract extra fields.
         """
-        # 标准 LogRecord 字段
+        # standard LogRecord fields
         standard_fields = {
             "name",
             "msg",
@@ -318,7 +318,7 @@ class JsonFormatter(logging.Formatter):
             "thread",
             "threadName",
             "message",
-            # 自定义上下文字段
+            # Custom context fields
             "trace_id",
             "request_id",
             "user_id",
@@ -336,7 +336,7 @@ class JsonFormatter(logging.Formatter):
 
 class SimpleFormatter(logging.Formatter):
     """
-    简单文本格式化器，用于文件输出.
+    Simple text formatter for file output.
     """
 
     DEFAULT_FORMAT = (
@@ -358,9 +358,9 @@ class SimpleFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """
-        格式化日志记录.
+        Format a log record.
         """
-        # 添加 trace_id
+        # Add trace_id
         if self.include_trace_id:
             trace_id = getattr(record, "trace_id", None) or _empty_context().get(
                 "trace_id", "-"

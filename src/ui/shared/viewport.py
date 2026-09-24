@@ -1,44 +1,44 @@
-"""界面统一接口：gui / cli / gpio 都实现这一套."""
+"""Unified interface contract: gui / cli / gpio all implement this set."""
 
 from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
 class ViewPort(Protocol):
-    """写界面用的方法集合."""
+    """Collection of methods used to write to the interface."""
 
     async def start(self, mode: str = "cli") -> None:
-        """启动."""
+        """Start."""
         ...
 
     async def close(self) -> None:
-        """关闭."""
+        """Close."""
         ...
 
     def set_status(self, status: str, connected: bool = True) -> None:
-        """状态栏."""
+        """Status bar."""
         ...
 
     def set_emotion(self, emotion: str) -> None:
-        """表情名，具体资源各端自己解析."""
+        """Emotion name; each platform resolves the actual resources on its own."""
         ...
 
     def set_chat_text(self, text: str) -> None:
-        """对话内容（TTS / STT）."""
+        """Conversation content (TTS / STT)."""
         ...
 
     def set_music_line(self, text: str) -> None:
-        """音乐状态或歌词."""
+        """Music state or lyrics."""
         ...
 
     def set_button_text(self, text: str) -> None:
-        """主按钮文案；没有按钮可以空实现."""
+        """Main button label; implementations without a button may leave this empty."""
         ...
 
     def set_auto_mode(self, auto_mode: bool) -> None:
-        """刷新自动/手动显示（真状态在 Session 里）."""
+        """Refresh the auto/manual display (the real state lives in the Session)."""
         ...
 
     def is_auto_mode(self) -> bool:
-        """界面上记录的当前模式（比如 GPIO 按键分支会用到）."""
+        """The mode currently recorded in the interface (used, for example, by the GPIO key branch)."""
         ...

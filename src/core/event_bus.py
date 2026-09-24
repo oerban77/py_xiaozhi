@@ -1,6 +1,6 @@
-"""事件总线.
+"""Event bus.
 
-提供组件间解耦通信机制。
+Provide a decoupled communication mechanism between components.
 """
 
 import asyncio
@@ -13,85 +13,85 @@ from src.logging import get_logger
 logger = get_logger()
 
 
-# 预定义事件名称
+# Predefined event names
 class Events:
     """
-    预定义事件常量.
+    Predefined event constants.
     """
 
-    # 设备状态
+    # devicestate
     DEVICE_STATE_CHANGED = "device_state_changed"
 
-    # 协议相关
+    # Protocol-related
     PROTOCOL_CONNECTED = "protocol_connected"
     PROTOCOL_DISCONNECTED = "protocol_disconnected"
     INCOMING_JSON = "incoming_json"
     INCOMING_AUDIO = "incoming_audio"
 
-    # 网络错误
+    # Network error
     NETWORK_ERROR = "network_error"
 
-    # 音频通道
+    # Audio channel
     AUDIO_CHANNEL_OPENED = "audio_channel_opened"
     AUDIO_CHANNEL_CLOSED = "audio_channel_closed"
-    # AudioCodec 生命周期（AudioPlugin → MusicPlayer 等订阅者，避免直连 set）
+    # AudioCodec lifecycle (AudioPlugin → MusicPlayer subscribers, avoiding a direct set)
     AUDIO_CODEC_CHANGED = "audio_codec_changed"
-    # 请求重新枚举音频设备（设置页刷新；需先停流再 PortAudio reinit）
-    # payload: 可选 asyncio.Future，完成时 set_result(list|dict|None)
+    # Request a re-enumeration of audio devices (settings page refresh; stop the stream first and reinitialize PortAudio)
+    # payload: optional asyncio.Future; when complete, set_result(list|dict|None)
     AUDIO_DEVICES_REFRESH_REQUEST = "audio_devices_refresh_request"
 
-    # 应用生命周期
+    # Application lifecycle
     APP_SHUTDOWN = "app_shutdown"
-    # 系统级提示（降级模式横幅等，payload: str）
+    # System-level notice (degraded mode banner, etc.; payload: str)
     SYSTEM_NOTICE = "system_notice"
 
-    # 音乐播放器事件
-    MUSIC_STATE_CHANGED = "music_state_changed"  # 播放状态变化
-    MUSIC_LYRICS_UPDATE = "music_lyrics_update"  # 歌词更新
-    MUSIC_PROGRESS_UPDATE = "music_progress_update"  # 进度更新
+    # Music player events
+    MUSIC_STATE_CHANGED = "music_state_changed"  # Playback state changes
+    MUSIC_LYRICS_UPDATE = "music_lyrics_update"  # Lyrics update
+    MUSIC_PROGRESS_UPDATE = "music_progress_update"  # Progress update
 
-    # 音乐控制命令（从外部控制 MusicPlayer）
-    MUSIC_PAUSE_REQUEST = "music_pause_request"  # 请求暂停（如 TTS）
-    MUSIC_RESUME_REQUEST = "music_resume_request"  # 请求恢复
+    # Music control commands (external control of MusicPlayer)
+    MUSIC_PAUSE_REQUEST = "music_pause_request"  # Request pause (such as TTS)
+    MUSIC_RESUME_REQUEST = "music_resume_request"  # Request restore
 
-    # UI 操作（界面 → 插件）
-    UI_BUTTON_PRESS = "ui_button_press"  # 手动：按下
-    UI_BUTTON_RELEASE = "ui_button_release"  # 手动：松开
-    UI_MANUAL_TOGGLE = "ui_manual_toggle"  # 手动：点一下开始/结束录音
-    UI_AUTO_TOGGLE = "ui_auto_toggle"  # 切自动/手动
-    UI_AUTO_START = "ui_auto_start"  # 自动：开始/停止对话
-    UI_ABORT_REQUEST = "ui_abort_request"  # 打断
-    UI_SEND_TEXT = "ui_send_text"  # 发文本
-    UI_QUIT_REQUEST = "ui_quit_request"  # 退出
-    UI_OPEN_SETTINGS = "ui_open_settings"  # 打开设置
-    UI_TOGGLE_WINDOW = "ui_toggle_window"  # 显隐主窗口（GUI）
+    # UI actions (interface → plugin)
+    UI_BUTTON_PRESS = "ui_button_press"  # Manual: press
+    UI_BUTTON_RELEASE = "ui_button_release"  # Manual: release
+    UI_MANUAL_TOGGLE = "ui_manual_toggle"  # Manual: tap once to start/end recording
+    UI_AUTO_TOGGLE = "ui_auto_toggle"  # switch auto/manual
+    UI_AUTO_START = "ui_auto_start"  # Auto: start/stop conversation
+    UI_ABORT_REQUEST = "ui_abort_request"  # interrupt
+    UI_SEND_TEXT = "ui_send_text"  # Send text
+    UI_QUIT_REQUEST = "ui_quit_request"  # Quit
+    UI_OPEN_SETTINGS = "ui_open_settings"  # Open settings
+    UI_TOGGLE_WINDOW = "ui_toggle_window"  # show/hide main window (GUI)
 
-    # 配置变更事件
-    CONFIG_CHANGED = "config_changed"  # 配置已变更（需要热重载）
-    # MCP 工具暴露变更后：断开并重连协议，使服务端重新 tools/list
+    # Configuration change events
+    CONFIG_CHANGED = "config_changed"  # Configuration has changed (requires hot reload)
+    # After MCP tool exposure changes: disconnect and reconnect the protocol so the server re-lists tools
     PROTOCOL_RECONNECT_REQUEST = "protocol_reconnect_request"
 
 
-# 已知事件名集合：拼写错误时在 on/emit 打 warning（debug 友好）
+# Known event names: log a warning on on/emit typos for easier debugging
 _KNOWN_EVENTS: frozenset[str] = frozenset(
     v for k, v in vars(Events).items() if not k.startswith("_") and isinstance(v, str)
 )
 
 
 class EventBus:
-    """事件总线.
+    """Event bus.
 
-    支持异步事件处理，实现组件间松耦合通信。
+    Supports async event handlers to enable loosely coupled communication between components.
 
-    用法:     bus = EventBus()
+    Usage:     bus = EventBus()
 
-    # 注册处理器 async def on_state_changed(state):     print(f"State: {state}")
+    # register handler async def on_state_changed(state):     print(f"State: {state}")
 
     bus.on(Events.DEVICE_STATE_CHANGED, on_state_changed)
 
-    # 触发事件 await bus.emit(Events.DEVICE_STATE_CHANGED, DeviceState.LISTENING)
+    # trigger event await bus.emit(Events.DEVICE_STATE_CHANGED, DeviceState.LISTENING)
 
-    # 移除处理器 bus.off(Events.DEVICE_STATE_CHANGED, on_state_changed)
+    # remove handler bus.off(Events.DEVICE_STATE_CHANGED, on_state_changed)
     """
 
     def __init__(self):
@@ -103,71 +103,71 @@ class EventBus:
     def _warn_if_unknown(event: str, action: str) -> None:
         if event not in _KNOWN_EVENTS:
             logger.warning(
-                f"EventBus: {action} 未知事件名 {event!r}（可能是拼写错误；"
-                "请使用 Events.* 常量）"
+                f"EventBus: {action} unknown event name {event!r} (possible typo; "
+                "use the Events.* constants)"
             )
 
     def on(self, event: str, handler: Callable[..., Awaitable[None]]) -> None:
-        """注册事件处理器.
+        """Register an event handler.
 
         Args:
-            event: 事件名称
-            handler: 异步处理函数
+            event: event name
+            handler: async handler function
         """
-        self._warn_if_unknown(event, "注册")
+        self._warn_if_unknown(event, "register")
         if handler not in self._handlers[event]:
             self._handlers[event].append(handler)
-            logger.debug(f"EventBus: 注册处理器 {handler.__name__} -> {event}")
+            logger.debug(f"EventBus: handler registered {handler.__name__} -> {event}")
 
     def off(self, event: str, handler: Callable[..., Awaitable[None]]) -> None:
-        """移除事件处理器.
+        """Remove an event handler.
 
         Args:
-            event: 事件名称
-            handler: 要移除的处理函数
+            event: event name
+            handler: handler function to remove
         """
         if handler in self._handlers[event]:
             self._handlers[event].remove(handler)
-            logger.debug(f"EventBus: 移除处理器 {handler.__name__} <- {event}")
+            logger.debug(f"EventBus: handler removed {handler.__name__} <- {event}")
 
     def clear(self, event: str = None) -> None:
-        """清除事件处理器.
+        """Clear event handlers.
 
         Args:
-            event: 事件名称，为 None 时清除所有
+            event: event name; if None, clear all
         """
         if event is None:
             self._handlers.clear()
-            logger.debug("EventBus: 清除所有处理器")
+            logger.debug("EventBus: all handlers cleared")
         elif event in self._handlers:
             self._handlers[event].clear()
-            logger.debug(f"EventBus: 清除事件 {event} 的所有处理器")
+            logger.debug(f"EventBus: cleared all handlers for event {event}")
 
     async def emit(self, event: str, data: Any = None) -> None:
-        """触发事件.
+        """Trigger an event.
 
-        并行调用所有注册的处理器。
+        Invoke all registered handlers in parallel.
 
         Args:
-            event: 事件名称
-            data: 事件数据
+            event: event name
+            data: event data
         """
         handlers = list(self._handlers.get(event, []))
         if not handlers:
-            # 无订阅者时仍提示未知事件名，避免拼写错误静默丢失
-            self._warn_if_unknown(event, "触发")
+            # Still warn about unknown event names even with no subscribers to avoid silent typo losses
+            self._warn_if_unknown(event, "trigger")
             return
 
-        logger.debug(f"EventBus: 触发事件 {event}, {len(handlers)} 个处理器")
+        logger.debug(f"EventBus: emitting event {event}, {len(handlers)} handler(s)")
 
-        # 并行执行所有处理器
+        # Execute all handlers in parallel
         tasks = []
         for handler in handlers:
             try:
                 tasks.append(self._safe_call(handler, data))
             except Exception as e:
                 logger.error(
-                    f"EventBus: 创建任务失败 {handler.__name__}: {e}",
+                    f"EventBus: failed to create task {handler.__name__}: {e}",
                     exc_info=True,
                 )
 
@@ -175,13 +175,13 @@ class EventBus:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def emit_sequential(self, event: str, data: Any = None) -> None:
-        """顺序触发事件.
+        """Trigger events in order.
 
-        按注册顺序依次调用处理器。
+        Invoke handlers in registration order.
 
         Args:
-            event: 事件名称
-            data: 事件数据
+            event: event name
+            data: event data
         """
         handlers = list(self._handlers.get(event, []))
         for handler in handlers:
@@ -191,7 +191,7 @@ class EventBus:
         self, handler: Callable[..., Awaitable[None]], data: Any
     ) -> None:
         """
-        安全调用处理器，捕获异常.
+        Safely call handlers and capture exceptions.
         """
         try:
             if data is None:
@@ -200,18 +200,18 @@ class EventBus:
                 await handler(data)
         except Exception as e:
             logger.error(
-                f"EventBus: 处理器 {handler.__name__} 执行异常: {e}",
+                f"EventBus: handler {handler.__name__} execution error: {e}",
                 exc_info=True,
             )
 
     def has_handlers(self, event: str) -> bool:
         """
-        检查事件是否有处理器.
+        Check whether the event has handlers.
         """
         return bool(self._handlers.get(event))
 
     def handler_count(self, event: str) -> int:
         """
-        获取事件的处理器数量.
+        Get the number of handlers for the event.
         """
         return len(self._handlers.get(event, []))

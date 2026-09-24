@@ -1,4 +1,4 @@
-"""本地音乐缓存目录管理."""
+"""Local music cache directory management."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ logger = get_logger()
 
 
 class MusicCache:
-    """管理 music 缓存目录和临时文件."""
+    """Manage the music cache directory and temporary files."""
 
     def __init__(self, root: Path | None = None) -> None:
         base = root or get_music_cache_dir()
@@ -23,16 +23,16 @@ class MusicCache:
         self._temp_cleaned = False
 
     def ensure(self) -> None:
-        """创建缓存目录（幂等）."""
+        """Create the cache directory (idempotent)."""
         if self._ready:
             return
         try:
             self.root.mkdir(parents=True, exist_ok=True)
             self.temp_dir.mkdir(parents=True, exist_ok=True)
             self._ready = True
-            logger.debug(f"音乐缓存目录就绪: {self.root}")
+            logger.debug(f"Music cache directory ready: {self.root}")
         except Exception as e:
-            logger.error(f"创建缓存目录失败: {e}", exc_info=True)
+            logger.error(f"Failed to create cache directory: {e}", exc_info=True)
             self.root = Path(tempfile.gettempdir()) / "xiaozhi_music_cache"
             self.temp_dir = self.root / "temp"
             self.root.mkdir(parents=True, exist_ok=True)
@@ -40,21 +40,21 @@ class MusicCache:
             self._ready = True
 
     def prepare(self) -> None:
-        """首次用缓存前调用：建目录，并清理一次 temp."""
+        """Call before using the cache for the first time: create the directory and clean temp once."""
         self.ensure()
         if not self._temp_cleaned:
             self.clean_temp()
             self._temp_cleaned = True
 
     def path_for_song(self, song_id: str, ext: str = ".mp3") -> Path:
-        """根据 song_id 生成缓存文件路径."""
+        """Generate the cache file path from song_id."""
         self.ensure()
         if not ext.startswith("."):
             ext = f".{ext}"
         return self.root / f"{song_id}{ext}"
 
     def find_song_file(self, song_id: str) -> Path | None:
-        """按 song_id 找已缓存的文件（试常见后缀）."""
+        """Find a cached file by song_id (tries common extensions)."""
         self.ensure()
         for ext in (".mp3", ".m4a", ".flac", ".wav", ".ogg"):
             p = self.root / f"{song_id}{ext}"
@@ -66,12 +66,12 @@ class MusicCache:
         return self.path_for_song(song_id, ext).exists()
 
     def temp_path(self, filename: str) -> Path:
-        """下载过程中用的临时文件路径."""
+        """Temporary file path used during download."""
         self.ensure()
         return self.temp_dir / f"temp_{int(time.time())}_{filename}"
 
     def list_music_files(self) -> list[Path]:
-        """列出缓存里的音乐文件."""
+        """List music files in the cache."""
         self.ensure()
         if not self.root.exists():
             return []
@@ -81,7 +81,7 @@ class MusicCache:
         return files
 
     def clean_temp(self) -> None:
-        """清空 temp 目录."""
+        """Empty the temp directory."""
         try:
             if not self.temp_dir.exists():
                 return
@@ -89,12 +89,12 @@ class MusicCache:
                 try:
                     if file_path.is_file():
                         file_path.unlink()
-                        logger.debug(f"已删除临时缓存文件: {file_path.name}")
+                        logger.debug(f"Deleted temp cache file: {file_path.name}")
                 except Exception as e:
                     logger.warning(
-                        f"删除临时缓存文件失败: {file_path.name}, {e}",
+                        f"Failed to delete temp cache file: {file_path.name}, {e}",
                         exc_info=True,
                     )
-            logger.debug("临时音乐缓存清理完成")
+            logger.debug("Temp music cache cleanup complete")
         except Exception as e:
-            logger.error(f"清理临时缓存目录失败: {e}", exc_info=True)
+            logger.error(f"Failed to clean temp cache directory: {e}", exc_info=True)

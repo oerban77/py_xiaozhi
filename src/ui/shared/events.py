@@ -1,10 +1,10 @@
-"""UI 相关事件的数据类."""
+"""Data classes for UI-related events."""
 
 from dataclasses import dataclass
 
 
 @dataclass
 class UISendTextRequest:
-    """发文本."""
+    """Send text."""
 
     text: str

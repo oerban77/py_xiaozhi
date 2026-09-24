@@ -1,7 +1,7 @@
-"""外挂插件 python-subprocess runtime：独立进程 + JSON 行协议代理工具.
+"""External plugin python-subprocess runtime: independent process + JSON-line protocol proxying tools.
 
-主进程不 import 插件代码；仅启动 worker、bootstrap 拉取工具 schema，
-并将 McpTool 回调代理为对子进程的 call。
+The main process does not import plugin code; it only starts the worker, bootstraps the tool schema,
+and proxies McpTool callbacks as calls into the subprocess.
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ from src.utils.resource_finder import get_app_root
 
 logger = get_logger()
 
-# 单次 call 默认超时（秒）
+# Default single-call timeout (seconds)
 DEFAULT_CALL_TIMEOUT = 60.0
 BOOTSTRAP_TIMEOUT = 30.0
 
 
 class PluginSubprocessSession:
-    """管理一个插件子进程的生命周期与 RPC."""
+    """Manages the lifecycle and RPC of a plugin subprocess."""
 
     def __init__(
         self,
@@ -59,13 +59,13 @@ class PluginSubprocessSession:
         return list(self._tools_meta)
 
     def start_and_bootstrap(self) -> list[dict[str, Any]]:
-        """启动进程并 bootstrap，返回 tools schema 列表."""
+        """Start the process and bootstrap; returns the tools schema list."""
         worker = Path(__file__).resolve().parent / "subprocess_worker.py"
         if not worker.is_file():
-            raise RuntimeError(f"缺少 worker 脚本: {worker}")
+            raise RuntimeError(f"Missing worker script: {worker}")
 
         env = os.environ.copy()
-        # 避免子进程继承 GUI/Qt 相关干扰（可选）
+        # Avoid the subprocess inheriting GUI/Qt-related interference (optional)
         env.setdefault("PYTHONUNBUFFERED", "1")
 
         self._proc = subprocess.Popen(
@@ -78,7 +78,7 @@ class PluginSubprocessSession:
             env=env,
             cwd=str(self.plugin_root),
         )
-        # 后台读 stderr，避免管道堵死
+        # Read stderr in the background to avoid pipe blocking
         threading.Thread(
             target=self._drain_stderr,
             name=f"mcp-plugin-err:{self.plugin_id}",
@@ -101,10 +101,10 @@ class PluginSubprocessSession:
         )
         tools = result.get("tools") or []
         if not isinstance(tools, list):
-            raise RuntimeError("bootstrap 返回 tools 非列表")
+            raise RuntimeError("bootstrap returned a non-list tools value")
         self._tools_meta = tools
         logger.info(
-            "[MCP插件:%s] subprocess 已启动 pid=%s tools=%d",
+            "[MCPPlugin:%s] subprocess started pid=%s tools=%d",
             self.plugin_id,
             self._proc.pid if self._proc else "?",
             len(tools),
@@ -112,11 +112,11 @@ class PluginSubprocessSession:
         return tools
 
     def _json_safe_caps(self, caps: dict[str, Any]) -> dict[str, Any]:
-        """capabilities 须可 JSON 序列化；对象类能力子进程无法使用，仅传快照."""
+        """Capabilities must be JSON serializable; object capabilities cannot be used by the subprocess, so only snapshots are passed."""
         out: dict[str, Any] = {}
         for k, v in caps.items():
             if k == "config_readonly":
-                # ConfigManager → 只读 dict 快照
+                # ConfigManager -> read-only dict snapshot
                 try:
                     if hasattr(v, "get_config") and hasattr(v, "_config"):
                         out[k] = dict(getattr(v, "_config", {}) or {})
@@ -132,7 +132,7 @@ class PluginSubprocessSession:
                     out[k] = v
                 except Exception:
                     pass
-            # music_player 等不可序列化对象：子进程侧拿不到（与隔离目标一致）
+            # music_player and other non-serializable objects: the subprocess cannot access them (consistent with the isolation goal)
         return out
 
     def _drain_stderr(self) -> None:
@@ -143,7 +143,7 @@ class PluginSubprocessSession:
             for line in proc.stderr:
                 line = line.rstrip()
                 if line:
-                    logger.warning("[MCP插件:%s:stderr] %s", self.plugin_id, line)
+                    logger.warning("[MCPPlugin:%s:stderr] %s", self.plugin_id, line)
         except Exception:
             pass
 
@@ -162,10 +162,10 @@ class PluginSubprocessSession:
     ) -> dict[str, Any]:
         proc = self._proc
         if proc is None or proc.stdin is None or proc.stdout is None:
-            raise RuntimeError(f"插件子进程未运行: {self.plugin_id}")
+            raise RuntimeError(f"Plugin subprocess is not running: {self.plugin_id}")
         if proc.poll() is not None:
             raise RuntimeError(
-                f"插件子进程已退出: {self.plugin_id} code={proc.returncode}"
+                f"Plugin subprocess exited: {self.plugin_id} code={proc.returncode}"
             )
 
         req_id = self._next_id()
@@ -177,9 +177,9 @@ class PluginSubprocessSession:
             proc.stdin.write(payload + "\n")
             proc.stdin.flush()
         except Exception as e:
-            raise RuntimeError(f"写入子进程失败: {e}") from e
+            raise RuntimeError(f"Failed to write to subprocess: {e}") from e
 
-        # 同步读一行（带超时）
+        # Read one line synchronously (with timeout)
         line_holder: list[str | None] = [None]
         err_holder: list[BaseException | None] = [None]
 
@@ -195,22 +195,22 @@ class PluginSubprocessSession:
         if t.is_alive():
             self.terminate()
             raise TimeoutError(
-                f"插件 {self.plugin_id} 调用 {method} 超时（{timeout}s）"
+                f"Plugin {self.plugin_id} call {method} timed out ({timeout}s)"
             )
         if err_holder[0]:
-            raise RuntimeError(f"读子进程失败: {err_holder[0]}") from err_holder[0]
+            raise RuntimeError(f"Failed to read from subprocess: {err_holder[0]}") from err_holder[0]
         line = line_holder[0]
         if not line:
-            raise RuntimeError(f"插件子进程无响应: {self.plugin_id}")
+            raise RuntimeError(f"Plugin subprocess no response: {self.plugin_id}")
 
         try:
             msg = json.loads(line)
         except Exception as e:
-            raise RuntimeError(f"子进程返回非 JSON: {line[:200]}") from e
+            raise RuntimeError(f"Subprocess returned non-JSON: {line[:200]}") from e
 
         if msg.get("id") != req_id:
             raise RuntimeError(
-                f"子进程响应 id 不匹配: expect={req_id} got={msg.get('id')}"
+                f"Subprocess response id mismatch: expected={req_id} got={msg.get('id')}"
             )
         if "error" in msg and msg["error"]:
             err = msg["error"]
@@ -218,7 +218,7 @@ class PluginSubprocessSession:
             raise RuntimeError(message or "worker error")
         result = msg.get("result")
         if not isinstance(result, dict):
-            raise RuntimeError(f"子进程 result 无效: {result!r}")
+            raise RuntimeError(f"Invalid subprocess result: {result!r}")
         return result
 
     def call_tool_sync(self, name: str, arguments: dict[str, Any]) -> Any:
@@ -250,7 +250,7 @@ class PluginSubprocessSession:
                     proc.kill()
         except Exception as e:
             logger.debug(
-                "[MCP插件:%s] 结束子进程: %s", self.plugin_id, e, exc_info=True
+                "[MCPPlugin:%s] terminating subprocess: %s", self.plugin_id, e, exc_info=True
             )
             try:
                 proc.kill()
@@ -299,17 +299,17 @@ def register_subprocess_plugin_tools(
     enforce_prefix: bool = False,
     prefix: str | None = None,
 ) -> list[str]:
-    """根据 session.tools_meta 向宿主注册代理 McpTool；返回工具名列表."""
+    """Register proxy McpTools with the host based on session.tools_meta; returns the tool name list."""
     names: list[str] = []
     for meta in session.tools_meta:
         name = str(meta.get("name") or "").strip()
         if not name:
             continue
         if prefix and enforce_prefix and not name.startswith(str(prefix)):
-            raise RuntimeError(f"工具名未使用前缀 {prefix}: {name}")
+            raise RuntimeError(f"Tool name does not use the prefix {prefix}: {name}")
         if prefix and not name.startswith(str(prefix)):
             logger.warning(
-                "[MCP插件:%s] 工具名未使用前缀 %s: %s",
+                "[MCPPlugin:%s] tool name does not use prefix %s: %s",
                 session.plugin_id,
                 prefix,
                 name,
@@ -331,12 +331,12 @@ def register_subprocess_plugin_tools(
         if tool_owner is not None:
             tool_owner[name] = session.plugin_id
         logger.info(
-            "[MCP插件:%s] 注册代理工具(subprocess): %s", session.plugin_id, name
+            "[MCPPlugin:%s] registered proxy tool (subprocess): %s", session.plugin_id, name
         )
     return names
 
 
-# 进程内会话表，供卸载时 terminate
+# In-process session table, terminated on uninstall
 _SESSIONS: dict[str, PluginSubprocessSession] = {}
 
 

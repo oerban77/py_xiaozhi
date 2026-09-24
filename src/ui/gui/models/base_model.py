@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""ViewModel 基类."""
+"""ViewModel base class."""
 
 from PySide6.QtCore import QObject, Signal
 
 
 class BaseModel(QObject):
-    """ViewModel 基类 - 提供通用功能."""
+    """ViewModel base class - provides common functionality."""
 
-    # 通用信号
+    # Common signals
     loadingChanged = Signal(bool)
     errorOccurred = Signal(str)
 

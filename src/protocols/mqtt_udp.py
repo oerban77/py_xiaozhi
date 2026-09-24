@@ -1,6 +1,6 @@
-"""MQTT 会话配套的 UDP 加密音频通道.
+"""The UDP encrypted audio channel that accompanies an MQTT session.
 
-负责：套接字、收包线程、AES 加解密发包；经 event loop 把帧回调给上层。
+Responsible for: the socket, the receive thread, and AES-encrypted sending; frames are handed back to the upper layer through the event loop.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ logger = get_logger()
 
 
 class MqttUdpChannel:
-    """UDP 音频传输（加密 Opus 帧）."""
+    """UDP audio transport (encrypted Opus frames)."""
 
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
@@ -64,11 +64,11 @@ class MqttUdpChannel:
         )
 
     def start(self) -> None:
-        """创建套接字并启动接收线程（会先 stop 旧资源）."""
+        """Create the socket and start the receive thread (stops the old resources first)."""
         self.stop()
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # 显式绑定，确保 macOS 网络栈正确路由 UDP
+        # Bind explicitly so the macOS network stack routes UDP correctly
         sock.bind(("0.0.0.0", 0))
         sock.settimeout(0.5)
         self.socket = sock
@@ -79,11 +79,11 @@ class MqttUdpChannel:
         )
         self.thread.start()
         logger.info(
-            f"UDP接收线程已启动，监听来自 {self.server}:{self.port} 的数据"
+            f"UDP receive thread started, listening for data from {self.server}:{self.port}"
         )
 
     def stop(self) -> None:
-        """停止接收线程并关闭套接字."""
+        """Stop the receive thread and close the socket."""
         self.running = False
         if self.thread and self.thread.is_alive():
             try:
@@ -96,11 +96,11 @@ class MqttUdpChannel:
             try:
                 self.socket.close()
             except Exception as e:
-                logger.error(f"关闭UDP套接字失败: {e}", exc_info=True)
+                logger.error(f"Failed to close UDP socket: {e}", exc_info=True)
         self.socket = None
 
     def reset_session(self) -> None:
-        """goodbye 后清空会话侧字段."""
+        """Clear the session-side fields after goodbye."""
         self.stop()
         self.server = ""
         self.port = 0
@@ -111,10 +111,10 @@ class MqttUdpChannel:
 
     def send_audio(self, audio_data: bytes) -> bool:
         if not self.socket or not self.server or not self.port:
-            logger.error("UDP通道未初始化")
+            logger.error("UDP channel not initialized")
             return False
         if not self.aes_key or not self.aes_nonce:
-            logger.error("UDP 加密参数缺失")
+            logger.error("UDP encryption parameters missing")
             return False
 
         self.local_sequence = (self.local_sequence + 1) & 0xFFFFFFFF
@@ -131,7 +131,7 @@ class MqttUdpChannel:
 
         if self.local_sequence % 10 == 0:
             logger.info(
-                f"已发送音频数据包，序列号: {self.local_sequence}，目标: "
+                f"Audio packet sent, sequence number: {self.local_sequence}, target: "
                 f"{self.server}:{self.port}"
             )
         return True
@@ -144,7 +144,7 @@ class MqttUdpChannel:
                 debug_counter += 1
                 try:
                     if len(data) < 16:
-                        logger.error(f"无效的音频数据包大小: {len(data)}")
+                        logger.error(f"Invalid audio packet size: {len(data)}")
                         continue
                     if not self.aes_key:
                         continue
@@ -159,32 +159,32 @@ class MqttUdpChannel:
 
                     if debug_counter % 100 == 0:
                         logger.debug(
-                            f"已解密音频数据包 #{debug_counter}, "
-                            f"大小: {len(decrypted)} 字节"
+                            f"Decrypted audio packet #{debug_counter}, "
+                            f"size: {len(decrypted)} bytes"
                         )
 
                     if self._on_incoming_audio:
                         self._dispatch_audio(decrypted)
 
                 except Exception as e:
-                    logger.error(f"处理音频数据包错误: {e}", exc_info=True)
+                    logger.error(f"Error handling audio packet: {e}", exc_info=True)
                     continue
             except TimeoutError:
                 pass
             except Exception as e:
-                logger.error(f"UDP接收线程错误: {e}", exc_info=True)
+                logger.error(f"UDP receive thread error: {e}", exc_info=True)
                 if not self.running:
                     break
                 time.sleep(0.1)
 
-        logger.info("UDP接收线程已停止")
+        logger.info("UDP receive thread stopped")
 
     def _dispatch_audio(self, audio_data: bytes) -> None:
-        """从收包线程把帧回调调度到 event loop（handler 须为同步，在 loop 线程执行）."""
+        """Schedule the frame callback from the receive thread onto the event loop (the handler must be synchronous and runs on the loop thread)."""
         handler = self._on_incoming_audio
         if not handler:
             return
         try:
             self._loop.call_soon_threadsafe(handler, audio_data)
         except Exception as e:
-            logger.error(f"调度音频回调失败: {e}", exc_info=True)
+            logger.error(f"Failed to schedule audio callback: {e}", exc_info=True)

@@ -1,7 +1,7 @@
 """
-通用工具函数集合模块.
+General-purpose utility functions module.
 
-包含浏览器操作、剪贴板、验证码提取等通用工具函数。
+Contains general-purpose utility functions such as browser operations, clipboard access, and verification code extraction.
 """
 
 import re
@@ -14,39 +14,39 @@ logger = get_logger()
 
 
 def open_url(url: str) -> bool:
-    """打开网页链接."""
+    """Open a web page link."""
     try:
         success = webbrowser.open(url)
         if success:
-            logger.info(f"已成功打开网页: {url}")
+            logger.info(f"Web page opened successfully: {url}")
         else:
-            logger.warning(f"无法打开网页: {url}")
+            logger.warning(f"Could not open web page: {url}")
         return success
     except Exception as e:
-        logger.error(f"打开网页时出错: {e}", exc_info=True)
+        logger.error(f"Error opening web page: {e}", exc_info=True)
         return False
 
 
 def copy_to_clipboard(text: str) -> bool:
-    """复制文本到剪贴板."""
+    """Copy text to the clipboard."""
     try:
         import pyperclip
 
         pyperclip.copy(text)
-        logger.info(f'文本 "{text}" 已复制到剪贴板')
+        logger.info(f'Text "{text}" copied to clipboard')
         return True
     except ImportError:
-        logger.warning("未安装pyperclip模块，无法复制到剪贴板")
+        logger.warning("pyperclip module not installed; cannot copy to clipboard")
         return False
     except Exception as e:
-        logger.error(f"复制到剪贴板时出错: {e}", exc_info=True)
+        logger.error(f"Error copying to clipboard: {e}", exc_info=True)
         return False
 
 
 def extract_verification_code(text: str) -> Optional[str]:
-    """从文本中提取验证码."""
+    """Extract a verification code from text."""
     try:
-        # 激活相关关键词列表
+        # Activation-related keyword list (matches Chinese activation emails/messages)
         activation_keywords = [
             "登录",
             "控制面板",
@@ -61,14 +61,14 @@ def extract_verification_code(text: str) -> Optional[str]:
             "激活码",
         ]
 
-        # 检查文本是否包含激活相关关键词
+        # Check whether the text contains an activation-related keyword
         has_activation_keyword = any(keyword in text for keyword in activation_keywords)
 
         if not has_activation_keyword:
-            logger.debug(f"文本不包含激活关键词，跳过验证码提取: {text}")
+            logger.debug(f"Text does not contain activation keyword; skipping code extraction: {text}")
             return None
 
-        # 更精确的验证码匹配模式
+        # More precise verification code matching patterns
         patterns = [
             r"验证码[：:]\s*(\d{6})",
             r"输入验证码[：:]\s*(\d{6})",
@@ -83,26 +83,26 @@ def extract_verification_code(text: str) -> Optional[str]:
             match = re.search(pattern, text)
             if match:
                 code = match.group(1)
-                logger.info(f"已从文本中提取验证码: {code}")
+                logger.info(f"Activation code extracted from text: {code}")
                 return code
 
-        # 通用模式匹配
+        # Generic pattern matching
         match = re.search(r"((?:\d\s*){6,})", text)
         if match:
             code = "".join(match.group(1).split())
             if len(code) == 6 and code.isdigit():
-                logger.info(f"已从文本中提取验证码（通用模式）: {code}")
+                logger.info(f"Activation code extracted from text (generic pattern): {code}")
                 return code
 
-        logger.warning(f"未能从文本中找到验证码: {text}")
+        logger.warning(f"Could not find activation code in text: {text}")
         return None
     except Exception as e:
-        logger.error(f"提取验证码时出错: {e}", exc_info=True)
+        logger.error(f"Error extracting activation code: {e}", exc_info=True)
         return None
 
 
 def handle_verification_code(text: str) -> None:
-    """处理验证码：提取并复制到剪贴板."""
+    """Handle the verification code: extract it and copy it to the clipboard."""
     code = extract_verification_code(text)
     if code:
         copy_to_clipboard(code)

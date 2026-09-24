@@ -1,4 +1,4 @@
-"""激活验证码副作用：剪贴板与语音播报."""
+"""Activation verification code side effects: clipboard and speech announcement."""
 
 from __future__ import annotations
 
@@ -10,31 +10,31 @@ logger = get_logger()
 
 
 def apply_code_side_effects(code: str, message: Optional[str] = None) -> None:
-    """日志 + 剪贴板 + 播报；不负责 CLI/GUI 文案."""
+    """Logging + clipboard + announcement; not responsible for CLI/GUI copy."""
     if not code:
         return
-    msg = message or "请在控制面板输入验证码"
-    logger.info(f"激活提示: {msg}")
-    logger.info(f"验证码: {code}")
+    msg = message or "Please enter the verification code in the control panel"
+    logger.info(f"Activation prompt: {msg}")
+    logger.info(f"Activation code: {code}")
 
-    text = f".请登录到控制面板添加设备，输入验证码：{' '.join(code)}..."
+    text = f".Please log in to the control panel to add the device and enter the verification code: {' '.join(code)}..."
     try:
         from src.utils.common_utils import handle_verification_code
 
         handle_verification_code(text)
     except Exception as e:
-        logger.debug(f"复制验证码失败: {e}")
+        logger.debug(f"Failed to copy activation code: {e}")
 
     try:
         from src.utils.activation_announcer import announce_activation_code
 
         announce_activation_code(code, locale="zh-CN")
     except Exception as e:
-        logger.debug(f"验证码播报失败: {e}")
+        logger.debug(f"Failed to announce activation code: {e}")
 
 
 def announce_code(code: str) -> None:
-    """仅播报（轮询重试时用）."""
+    """Announcement only (used on poll retries)."""
     if not code:
         return
     from src.utils.activation_announcer import announce_activation_code

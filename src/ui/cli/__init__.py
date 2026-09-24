@@ -1,4 +1,4 @@
-"""CLI 模块：命令行界面."""
+"""CLI module: command-line interface."""
 
 from src.ui.cli.activation import CliActivation
 from src.ui.cli.manager import CliViewManager

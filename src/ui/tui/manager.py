@@ -1,4 +1,4 @@
-"""TUI ViewManager：ViewPort 实现，驱动 Textual App."""
+"""TUI ViewManager: a ViewPort implementation that drives the Textual App."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ logger = get_logger()
 
 
 class TuiViewManager:
-    """TUI 界面（ViewPort：与 GUI/CLI/GPIO 同一套 set_*）."""
+    """TUI interface (ViewPort: the same set_* methods as GUI/CLI/GPIO)."""
 
     def __init__(
         self,
@@ -31,26 +31,26 @@ class TuiViewManager:
         self._app_task: asyncio.Task | None = None
 
         self._auto_mode = False
-        self._status = "待命"
+        self._status = "Idle"
         self._connected = False
         self._chat_text = ""
         self._music_line = ""
         self._emotion = "neutral"
 
     async def start(self, mode: str = "tui"):
-        """启动 TUI（await 直到用户退出或任务取消）."""
+        """Start the TUI (awaits until the user quits or the task is cancelled)."""
         try:
             from src.ui.tui.app import XiaozhiTuiApp
         except ImportError as e:
             logger.error(
-                "TUI 模式需要 textual。请安装:\n"
+                "TUI mode requires textual. Please install:\n"
                 "  uv sync --extra tui\n"
                 "  pip install '.[tui]'\n"
-                f"(原始错误: {e})"
+                f"(original error: {e})"
             )
             raise
 
-        logger.info("TuiViewManager: 启动 TUI 界面...")
+        logger.info("TuiViewManager: starting TUI interface...")
         self._running = True
         self._loop = asyncio.get_running_loop()
 
@@ -65,12 +65,12 @@ class TuiViewManager:
         self._app.music_line = self._music_line
         self._app.emotion = self._emotion
 
-        # UIPlugin 经 TaskManager.spawn 启动本协程；这里 await run_async
-        # 直到用户 q/Ctrl+C 或 close() 调用 app.exit()
+        # UIPlugin starts this coroutine via TaskManager.spawn; here we await run_async
+        # until the user presses q/Ctrl+C or close() calls app.exit()
         try:
             await self._app.run_async()
         except asyncio.CancelledError:
-            logger.info("TuiViewManager: TUI 任务被取消")
+            logger.info("TuiViewManager: TUI task cancelled")
             app = self._app
             if app is not None:
                 try:
@@ -85,11 +85,11 @@ class TuiViewManager:
                     self._app.uninstall_log_handler()
                 except Exception:
                     pass
-            logger.info("TuiViewManager: TUI 已结束")
+            logger.info("TuiViewManager: TUI finished")
 
     async def close(self):
-        """关闭 TUI."""
-        logger.info("TuiViewManager: 正在关闭...")
+        """Close the TUI."""
+        logger.info("TuiViewManager: shutting down...")
         self._running = False
         app = self._app
         if app is not None:
@@ -101,10 +101,10 @@ class TuiViewManager:
                 app.uninstall_log_handler()
             except Exception:
                 pass
-        logger.info("TuiViewManager: 已关闭")
+        logger.info("TuiViewManager: closed")
 
     def _handle_command(self, cmd: str):
-        """处理用户命令."""
+        """Handle user commands."""
         cmd_lower = cmd.lower().strip()
         if cmd_lower == "r":
             self._safe_emit(Events.UI_MANUAL_TOGGLE)
@@ -116,11 +116,11 @@ class TuiViewManager:
             self._safe_emit(Events.UI_SEND_TEXT, {"text": cmd})
 
     def _on_settings_saved(self) -> None:
-        """设置保存后通知运行时热重载."""
+        """Notify runtime hot-reload after settings are saved."""
         self._safe_emit(Events.CONFIG_CHANGED)
 
     def _safe_emit(self, event: str, data=None):
-        """安全发射 EventBus 事件."""
+        """Safely emit EventBus events."""
 
         def _start_emit():
             if data is None:
@@ -133,7 +133,7 @@ class TuiViewManager:
                 return
             except Exception as e:
                 logger.error(
-                    f"TuiViewManager 经 TaskManager 调度事件 {event} 失败: {e}",
+                    f"TuiViewManager failed to dispatch event {event} via TaskManager: {e}",
                     exc_info=True,
                 )
 
@@ -150,13 +150,13 @@ class TuiViewManager:
                     return
                 if exc:
                     logger.error(
-                        f"TuiViewManager 发射事件 {event} 失败: {exc}",
+                        f"TuiViewManager failed to emit event {event}: {exc}",
                         exc_info=exc,
                     )
 
             fut.add_done_callback(_done)
         except Exception as e:
-            logger.error(f"TuiViewManager 调度事件 {event} 失败: {e}", exc_info=True)
+            logger.error(f"TuiViewManager failed to dispatch event {event} failed: {e}", exc_info=True)
             if asyncio.iscoroutine(coro):
                 coro.close()
 
@@ -174,7 +174,7 @@ class TuiViewManager:
             try:
                 _apply()
             except Exception as e:
-                logger.debug(f"TUI set {name} 失败: {e}")
+                logger.debug(f"TUI set {name} failed: {e}")
 
     # ----- ViewPort -----
 

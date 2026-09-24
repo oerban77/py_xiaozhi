@@ -1,9 +1,9 @@
-"""CLI 终端显示界面.
+"""CLI terminal display interface.
 
-提供终端 TUI 界面，包含:
-- 状态仪表盘（顶部框架）
-- 日志显示区域
-- 命令输入区域
+Provides a terminal TUI with:
+- status dashboard (top frame)
+- log display area
+- command input area
 """
 
 import asyncio
@@ -21,7 +21,7 @@ logger = get_logger()
 
 
 class CLIDisplay:
-    """CLI 终端显示界面."""
+    """CLI terminal display interface."""
 
     def __init__(self):
         self.running = True
@@ -29,22 +29,22 @@ class CLIDisplay:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._last_drawn_rows = 0
         self._render_lock = None
-        self._initialized = False  # 是否已初始化
-        self._log_handler_installed = False  # 日志处理器是否已安装
+        self._initialized = False  # whether initialized
+        self._log_handler_installed = False  # whether the log handler is installed
 
-        # 仪表盘数据
-        self._dash_status = "待命"
+        # Dashboard data
+        self._dash_status = "Idle"
         self._dash_connected = False
         self._dash_text = ""
         self._dash_music = ""
         self._dash_emotion = "neutral"
         self._dash_auto_mode = False
 
-        # 布局设置
-        self._input_area_lines = 3  # 输入区行数
-        self._dashboard_lines = 9  # 显示区最少行数
+        # Layout settings
+        self._input_area_lines = 3  # input area row count
+        self._dashboard_lines = 9  # minimum number of rows in the display area
 
-        # ANSI 样式
+        # ANSI styles
         self._ansi = {
             "reset": "\x1b[0m",
             "bold": "\x1b[1m",
@@ -57,75 +57,75 @@ class CLIDisplay:
             "red": "\x1b[31m",
         }
 
-        # 回调函数
+        # Callback function
         self._on_command: Optional[Callable[[str], None]] = None
 
-        # 日志缓冲
+        # Log buffer
         self._log_lines: deque[str] = deque(maxlen=6)
 
-        # 命令队列
+        # Command queue
         self._command_queue: asyncio.Queue = asyncio.Queue()
 
     def set_command_callback(self, callback: Callable[[str], None]):
-        """设置命令回调."""
+        """Set the command callback."""
         self._on_command = callback
 
     def intercept_logging(self):
-        """尽早拦截日志输出（在 start 之前调用）.
+        """Intercept log output as early as possible (call before start).
 
-        模仿旧实现：在 __init__ 阶段就移除 StreamHandler 并安装自定义处理器。
+        Mimics the old implementation: remove StreamHandler during __init__ and install a custom handler.
         """
-        # 先移除所有 StreamHandler
+        # Remove all StreamHandlers first
         self._remove_stream_handlers()
-        # 再安装我们的日志处理器
+        # Reinstall our log handler
         self._install_log_handler()
 
     async def start(self):
-        """启动 CLI 显示."""
-        # 先获取事件循环
+        """Start the CLI display."""
+        # Get the event loop first
         self._loop = asyncio.get_running_loop()
         self._render_lock = asyncio.Lock()
 
-        # 确保日志已被拦截（如果还没有调用 intercept_logging）
+        # Ensure logging has been intercepted (if intercept_logging was not already called)
         if not self._log_handler_installed:
             self.intercept_logging()
 
-        # 清屏并初始化界面
+        # Clear the screen and initialize the interface
         if self._use_ansi:
-            # 彻底清屏：清除屏幕 + 清除滚动缓冲区 + 光标移到左上角
+            # Full clear: clear screen + scrollback + move cursor to top-left
             sys.stdout.write("\x1b[3J\x1b[2J\x1b[H")
             sys.stdout.flush()
 
-        # 标记已初始化
+        # Mark as initialized
         self._initialized = True
 
-        # 初始化屏幕显示
+        # Initialize screen display
         await self._init_screen()
 
-        # 启动输入循环
+        # Start the input loop
         try:
             await self._keyboard_input_loop()
         except asyncio.CancelledError:
             pass
 
     async def close(self):
-        """关闭 CLI 显示."""
+        """Close the CLI display."""
         self.running = False
 
-        # 恢复标准日志
+        # Restore standard logging
         self._restore_logging()
 
-        # 清屏
+        # Clear the screen
         if self._use_ansi:
             sys.stdout.write("\x1b[2J\x1b[H")
             sys.stdout.flush()
 
-        print("正在关闭应用...\n")
+        print("The application is shutting down...\n")
 
-    # ========== 状态更新 ==========
+    # ========== Status updates ==========
 
     def update_status(self, status: str, connected: bool = True):
-        """更新状态."""
+        """Update status."""
         self._dash_status = status
         self._dash_connected = connected
         self._schedule_render()
@@ -140,22 +140,22 @@ class CLIDisplay:
         self._schedule_render()
 
     def update_emotion(self, emotion: str):
-        """更新表情."""
+        """Update the emotion."""
         self._dash_emotion = emotion
         self._schedule_render()
 
     def update_auto_mode(self, auto_mode: bool):
-        """更新自动模式状态."""
+        """Update auto-mode state."""
         self._dash_auto_mode = auto_mode
         self._schedule_render()
 
     def add_log(self, message: str):
-        """添加日志."""
+        """Add log."""
         self._log_lines.append(message)
         self._schedule_render()
 
     def _schedule_render(self):
-        """调度渲染."""
+        """Schedule render."""
         if not self._initialized:
             return
         if self._loop and self._use_ansi and self.running:
@@ -163,10 +163,10 @@ class CLIDisplay:
                 if self._loop.is_running():
                     self._loop.call_soon_threadsafe(self._do_render)
             except Exception as e:
-                logging.getLogger(__name__).error(f"调度渲染失败: {e}")
+                logging.getLogger(__name__).error(f"Render scheduling failed: {e}")
 
     def _do_render(self):
-        """执行渲染（在事件循环中调用）."""
+        """Execute rendering (called in the event loop)."""
         if not self._initialized:
             return
         try:
@@ -178,47 +178,47 @@ class CLIDisplay:
                 exc = t.exception()
                 if exc:
                     logging.getLogger(__name__).error(
-                        f"CLI 渲染任务异常: {exc}", exc_info=exc
+                        f"CLI render task exception: {exc}", exc_info=exc
                     )
 
             task.add_done_callback(_on_done)
         except Exception as e:
-            logging.getLogger(__name__).error(f"创建渲染任务失败: {e}", exc_info=True)
+            logging.getLogger(__name__).error(f"Failed to create render task: {e}", exc_info=True)
 
     async def _safe_render(self):
-        """安全渲染（带锁）."""
+        """Safe render (with lock)."""
         if self._render_lock is None:
             return
         async with self._render_lock:
             await self._render_dashboard()
 
-    # ========== 屏幕渲染 ==========
+    # ========== Screen rendering ============
 
     async def _init_screen(self):
-        """初始化屏幕."""
-        # 注意：清屏已在 start() 中完成
+        """Initialize the screen."""
+        # Note: screen clearing is already handled in start()
         await self._render_dashboard(full=True)
         await self._render_input_area()
 
     async def _render_dashboard(self, full: bool = False):
-        """渲染仪表盘."""
+        """Render the dashboard."""
 
         def trunc(s: str, limit: int = 60) -> str:
             return s if len(s) <= limit else s[: limit - 1] + "…"
 
-        # 构建状态行
-        mode_text = "自动" if self._dash_auto_mode else "手动"
-        conn_text = "已连接" if self._dash_connected else "未连接"
+        # Build the status lines
+        mode_text = "Auto" if self._dash_auto_mode else "Manual"
+        conn_text = "Connected" if self._dash_connected else "Disconnected"
 
         lines = [
-            f"状态: {trunc(self._dash_status)}",
-            f"连接: {conn_text} | 模式: {mode_text}",
-            f"表情: {self._dash_emotion}",
-            f"对话: {trunc(self._dash_text)}",
-            f"音乐: {trunc(self._dash_music) if self._dash_music else '—'}",
+            f"Status: {trunc(self._dash_status)}",
+            f"Connection: {conn_text} | Mode: {mode_text}",
+            f"Emotion: {self._dash_emotion}",
+            f"Conversation: {trunc(self._dash_text)}",
+            f"Music: {trunc(self._dash_music) if self._dash_music else '—'}",
         ]
 
-        # 不显示日志行（日志仍被拦截，只是不在界面显示）
+        # Log lines are not shown (logs are still intercepted, just not displayed in the interface)
 
         if not self._use_ansi:
             print(f"\r{lines[0]}        ", end="", flush=True)
@@ -227,7 +227,7 @@ class CLIDisplay:
         cols, rows = self._term_size()
         usable_rows = max(5, rows - self._input_area_lines)
 
-        # 样式函数
+        # Style helper
         def style(s: str, *names: str) -> str:
             if not self._use_ansi:
                 return s
@@ -236,13 +236,13 @@ class CLIDisplay:
 
         title = style(f" {SystemConstants.APP_DISPLAY_NAME} ", "bold", "cyan")
 
-        # 框架
+        # Frame
         top_bar = "┌" + ("─" * (max(2, cols - 2))) + "┐"
-        title_line = "│" + title.center(max(2, cols - 2) + 14) + "│"  # +14 补偿 ANSI
+        title_line = "│" + title.center(max(2, cols - 2) + 14) + "│"  # +14 compensates for the ANSI codes
         sep_line = "├" + ("─" * (max(2, cols - 2))) + "┤"
         bottom_bar = "└" + ("─" * (max(2, cols - 2))) + "┘"
 
-        # 内容区
+        # Content area
         body_rows = max(1, usable_rows - 4)
         body = []
         for i in range(body_rows):
@@ -260,17 +260,17 @@ class CLIDisplay:
                 text = ""
             body.append("│" + text.ljust(max(2, cols - 2))[: max(2, cols - 2)] + "│")
 
-        # 保存光标
+        # Save the cursor
         sys.stdout.write("\x1b7")
 
-        # 清空旧区域
+        # Clear the old area
         total_rows = 4 + body_rows
         rows_to_clear = max(self._last_drawn_rows, total_rows)
         for i in range(rows_to_clear):
             self._goto(1 + i, 1)
             sys.stdout.write("\x1b[2K")
 
-        # 绘制
+        # Draw
         self._goto(1, 1)
         sys.stdout.write("\x1b[2K" + top_bar[:cols])
         self._goto(2, 1)
@@ -286,14 +286,14 @@ class CLIDisplay:
         self._goto(4 + body_rows, 1)
         sys.stdout.write("\x1b[2K" + bottom_bar[:cols])
 
-        # 恢复光标
+        # Restore the cursor
         sys.stdout.write("\x1b8")
         sys.stdout.flush()
 
         self._last_drawn_rows = total_rows
 
     async def _render_input_area(self):
-        """渲染输入区."""
+        """Render the input area."""
         if not self._use_ansi:
             return
 
@@ -304,18 +304,18 @@ class CLIDisplay:
 
         sys.stdout.write("\x1b7")
 
-        # 分隔线
+        # Separator line
         self._goto(separator_row, 1)
         sys.stdout.write("\x1b[2K")
         sys.stdout.write("═" * max(1, cols))
 
-        # 输入提示
+        # Input prompt
         self._goto(first_input_row, 1)
         sys.stdout.write("\x1b[2K")
-        prompt = "\x1b[1m\x1b[36m输入:\x1b[0m " if self._use_ansi else "输入: "
+        prompt = "\x1b[1m\x1b[36mInput:\x1b[0m " if self._use_ansi else "Input: "
         sys.stdout.write(prompt)
 
-        # 预留行
+        # Reserved line
         self._goto(second_input_row, 1)
         sys.stdout.write("\x1b[2K")
         sys.stdout.flush()
@@ -326,7 +326,7 @@ class CLIDisplay:
         sys.stdout.flush()
 
     def _clear_input_area(self):
-        """清空输入区."""
+        """Clear the input area."""
         if not self._use_ansi:
             return
         cols, rows = self._term_size()
@@ -336,10 +336,10 @@ class CLIDisplay:
             sys.stdout.write("\x1b[2K")
         sys.stdout.flush()
 
-    # ========== 输入处理 ==========
+    # ========== Input handling ============
 
     async def _keyboard_input_loop(self):
-        """键盘输入循环."""
+        """Keyboard input loop."""
         try:
             while self.running:
                 if self._use_ansi:
@@ -348,7 +348,7 @@ class CLIDisplay:
                     self._clear_input_area()
                     await self._render_dashboard()
                 else:
-                    cmd = await asyncio.to_thread(input, "输入: ")
+                    cmd = await asyncio.to_thread(input, "Input: ")
 
                 await self._handle_command(cmd.strip())
         except asyncio.CancelledError:
@@ -357,12 +357,12 @@ class CLIDisplay:
             await self.close()
 
     def _read_line_raw(self) -> str:
-        """原始模式读取输入（支持中文）."""
+        """Read input in raw mode (supports CJK)."""
         try:
             import termios
             import tty
         except ImportError:
-            # Windows 不支持 termios
+            # Windows does not support termios
             return input()
 
         fd = sys.stdin.fileno()
@@ -404,39 +404,39 @@ class CLIDisplay:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     def _redraw_input_line(self, content: str):
-        """重绘输入行."""
+        """Redraw the input line."""
         cols, rows = self._term_size()
         separator_row = max(1, rows - self._input_area_lines + 1)
         first_input_row = min(rows, separator_row + 1)
-        prompt = "\x1b[1m\x1b[36m输入:\x1b[0m " if self._use_ansi else "输入: "
+        prompt = "\x1b[1m\x1b[36mInput:\x1b[0m " if self._use_ansi else "Input: "
         self._goto(first_input_row, 1)
         sys.stdout.write("\x1b[2K")
         visible = content
-        max_len = max(1, cols - len("输入: ") - 1)
+        max_len = max(1, cols - len("Input: ") - 1)
         if len(visible) > max_len:
             visible = visible[-max_len:]
         sys.stdout.write(f"{prompt}{visible}")
         sys.stdout.flush()
 
     async def _handle_command(self, cmd: str):
-        """处理命令 - 全部转发给 CliViewManager."""
+        """Handle a command - everything is forwarded to CliViewManager."""
         if not cmd:
             return
 
         if self._on_command:
-            # 所有命令都转发，不拦截
+            # All commands are forwarded, none are intercepted
             self._on_command(cmd)
 
     def show_help(self):
-        """显示帮助."""
-        self._dash_text = "命令: r=开始/停止 | x=打断 | q=退出 | h=帮助 | 其他=发送文本"
+        """Show help."""
+        self._dash_text = "Commands: r=Start/Stop | x=Interrupt | q=Quit | h=Help | other=Send text"
         self._schedule_render()
 
-    # ========== 日志处理 ==========
+    # ========== Log handling ============
 
     def _install_log_handler(self):
-        """安装日志处理器."""
-        # 防止重复安装
+        """Install the log handler."""
+        # Prevent duplicate installation
         if self._log_handler_installed:
             return
         self._log_handler_installed = True
@@ -452,7 +452,7 @@ class CLIDisplay:
                     self.display._log_lines.append(msg)
                     self.display._schedule_render()
                 except Exception as e:
-                    logging.getLogger(__name__).error(f"日志记录失败: {e}")
+                    logging.getLogger(__name__).error(f"Log recording failed: {e}")
 
         handler = DisplayLogHandler(self)
         handler.setLevel(logging.INFO)
@@ -465,47 +465,47 @@ class CLIDisplay:
         logging.getLogger().addHandler(handler)
 
     def _remove_stream_handlers(self):
-        """移除所有标准输出的日志处理器."""
+        """Remove all stdout log handlers."""
         root = logging.getLogger()
 
-        # 移除根 logger 的所有 StreamHandler
+        # Remove all StreamHandlers from the root logger
         for h in list(root.handlers):
             if isinstance(h, logging.StreamHandler):
                 root.removeHandler(h)
 
-        # 移除所有已注册 logger 的 StreamHandler
+        # Remove the StreamHandlers from all registered loggers
         for name in list(logging.Logger.manager.loggerDict.keys()):
             log = logging.getLogger(name)
             for h in list(log.handlers):
                 if isinstance(h, logging.StreamHandler):
                     log.removeHandler(h)
 
-        # 设置根 logger 级别
+        # Set the root logger level
         root.setLevel(logging.DEBUG)
 
     def _restore_logging(self):
-        """恢复标准日志."""
+        """Restore standard logging."""
         root = logging.getLogger()
 
-        # 移除 DisplayLogHandler
+        # Remove the DisplayLogHandler
         for h in list(root.handlers):
             if h.__class__.__name__ == "DisplayLogHandler":
                 root.removeHandler(h)
 
-        # 添加简单的 StreamHandler
+        # Add a simple StreamHandler
         handler = logging.StreamHandler(sys.stderr)
         handler.setLevel(logging.WARNING)
         handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
         root.addHandler(handler)
 
-    # ========== 工具函数 ==========
+    # ========== Utility functions ============
 
     def _goto(self, row: int, col: int = 1):
-        """移动光标."""
+        """Move the cursor."""
         sys.stdout.write(f"\x1b[{max(1, row)};{max(1, col)}H")
 
     def _term_size(self) -> tuple[int, int]:
-        """获取终端尺寸."""
+        """Get the terminal size."""
         try:
             size = shutil.get_terminal_size(fallback=(80, 24))
             return size.columns, size.lines

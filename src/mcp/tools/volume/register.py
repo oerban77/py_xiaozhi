@@ -1,4 +1,4 @@
-"""音量 MCP 工具：由 register_volume_tools 注入 VolumeController，无模块级单例."""
+"""Volume MCP tools: register_volume_tools injects a VolumeController, with no module-level singleton."""
 
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ logger = get_logger()
 
 
 def create_volume_controller() -> VolumeController | None:
-    """创建音量控制器；依赖不足或初始化失败时返回 None."""
+    """Create the volume controller; returns None when dependencies are missing or initialization fails."""
     if not VolumeController.check_dependencies():
         return None
     try:
         return VolumeController()
     except Exception as e:
-        logger.error(f"音量控制器初始化失败: {e}", exc_info=True)
+        logger.error(f"Volume controller init failed: {e}", exc_info=True)
         return None
 
 
@@ -30,10 +30,10 @@ def register_volume_tools(
     add_tool: Callable[[McpTool], None],
     controller: VolumeController | None = None,
 ) -> None:
-    """向 McpServer 注册音量工具（闭包持有 controller，不写全局单例）.
+    """Register the volume tools with McpServer (the closure holds the controller; no global singleton is written).
 
-    controller 为 None 时尝试 create_volume_controller()；仍失败则注册
-    会返回「不可用」结果的工具，避免工具列表缺失。
+    When controller is None, create_volume_controller() is tried; if that still fails, tools that
+    return an "unavailable" result are registered so the tool list does not end up missing entries.
     """
     if controller is None:
         controller = create_volume_controller()
@@ -41,34 +41,34 @@ def register_volume_tools(
     async def set_volume(args: dict[str, Any]) -> bool:
         try:
             volume = args["volume"]
-            logger.info(f"[VolumeTools] 设置音量到 {volume}")
+            logger.info(f"[VolumeTools] Setting volume to {volume}")
             if not (0 <= volume <= 100):
-                logger.warning(f"[VolumeTools] 音量值超出范围: {volume}")
+                logger.warning(f"[VolumeTools] Volume out of range: {volume}")
                 return False
             if controller is None:
-                logger.warning("[VolumeTools] 音量控制依赖不完整，无法设置音量")
+                logger.warning("[VolumeTools] Volume control dependencies incomplete; cannot set volume")
                 return False
             await asyncio.to_thread(controller.set_volume, volume)
-            logger.info(f"[VolumeTools] 音量设置成功: {volume}")
+            logger.info(f"[VolumeTools] Volume set: {volume}")
             return True
         except KeyError:
-            logger.error("[VolumeTools] 缺少volume参数")
+            logger.error("[VolumeTools] Missing volume parameter")
             return False
         except Exception as e:
-            logger.error(f"[VolumeTools] 设置音量失败: {e}", exc_info=True)
+            logger.error(f"[VolumeTools] Failed to set volume: {e}", exc_info=True)
             return False
 
     async def get_volume(args: dict[str, Any]) -> int:
         try:
-            logger.info("[VolumeTools] 获取当前音量")
+            logger.info("[VolumeTools] Getting current volume")
             if controller is None:
-                logger.warning("[VolumeTools] 音量控制依赖不完整，返回默认音量")
+                logger.warning("[VolumeTools] Volume control dependencies incomplete; returning default volume")
                 return VolumeController.DEFAULT_VOLUME
             current = await asyncio.to_thread(controller.get_volume)
-            logger.info(f"[VolumeTools] 当前音量: {current}")
+            logger.info(f"[VolumeTools] Current volume: {current}")
             return current
         except Exception as e:
-            logger.error(f"[VolumeTools] 获取音量失败: {e}", exc_info=True)
+            logger.error(f"[VolumeTools] Failed to get volume: {e}", exc_info=True)
             return VolumeController.DEFAULT_VOLUME
 
     async def get_volume_status(args: dict[str, Any]) -> str:
@@ -88,7 +88,7 @@ def register_volume_tools(
                     "reason": "Dependencies not available",
                 }
         except Exception as e:
-            logger.warning(f"[VolumeTools] 获取音量状态失败: {e}", exc_info=True)
+            logger.warning(f"[VolumeTools] Failed to get volume state: {e}", exc_info=True)
             status = {
                 "volume": 50,
                 "muted": False,
@@ -104,7 +104,7 @@ def register_volume_tools(
                 "Set the system speaker volume to an absolute value (0-100).\n"
                 "Use when user mentions: volume, sound, louder, quieter, mute, unmute, adjust volume.\n"
                 "Examples: 'set volume to 50', 'turn volume up', 'make it louder', 'mute', "
-                "'音量设为50', '调大声音', '声音小一点', '静音'.\n"
+                "'Set the volume to 50', 'Turn up volume', 'Turn down volume slightly', 'Mute'.\n"
                 "Parameter:\n"
                 "- volume: Integer (0-100) representing the target volume level. Set to 0 for mute."
             ),
@@ -119,7 +119,7 @@ def register_volume_tools(
                 "Get the current system speaker volume level.\n"
                 "Use when user asks about: current volume, volume level, how loud, what's the volume.\n"
                 "Examples: 'what is the current volume?', 'how loud is it?', 'check volume level', "
-                "'现在音量多少?', '查看音量', '音量是多少'.\n"
+                "'What is the current volume?', 'check the volume', 'what is the volume level'.\n"
                 "Returns: Integer (0-100) representing the current volume level."
             ),
             PropertyList(),
@@ -140,7 +140,7 @@ def register_volume_tools(
     for tool in tools:
         add_tool(tool)
     logger.info(
-        "已注册 %d 个音量 MCP 工具（注入 VolumeController, available=%s）",
+        "Registered %d volume MCP tools (VolumeController injected, available=%s)",
         len(tools),
         controller is not None,
     )

@@ -1,4 +1,4 @@
-"""GUI 模块：PySide6/QML 图形界面."""
+"""GUI module: PySide6/QML graphical interface."""
 
 from src.ui.gui.activation import GuiActivation
 from src.ui.gui.manager import GuiViewManager

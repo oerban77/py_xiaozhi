@@ -4,15 +4,15 @@ from typing import List
 
 from .base import KeywordConverter
 
-# 声母列表（按长度降序排列以优先匹配长声母）
+# Initials list (sorted by length descending so longer initials match first)
 INITIALS = [
-    "zh", "ch", "sh",  # 翘舌音（2字符，优先匹配）
-    "b", "p", "m", "f",  # 唇音
-    "d", "t", "n", "l",  # 舌尖音
-    "g", "k", "h",  # 舌根音
-    "j", "q", "x",  # 舌面音
-    "r", "z", "c", "s",  # 其他
-    "y", "w",  # 零声母标记
+    "zh", "ch", "sh",  # Retroflex sound (2 characters, prioritized matching)
+    "b", "p", "m", "f",  # labial sound
+    "d", "t", "n", "l",  # tip-of-tongue sound
+    "g", "k", "h",  # root-of-tongue sound
+    "j", "q", "x",  # blade-of-tongue sound
+    "r", "z", "c", "s",  # other
+    "y", "w",  # zero-initial marker
 ]
 
 

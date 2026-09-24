@@ -16,12 +16,12 @@ logger = get_logger()
 
 class NormalCamera(BaseCamera):
     """
-    普通摄像头实现，使用远程API进行分析.
+    Normal camera implementation using a remote API for analysis.
     """
 
     def __init__(self):
         """
-        初始化普通摄像头.
+        Initialize the normal camera.
         """
         super().__init__()
         self.explain_url = ""
@@ -38,7 +38,7 @@ class NormalCamera(BaseCamera):
 
     def capture(self) -> bool:
         """
-        捕获图像（OpenCV/V4L2 或 picamera2，见 capture_backend）.
+        Capture an image (OpenCV/V4L2 or picamera2, see capture_backend).
         """
         return self.capture_frame()
 
@@ -52,7 +52,7 @@ class NormalCamera(BaseCamera):
         if not buf:
             return json.dumps({"success": False, "message": "Camera buffer is empty"})
 
-        # 准备请求头
+        # Prepare request headers
         headers = {
             "Device-Id": get_config().get_config("SYSTEM_OPTIONS.DEVICE_ID"),
             "Client-Id": get_config().get_config("SYSTEM_OPTIONS.CLIENT_ID"),
@@ -61,7 +61,7 @@ class NormalCamera(BaseCamera):
         if self.explain_token:
             headers["Authorization"] = f"Bearer {self.explain_token}"
 
-        # 准备文件数据
+        # Prepare the file data
         files = {
             "question": (None, question),
             "file": ("camera.jpg", buf, "image/jpeg"),
@@ -76,7 +76,7 @@ class NormalCamera(BaseCamera):
                 self.explain_url, headers=headers, files=files, timeout=10
             )
 
-            # 检查响应状态
+            # Check the response status
             if response.status_code != 200:
                 error_msg = (
                     f"Failed to upload photo, status code: {response.status_code}"
@@ -84,7 +84,7 @@ class NormalCamera(BaseCamera):
                 logger.error(error_msg)
                 return json.dumps({"success": False, "message": error_msg})
 
-            # 记录响应
+            # Log the response
             logger.info(
                 f"Explain image size={self.jpeg_data['len']}, "
                 f"question={question}\n{response.text}"

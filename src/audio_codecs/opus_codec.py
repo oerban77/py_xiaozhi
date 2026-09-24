@@ -1,13 +1,13 @@
 import numpy as np
 
 # ============================================================
-# Opus 库加载（必须在导入 opuslib 之前）
+# Opus library loading (must happen before importing opuslib)
 # ============================================================
 from src.utils.opus_loader import setup_opus
 
 setup_opus()
 
-# 必须在 setup_opus() 之后导入
+# Must be imported after setup_opus()
 import opuslib  # noqa: E402
 import opuslib.api.decoder as decoder_api  # noqa: E402
 import opuslib.api.encoder as encoder_api  # noqa: E402
@@ -24,15 +24,15 @@ _OPUS_BANDWIDTHS = {
 
 
 def parse_opus_toc(opus_data: bytes) -> dict:
-    """从 Opus 包的 TOC 字节解析编码参数。
+    """Parse the encoding parameters from the TOC byte of an Opus packet.
 
-    根据 RFC 6716 Section 3.1 解析：
-    - TOC 高 5 位 = config（决定模式/带宽/单帧时长）
-    - TOC 低 2 位 = code（决定帧数量）
+    Parsed according to RFC 6716 Section 3.1:
+    - the high 5 bits of the TOC = config (determines mode / bandwidth / single-frame duration)
+    - the low 2 bits of the TOC = code (determines the number of frames)
 
     Returns:
         dict with keys: duration_ms, frame_ms, num_frames, bandwidth, mode
-        空包返回 None
+        An empty packet returns None
     """
     if not opus_data:
         return None
@@ -41,7 +41,7 @@ def parse_opus_toc(opus_data: bytes) -> dict:
     config = (toc >> 3) & 0x1F
     code = toc & 0x03
 
-    # config → 模式 + 带宽 + 单帧时长
+    # config → mode + bandwidth + single-frame duration
     if config < 12:
         mode = "SILK"
         bandwidth = ("NB", "MB", "WB")[config // 4]
@@ -55,7 +55,7 @@ def parse_opus_toc(opus_data: bytes) -> dict:
         bandwidth = ("NB", "WB", "SWB", "FB")[(config - 16) // 4]
         frame_ms = (2.5, 5, 10, 20)[config % 4]
 
-    # code → 帧数量
+    # code → frame count
     if code == 0:
         num_frames = 1
     elif code <= 2:
@@ -74,9 +74,9 @@ def parse_opus_toc(opus_data: bytes) -> dict:
 
 
 class OpusCodec:
-    """Opus 编解码器
+    """Opus codec
 
-    使用 libopus 的 encode_float 和 decode_float 接口，
+    Uses the encode_float and decode_float interfaces of libopus.
     """
 
     def __init__(
@@ -85,12 +85,12 @@ class OpusCodec:
         output_sample_rate: int,
         channels: int = 1,
     ):
-        """初始化Opus编解码器
+        """Initialize the Opus encoder/decoder
 
         Args:
-            input_sample_rate: 输入采样率（编码），如 16000
-            output_sample_rate: 输出采样率（解码），如 24000
-            channels: 声道数，默认 1
+            input_sample_rate: input sample rate (encoding), e.g. 16000
+            output_sample_rate: output sample rate (decoding), e.g. 24000
+            channels: channel count, default 1
         """
         self.input_sample_rate = input_sample_rate
         self.output_sample_rate = output_sample_rate
@@ -99,84 +99,84 @@ class OpusCodec:
         self.decoder = None
 
     def initialize(self):
-        """创建编解码器
+        """Create the codec
 
         Raises:
-            Exception: 创建失败
+            Exception: creation failed
         """
         try:
-            # 输入编码器：16kHz单声道
+            # Input encoder: 16kHz mono
             self.encoder = opuslib.Encoder(
                 self.input_sample_rate,
                 self.channels,
                 opuslib.APPLICATION_VOIP,
             )
 
-            # 输出解码器：24kHz单声道
+            # Output decoder: 24kHz mono
             self.decoder = opuslib.Decoder(self.output_sample_rate, self.channels)
 
             logger.info(
-                f"Opus编解码器创建成功 (float32模式) | "
-                f"编码: {self.input_sample_rate}Hz | "
-                f"解码: {self.output_sample_rate}Hz"
+                f"Opus codec created (float32 mode) | "
+                f"encode: {self.input_sample_rate}Hz | "
+                f"decode: {self.output_sample_rate}Hz"
             )
         except Exception as e:
-            logger.error(f"创建Opus编解码器失败: {e}", exc_info=True)
+            logger.error(f"Failed to create Opus codec: {e}", exc_info=True)
             raise
 
     def encode(self, pcm_float32: np.ndarray, frame_size: int) -> bytes:
-        """编码 float32 PCM → Opus
+        """Encode float32 PCM → Opus
 
         Args:
-            pcm_float32: float32 数组，范围 [-1.0, 1.0]
-            frame_size: 样本数
+            pcm_float32: float32 array in the range [-1.0, 1.0]
+            frame_size: sample count
 
         Returns:
-            Opus 编码数据
+            Opus encoded data
 
         Raises:
-            RuntimeError: 编码器未初始化
-            Exception: 编码失败
+            RuntimeError: Encoder not initialized
+            Exception: encoding failed
         """
         if self.encoder is None:
-            raise RuntimeError("编码器未初始化")
+            raise RuntimeError("Encoder not initialized")
 
-        # 转换为 bytes（float32 格式）
+        # Convert to bytes (float32 format)
         pcm_bytes = pcm_float32.astype(np.float32).tobytes()
 
-        # 使用 encode_float（libopus 原生支持）
+        # Use encode_float (natively supported by libopus)
         return self.encoder.encode_float(pcm_bytes, frame_size)
 
     def decode(self, opus_data: bytes, frame_size: int) -> np.ndarray:
-        """解码 Opus → float32 PCM
+        """Decode Opus → float32 PCM
 
         Args:
-            opus_data: Opus 编码数据
-            frame_size: 期望的样本数
+            opus_data: Opus encoded data
+            frame_size: expected sample count
 
         Returns:
-            float32 数组，范围 [-1.0, 1.0]
+            float32 array in the range [-1.0, 1.0]
 
         Raises:
-            RuntimeError: 解码器未初始化
-            Exception: 解码失败
+            RuntimeError: Decoder not initialized
+            Exception: decoding failed
         """
         if self.decoder is None:
-            raise RuntimeError("解码器未初始化")
+            raise RuntimeError("Decoder not initialized")
 
-        # 使用 decode_float（libopus 原生支持）
-        # 注意：channels 在创建 Decoder 时已指定，decode_float 不需要此参数
+        # Use decode_float (natively supported by libopus)
+        # Note: channels was specified when creating the Decoder; decode_float does not need this parameter
         pcm_bytes = self.decoder.decode_float(opus_data, frame_size, decode_fec=False)
 
-        # 转换为 numpy 数组
+        # Convert to a NumPy array
         return np.frombuffer(pcm_bytes, dtype=np.float32)
 
     def close(self):
-        """释放资源，显式销毁 C 层编解码器状态.
+        """Release resources and explicitly destroy the C-level codec state.
 
-        opuslib 的 Encoder/Decoder.__del__ 也会调用 destroy()，
-        必须先将 encoder_state/decoder_state 置空，避免 double free。
-        幂等：可安全重复调用。
+        opuslib's Encoder/Decoder.__del__ also calls destroy(), so encoder_state /
+        decoder_state must be set to None first to avoid a double free.
+        Idempotent: safe to call repeatedly.
         """
         if getattr(self, '_closed', False):
             return
@@ -184,10 +184,10 @@ class OpusCodec:
 
         if self.encoder is not None:
             encoder_api.destroy(self.encoder.encoder_state)
-            self.encoder.encoder_state = None  # 防止 __del__ 二次释放
+            self.encoder.encoder_state = None  # Prevent a second release in __del__
             self.encoder = None
         if self.decoder is not None:
             decoder_api.destroy(self.decoder.decoder_state)
-            self.decoder.decoder_state = None  # 防止 __del__ 二次释放
+            self.decoder.decoder_state = None  # Prevent a second release in __del__
             self.decoder = None
-        logger.debug("Opus编解码器已释放")
+        logger.debug("Opus codec released")

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""激活模块：身份、OTA、HTTP 客户端与 UI 工厂."""
+"""Activation module: identity, OTA, HTTP client and UI factory."""
 
 from .factory import create_activation_ui
 from .service import ActivationService

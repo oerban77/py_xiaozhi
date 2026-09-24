@@ -1,4 +1,4 @@
-"""OTA 配置拉取与本地配置初始化."""
+"""OTA config fetch and local config initialization."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ logger = get_logger()
 
 
 class OtaConfigClient:
-    """拉取 OTA 配置并写回 ConfigManager."""
+    """Fetches the OTA config and writes it back to ConfigManager."""
 
     def __init__(
         self,
@@ -30,7 +30,7 @@ class OtaConfigClient:
         self._config = config_manager
         self._identity = identity
         self._local_ip: Optional[str] = None
-        # 解析结果
+        # Parsed result
         self.activation_data: Optional[Dict] = None
         self.server_activated: bool = False
 
@@ -49,7 +49,7 @@ class OtaConfigClient:
             mac = self._identity.get_mac_address()
             if mac:
                 self._config.update_config("SYSTEM_OPTIONS.DEVICE_ID", mac)
-                logger.info(f"已设置DEVICE_ID: {mac}")
+                logger.info(f"DEVICE_ID set: {mac}")
         logger.info(
             f"CLIENT_ID: {self._config.get_config('SYSTEM_OPTIONS.CLIENT_ID')}"
         )
@@ -61,11 +61,11 @@ class OtaConfigClient:
         ota_url = self._config.get_config("SYSTEM_OPTIONS.NETWORK.OTA_VERSION_URL")
         device_id = self._config.get_config("SYSTEM_OPTIONS.DEVICE_ID")
         if not ota_url or not device_id:
-            raise ValueError("OTA URL 或 DEVICE_ID 未配置")
+            raise ValueError("OTA URL or DEVICE_ID is not configured")
 
         headers = self._build_ota_headers()
         payload = self._build_ota_payload()
-        logger.debug(f"OTA请求: {ota_url}")
+        logger.debug(f"OTA request: {ota_url}")
 
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
@@ -78,7 +78,7 @@ class OtaConfigClient:
         ) as session:
             async with session.post(ota_url, headers=headers, json=payload) as response:
                 if response.status != 200:
-                    raise ValueError(f"OTA服务器返回错误: {response.status}")
+                    raise ValueError(f"OTA server returned an error: {response.status}")
                 data = await response.json()
                 self._process_ota_response(data)
                 return data
@@ -120,7 +120,7 @@ class OtaConfigClient:
         updates: Dict[str, object] = {}
         if "mqtt" in data and data["mqtt"]:
             updates["SYSTEM_OPTIONS.NETWORK.MQTT_INFO"] = data["mqtt"]
-            logger.info("MQTT配置已更新")
+            logger.info("MQTT configuration updated")
         if "websocket" in data:
             ws = data["websocket"]
             if ws.get("url"):
@@ -131,11 +131,11 @@ class OtaConfigClient:
         if updates:
             self._config.update_configs(updates)
         if "activation" in data:
-            logger.info("检测到激活数据，设备需要激活")
+            logger.info("Activation data detected; device needs activation")
             self.activation_data = data["activation"]
             self.server_activated = False
         else:
-            logger.info("无激活数据，设备已授权")
+            logger.info("No activation data; device is authorized")
             self.activation_data = None
             self.server_activated = True
 

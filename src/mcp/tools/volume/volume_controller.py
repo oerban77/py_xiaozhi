@@ -1,6 +1,7 @@
-"""跨平台音量控制器门面.
+"""Cross-platform volume controller facade.
 
-平台实现见 windows / macos / linux 模块；本类负责探测、装配与依赖检查。
+Platform implementations live in the windows / macos / linux modules; this class handles detection,
+wiring, and dependency checks.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from .backend import VolumeBackend
 
 
 class VolumeController:
-    """跨平台音量控制器."""
+    """Cross-platform volume controller."""
 
     DEFAULT_VOLUME = 70
 
@@ -38,28 +39,28 @@ class VolumeController:
 
             return LinuxVolumeBackend()
 
-        self.logger.warning(f"不支持的操作系统: {self.system}")
-        raise NotImplementedError(f"不支持的操作系统: {self.system}")
+        self.logger.warning(f"Unsupported OS: {self.system}")
+        raise NotImplementedError(f"Unsupported operating system: {self.system}")
 
     def get_volume(self) -> int:
-        """获取当前音量 (0-100)."""
+        """Get the current volume (0-100)."""
         try:
             return self._backend.get_volume()
         except Exception as e:
-            self.logger.warning(f"获取音量失败: {e}", exc_info=True)
+            self.logger.warning(f"Failed to get volume: {e}", exc_info=True)
             return self.DEFAULT_VOLUME
 
     def set_volume(self, volume: int) -> None:
-        """设置音量 (0-100)."""
+        """Set the volume (0-100)."""
         volume = max(0, min(100, volume))
         try:
             self._backend.set_volume(volume)
         except Exception as e:
-            self.logger.warning(f"设置音量失败: {e}", exc_info=True)
+            self.logger.warning(f"Failed to set volume: {e}", exc_info=True)
 
     @staticmethod
     def check_dependencies() -> bool:
-        """检查并报告缺少的依赖."""
+        """Check and report missing dependencies."""
         system = platform.system()
         missing: list[str] = []
 
@@ -86,18 +87,18 @@ class VolumeController:
     def _check_linux_tools(missing: list[str]) -> None:
         tools = ["pactl", "wpctl", "amixer"]
         if not any(shutil.which(tool) for tool in tools):
-            missing.append("pulseaudio-utils、wireplumber 或 alsa-utils")
+            missing.append("pulseaudio-utils, wireplumber, or alsa-utils")
 
     @staticmethod
     def _report_missing_dependencies(system: str, missing: list[str]) -> bool:
         if not missing:
             return True
         logger = get_logger()
-        logger.warning(f"音量控制需要以下依赖，但未找到: {', '.join(missing)}")
+        logger.warning(f"Volume control requires these dependencies, which were not found: {', '.join(missing)}")
         if system in ["Windows", "Darwin"]:
-            logger.warning(f"请使用以下命令安装: pip install {' '.join(missing)}")
+            logger.warning(f"Install them with: pip install {' '.join(missing)}")
         elif system == "Linux":
             logger.warning(
-                f"请使用以下命令安装: sudo apt-get install {' '.join(missing)}"
+                f"Install them with: sudo apt-get install {' '.join(missing)}"
             )
         return False

@@ -1,4 +1,4 @@
-"""外挂 MCP 插件目录加载（python-inprocess / python-subprocess + vendored lib）."""
+"""External MCP plugin directory loading (python-inprocess / python-subprocess + vendored lib)."""
 
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ class PluginLoader:
         self.loaded.clear()
         root = self.plugins_dir
         if not root.is_dir():
-            logger.info("[MCP插件] 目录不存在，跳过: %s", root)
+            logger.info("[MCPPlugin] Directory does not exist; skipping: %s", root)
             return self.loaded
         for child in sorted(root.iterdir(), key=lambda p: p.name.lower()):
             if child.name.startswith(".") or child.name.startswith("_"):
@@ -122,7 +122,7 @@ class PluginLoader:
         ok = sum(1 for x in self.loaded if not x.error)
         fail = sum(1 for x in self.loaded if x.error)
         logger.info(
-            "[MCP插件] 加载完成: 成功 %d, 跳过/失败 %d, 目录 %s",
+            "[MCPPlugin] Load complete: %d ok, %d skipped/failed, directory %s",
             ok, fail, root,
         )
         return self.loaded
@@ -143,13 +143,13 @@ class PluginLoader:
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception as e:
-            self._record(path.name, path, error=f"manifest 无效: {e}")
+            self._record(path.name, path, error=f"Invalid manifest: {e}")
             return
         plugin_id = str(manifest.get("id") or path.name)
         try:
             self._validate_and_import_package(path, manifest, plugin_id)
         except Exception as e:
-            logger.error("[MCP插件] 加载失败 %s: %s", plugin_id, e, exc_info=True)
+            logger.error("[MCPPlugin] Load failed %s: %s", plugin_id, e, exc_info=True)
             self._record(plugin_id, path, error=str(e))
 
     def _load_package_dir_without_manifest(self, path: Path) -> None:
@@ -163,7 +163,7 @@ class PluginLoader:
         try:
             self._validate_and_import_package(path, manifest, plugin_id)
         except Exception as e:
-            logger.error("[MCP插件] 加载失败 %s: %s", plugin_id, e, exc_info=True)
+            logger.error("[MCPPlugin] Load failed %s: %s", plugin_id, e, exc_info=True)
             self._record(plugin_id, path, error=str(e))
 
     def _check_manifest_compat(self, manifest: dict[str, Any]) -> None:
@@ -171,21 +171,21 @@ class PluginLoader:
         try:
             api_i = int(api)
         except (TypeError, ValueError) as e:
-            raise RuntimeError(f"api_version 无效: {api}") from e
+            raise RuntimeError(f"Invalid api_version: {api}") from e
         if api_i > HOST_PLUGIN_API_VERSION:
             raise RuntimeError(
-                f"插件 api_version={api_i} 高于宿主 {HOST_PLUGIN_API_VERSION}"
+                f"Plugin api_version={api_i} is higher than the host {HOST_PLUGIN_API_VERSION}"
             )
         if api_i < 1:
-            raise RuntimeError(f"api_version 过低: {api_i}")
+            raise RuntimeError(f"api_version too low: {api_i}")
         min_host = manifest.get("min_host_version")
         if min_host and not version_gte(str(self._host_version), str(min_host)):
             raise RuntimeError(
-                f"宿主版本 {self._host_version} < 插件要求 min_host_version={min_host}"
+                f"Host version {self._host_version} < plugin required min_host_version={min_host}"
             )
         platforms = manifest.get("platforms")
         if platforms is None and self.require_platforms:
-            raise RuntimeError("manifest 缺少 platforms（已开启强制校验）")
+            raise RuntimeError("Manifest missing platforms (strict validation enabled)")
         if platforms is not None:
             plat_set = set(platforms)
             aliases = {self._platform}
@@ -195,14 +195,14 @@ class PluginLoader:
                 aliases.add(self._platform.replace("amd64", "x86_64"))
             if not aliases & plat_set:
                 raise RuntimeError(
-                    f"平台不匹配: host={self._platform}, plugin={platforms}"
+                    f"Platform mismatch: host={self._platform}, plugin={platforms}"
                 )
         abi = manifest.get("python_abi")
         if abi is None and self.require_python_abi:
-            raise RuntimeError("manifest 缺少 python_abi（已开启强制校验）")
+            raise RuntimeError("Manifest missing python_abi (strict validation enabled)")
         if abi and abi != self._abi:
             raise RuntimeError(
-                f"Python ABI 不匹配: host={self._abi}, plugin={abi}"
+                f"Python ABI mismatch: host={self._abi}, plugin={abi}"
             )
 
     def _validate_and_import_package(
@@ -212,18 +212,18 @@ class PluginLoader:
             plugin_id, bool(manifest.get("enabled_by_default", True))
         ):
             self._record(plugin_id, path, error="disabled")
-            logger.info("[MCP插件] 已禁用，跳过: %s", plugin_id)
+            logger.info("[MCPPlugin] Disabled; skipping: %s", plugin_id)
             return
 
         runtime = str(manifest.get("runtime") or "python-inprocess")
         if runtime not in SUPPORTED_RUNTIMES:
             raise RuntimeError(
-                f"不支持的 runtime: {runtime}（支持: {sorted(SUPPORTED_RUNTIMES)}）"
+                f"Unsupported runtime: {runtime} (supported: {sorted(SUPPORTED_RUNTIMES)})"
             )
         self._check_manifest_compat(manifest)
         entry = str(manifest.get("entry") or "plugin:register")
         if ":" not in entry:
-            raise RuntimeError(f"entry 须为 module:attr，得到: {entry}")
+            raise RuntimeError(f"entry must be module:attr, got: {entry}")
         prefix = manifest.get("tool_name_prefix")
 
         if runtime == "python-subprocess":
@@ -265,17 +265,17 @@ class PluginLoader:
             register_fn = getattr(mod, attr_part, None)
             if not callable(register_fn):
                 raise RuntimeError(
-                    f"入口 {entry} 不可调用（模块 {module_part} 无属性 {attr_part}）"
+                    f"Entry {entry} is not callable (module {module_part} has no attribute {attr_part})"
                 )
             register_fn(host)
             names = host.registered_tool_names
             if prefix:
                 bad = [n for n in names if not n.startswith(str(prefix))]
                 if bad:
-                    msg = f"工具名未使用前缀 {prefix}: {bad}"
+                    msg = f"Tool names do not use the prefix {prefix}: {bad}"
                     if self.enforce_prefix:
                         raise RuntimeError(msg)
-                    logger.warning("[MCP插件:%s] %s", plugin_id, msg)
+                    logger.warning("[MCPPlugin:%s] %s", plugin_id, msg)
             if self.tool_owner is not None:
                 for n in names:
                     self.tool_owner[n] = plugin_id
@@ -283,7 +283,7 @@ class PluginLoader:
                 plugin_id, path, tool_names=names, runtime="python-inprocess"
             )
             logger.info(
-                "[MCP插件] 已加载 %s (%d 工具, inprocess) from %s",
+                "[MCPPlugin] Loaded %s (%d tools, inprocess) from %s",
                 plugin_id, len(names), path,
             )
         except Exception:
@@ -324,7 +324,7 @@ class PluginLoader:
                 plugin_id, path, tool_names=names, runtime="python-subprocess"
             )
             logger.info(
-                "[MCP插件] 已加载 %s (%d 工具, subprocess) from %s",
+                "[MCPPlugin] Loaded %s (%d tools, subprocess) from %s",
                 plugin_id, len(names), path,
             )
         except Exception:
@@ -341,13 +341,13 @@ class PluginLoader:
             unique_name = f"mcp_plugin_{_safe_mod_name(plugin_id)}"
             spec = importlib.util.spec_from_file_location(unique_name, path)
             if spec is None or spec.loader is None:
-                raise RuntimeError("无法创建模块 spec")
+                raise RuntimeError("Could not create the module spec")
             mod = importlib.util.module_from_spec(spec)
             sys.modules[unique_name] = mod
             spec.loader.exec_module(mod)
             register_fn = getattr(mod, "register", None)
             if not callable(register_fn):
-                raise RuntimeError("单文件插件须定义 register(host)")
+                raise RuntimeError("Single-file plugins must define register(host)")
             register_fn(host)
             names = host.registered_tool_names
             if self.tool_owner is not None:
@@ -357,11 +357,11 @@ class PluginLoader:
                 plugin_id, path, tool_names=names, runtime="python-inprocess"
             )
             logger.info(
-                "[MCP插件] 已加载单文件 %s (%d 工具)", plugin_id, len(names)
+                "[MCPPlugin] Loaded single file %s (%d tools)", plugin_id, len(names)
             )
         except Exception as e:
             logger.error(
-                "[MCP插件] 单文件加载失败 %s: %s", plugin_id, e, exc_info=True
+                "[MCPPlugin] Single-file load failed %s: %s", plugin_id, e, exc_info=True
             )
             self._record(plugin_id, path, error=str(e))
 
@@ -395,7 +395,7 @@ def _import_plugin_module(plugin_root: Path, module_part: str, unique_name: str)
     if py_file.is_file():
         spec = importlib.util.spec_from_file_location(unique_name, py_file)
         if spec is None or spec.loader is None:
-            raise RuntimeError(f"无法加载 {py_file}")
+            raise RuntimeError(f"Could not load {py_file}")
         mod = importlib.util.module_from_spec(spec)
         sys.modules[unique_name] = mod
         sys.modules[module_part] = mod
@@ -418,7 +418,7 @@ def load_mcp_plugins_from_config(
             from src.utils.config_manager import get_config
             config = get_config()
         except Exception:
-            logger.debug("[MCP插件] 无配置，使用默认目录加载")
+            logger.debug("[MCPPlugin] No config; loading from default directory")
             config = None
 
     def _get(path: str, default=None):
@@ -427,7 +427,7 @@ def load_mcp_plugins_from_config(
         return config.get_config(path, default)
 
     if not _get("MCP_PLUGINS.ENABLED", True):
-        logger.info("[MCP插件] MCP_PLUGINS.ENABLED=false，跳过外挂")
+        logger.info("[MCPPlugin] MCP_PLUGINS.ENABLED=false; skipping external plugins")
         return []
 
     dir_cfg = _get("MCP_PLUGINS.DIR", None)

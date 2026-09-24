@@ -1,7 +1,7 @@
-"""macOS系统应用程序启动器.
+"""macOS application launcher.
 
-提供macOS平台下的应用程序启动功能。
-所有 subprocess 调用均使用列表形式，不使用 shell=True。
+Provides application launching on macOS.
+All subprocess calls use list form; shell=True is not used.
 """
 
 import os
@@ -13,64 +13,65 @@ logger = get_logger()
 
 
 def launch_application(app_name: str) -> bool:
-    """在macOS上启动应用程序.
+    """Launch an application on macOS.
 
     Args:
-        app_name: 应用程序名称
+        app_name: application name
 
     Returns:
-        bool: 启动是否成功
+        bool: whether the launch succeeded
     """
     try:
-        logger.info(f"[MacLauncher] 启动应用程序: {app_name}")
+        logger.info(f"[MacLauncher] Launching app: {app_name}")
 
-        # 方法1: 使用open -a命令（安全的列表形式）
+        # Method 1: use the open -a command (safe list form)
         try:
             subprocess.Popen(
                 ["open", "-a", app_name],
                 start_new_session=True,
             )
-            logger.info(f"[MacLauncher] 使用open -a成功启动: {app_name}")
+            logger.info(f"[MacLauncher] Launched via open -a: {app_name}")
             return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[MacLauncher] open -a启动失败: {app_name}")
+            logger.debug(f"[MacLauncher] open -a launch failed: {app_name}")
 
-        # 方法2: 直接使用应用程序名称
+        # Method 2: use the application name directly
         try:
             subprocess.Popen(
                 [app_name],
                 start_new_session=True,
             )
-            logger.info(f"[MacLauncher] 直接启动成功: {app_name}")
+            logger.info(f"[MacLauncher] Launched directly: {app_name}")
             return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[MacLauncher] 直接启动失败: {app_name}")
+            logger.debug(f"[MacLauncher] Direct launch failed: {app_name}")
 
-        # 方法3: 尝试Applications目录
+        # Method 3: try the Applications directory
         app_path = f"/Applications/{app_name}.app"
         if os.path.exists(app_path):
             subprocess.Popen(
                 ["open", app_path],
                 start_new_session=True,
             )
-            logger.info(f"[MacLauncher] 通过Applications目录启动成功: {app_name}")
+            logger.info(f"[MacLauncher] Launched via Applications folder: {app_name}")
             return True
 
-        # 方法4: 再次使用open -a（作为最终尝试，不使用osascript）
-        # 之前使用 osascript + f-string 拼接存在 AppleScript 注入漏洞，已移除
+        # Method 4: try open -a again as a last resort (no osascript)
+        # The previous osascript + f-string approach had an AppleScript injection
+        # vulnerability and has been removed
         try:
             subprocess.Popen(
                 ["open", "-a", app_name, "--background"],
                 start_new_session=True,
             )
-            logger.info(f"[MacLauncher] 使用open -a(后台模式)启动成功: {app_name}")
+            logger.info(f"[MacLauncher] Launched via open -a (background mode): {app_name}")
             return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[MacLauncher] open -a(后台模式)启动失败: {app_name}")
+            logger.debug(f"[MacLauncher] open -a (background mode) launch failed: {app_name}")
 
-        logger.warning(f"[MacLauncher] 所有macOS启动方法都失败了: {app_name}")
+        logger.warning(f"[MacLauncher] All macOS launch methods failed: {app_name}")
         return False
 
     except Exception as e:
-        logger.error(f"[MacLauncher] macOS启动失败: {e}", exc_info=True)
+        logger.error(f"[MacLauncher] macOS launch failed: {e}", exc_info=True)
         return False

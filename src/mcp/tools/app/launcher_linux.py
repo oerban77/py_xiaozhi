@@ -1,7 +1,7 @@
-"""Linux系统应用程序启动器.
+"""Linux application launcher.
 
-提供Linux平台下的应用程序启动功能。
-所有 subprocess 调用均使用列表形式，不使用 shell=True。
+Provides application launching on Linux.
+All subprocess calls use list form; shell=True is not used.
 """
 
 import os
@@ -13,29 +13,29 @@ logger = get_logger()
 
 
 def launch_application(app_name: str) -> bool:
-    """在Linux上启动应用程序.
+    """Launch an application on Linux.
 
     Args:
-        app_name: 应用程序名称
+        app_name: application name
 
     Returns:
-        bool: 启动是否成功
+        bool: whether the launch succeeded
     """
     try:
-        logger.info(f"[LinuxLauncher] 启动应用程序: {app_name}")
+        logger.info(f"[LinuxLauncher] Launching app: {app_name}")
 
-        # 方法1: 直接使用应用程序名称
+        # Method 1: use the application name directly
         try:
             subprocess.Popen(
                 [app_name],
                 start_new_session=True,
             )
-            logger.info(f"[LinuxLauncher] 直接启动成功: {app_name}")
+            logger.info(f"[LinuxLauncher] Launched directly: {app_name}")
             return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[LinuxLauncher] 直接启动失败: {app_name}")
+            logger.debug(f"[LinuxLauncher] Direct launch failed: {app_name}")
 
-        # 方法2: 使用which查找应用程序路径
+        # Method 2: look up the application path with which
         try:
             result = subprocess.run(
                 ["which", app_name],
@@ -49,23 +49,23 @@ def launch_application(app_name: str) -> bool:
                     [app_path],
                     start_new_session=True,
                 )
-                logger.info(f"[LinuxLauncher] 通过which启动成功: {app_name}")
+                logger.info(f"[LinuxLauncher] Launched via which: {app_name}")
                 return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[LinuxLauncher] which启动失败: {app_name}")
+            logger.debug(f"[LinuxLauncher] which launch failed: {app_name}")
 
-        # 方法3: 使用xdg-open（适用于桌面环境）
+        # Method 3: use xdg-open (for desktop environments)
         try:
             subprocess.Popen(
                 ["xdg-open", app_name],
                 start_new_session=True,
             )
-            logger.info(f"[LinuxLauncher] 使用xdg-open启动成功: {app_name}")
+            logger.info(f"[LinuxLauncher] Launched via xdg-open: {app_name}")
             return True
         except (OSError, subprocess.SubprocessError):
-            logger.debug(f"[LinuxLauncher] xdg-open启动失败: {app_name}")
+            logger.debug(f"[LinuxLauncher] xdg-open launch failed: {app_name}")
 
-        # 方法4: 尝试常见的应用程序路径
+        # Method 4: try common application paths
         common_paths = [
             f"/usr/bin/{app_name}",
             f"/usr/local/bin/{app_name}",
@@ -80,11 +80,11 @@ def launch_application(app_name: str) -> bool:
                     start_new_session=True,
                 )
                 logger.info(
-                    f"[LinuxLauncher] 通过常见路径启动成功: {app_name} ({path})"
+                    f"[LinuxLauncher] Launched via common path: {app_name} ({path})"
                 )
                 return True
 
-        # 方法5: 尝试.desktop文件启动
+        # Method 5: try launching via a .desktop file
         desktop_dirs = [
             "/usr/share/applications",
             "/usr/local/share/applications",
@@ -98,12 +98,12 @@ def launch_application(app_name: str) -> bool:
                     ["gtk-launch", f"{app_name}.desktop"],
                     start_new_session=True,
                 )
-                logger.info(f"[LinuxLauncher] 通过desktop文件启动成功: {app_name}")
+                logger.info(f"[LinuxLauncher] Launched via .desktop file: {app_name}")
                 return True
 
-        logger.warning(f"[LinuxLauncher] 所有Linux启动方法都失败了: {app_name}")
+        logger.warning(f"[LinuxLauncher] All Linux launch methods failed: {app_name}")
         return False
 
     except Exception as e:
-        logger.error(f"[LinuxLauncher] Linux启动失败: {e}", exc_info=True)
+        logger.error(f"[LinuxLauncher] Linux launch failed: {e}", exc_info=True)
         return False

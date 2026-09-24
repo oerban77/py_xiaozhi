@@ -22,13 +22,13 @@ Rectangle {
             XTextField {
                 id: inputField
                 Layout.fillWidth: true
-                placeholderText: "输入文本消息..."
+                placeholderText: "Type a text message..."
 
                 Keys.onReturnPressed: sendText()
             }
 
             XButton {
-                text: "发送"
+                text: "Send"
                 onClicked: sendText()
             }
         }
@@ -41,7 +41,7 @@ Rectangle {
             // 手动/自动模式切换
             XButton {
                 Layout.fillWidth: true
-                text: mainModel.autoMode ? "切换到手动" : "切换到自动"
+                text: mainModel.autoMode ? "Switch to Manual" : "Switch to Auto"
                 variant: "secondary"
                 onClicked: eventBridge.onAutoToggle()
             }
@@ -58,7 +58,7 @@ Rectangle {
             // 中断按钮
             XButton {
                 Layout.preferredWidth: 80
-                text: "中断"
+                text: "Interrupt"
                 variant: "secondary"
                 onClicked: eventBridge.onAbort()
             }

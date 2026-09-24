@@ -1,7 +1,7 @@
-"""设置窗口 ViewModel.
+"""Settings window ViewModel.
 
-按功能拆成 settings/ 下多个 mixin，本文件组合并声明 QML Property。
-对外 仍为 SettingsModel，QML context 名 settingsModel 不变。
+Split by feature into several mixins under settings/; this file composes them and declares the QML Properties.
+Externally it is still SettingsModel, and the QML context name settingsModel is unchanged.
 """
 
 import json
@@ -36,7 +36,7 @@ class SettingsModel(
     SettingsCameraDevicesMixin,
     BaseModel,
 ):
-    """设置窗口数据模型（组合 mixin）."""
+    """Set the window data model (composed mixin)."""
 
     settingsChanged = Signal()
     devicesChanged = Signal()
@@ -44,7 +44,7 @@ class SettingsModel(
     testComplete = Signal(str, bool)
     wakeWordChanged = Signal()
     configSaved = Signal()
-    # MCP 工具禁用列表相对打开/上次保存是否变化 → 保存后可能触发重连
+    # Whether the MCP tool blocklist changed relative to when it was opened / last saved -> a reconnect may be triggered after saving
     mcpToolsNeedReconnect = Signal()
 
     def __init__(self, parent=None, event_bus=None, task_manager=None):
@@ -52,7 +52,7 @@ class SettingsModel(
         self._config_manager = get_config()
         self._config_path = get_user_data_dir() / "config" / "config.json"
         self._config: dict = {}
-        # 可选：用于「刷新音频设备」时协调 AudioPlugin 停流重枚举
+        # Optional: used by "Refresh audio devices" to coordinate with AudioPlugin to stop the stream and re-enumerate
         self._event_bus = event_bus
         self._task_manager = task_manager
 
@@ -71,10 +71,10 @@ class SettingsModel(
         self._wake_word: str = ""
         self._wake_word_lang: str = "zh"
         self._wake_word_preview: str = ""
-        # 打开设置时快照，保存时对比是否变更 MCP 工具暴露
+        # Snapshot taken when the settings are opened; compared at save time to see whether the exposed MCP tools changed
         self._mcp_disabled_snapshot: list[str] = []
 
-        # 启动仅读配置；音频/摄像头/唤醒词预览延后到打开设置时再处理
+        # Startup only reads the config; Audio/Camera/wake-word preview handling is deferred until the settings are opened
         self._load_config()
         self._load_wake_word(update_preview=False)
         self._snapshot_mcp_disabled()
@@ -87,17 +87,17 @@ class SettingsModel(
         test_kind: str | None = None,
         clear_flags=None,
     ) -> None:
-        """后台线程统一入口：异常必达 statusMessage / testComplete."""
+        """Unified entry point for background threads: exceptions always reach statusMessage / testComplete."""
 
         def _entry():
             try:
                 target(*args)
             except Exception as e:
                 logger.error(
-                    f"设置页后台任务失败 ({name or target}): {e}", exc_info=True
+                    f"Settings background task failed ({name or target}): {e}", exc_info=True
                 )
                 try:
-                    self.statusMessage.emit(f"[错误] {e}")
+                    self.statusMessage.emit(f"[ERROR] {e}")
                 except Exception:
                     pass
                 if test_kind is not None:
@@ -117,24 +117,24 @@ class SettingsModel(
         )
         thread.start()
 
-    # ========== 配置读写 ==========
+    # ========== Config read/write ==========
 
     def _load_config(self):
-        """从文件加载配置."""
+        """Load config from file."""
         try:
             if self._config_path.exists():
                 with open(self._config_path, encoding="utf-8") as f:
                     self._config = json.load(f)
-                logger.debug("设置配置已加载")
+                logger.debug("Settings config loaded")
             else:
-                logger.warning(f"配置文件不存在: {self._config_path}")
+                logger.warning(f"Config file does not exist: {self._config_path}")
                 self._config = {}
         except Exception as e:
-            logger.error(f"加载配置失败: {e}", exc_info=True)
+            logger.error(f"Failed to load config: {e}", exc_info=True)
             self._config = {}
 
     def _get_value(self, path: str, default: Any = None) -> Any:
-        """获取配置值，支持点号分隔的路径."""
+        """Get a config value, supporting dot-separated paths."""
         keys = path.split(".")
         value = self._config
         for key in keys:
@@ -145,7 +145,7 @@ class SettingsModel(
         return value
 
     def _set_value(self, path: str, value: Any):
-        """设置配置值，支持点号分隔的路径."""
+        """Set a config value, supporting dot-separated paths."""
         keys = path.split(".")
         config = self._config
         for key in keys[:-1]:
@@ -163,7 +163,7 @@ class SettingsModel(
 
     @Slot()
     def save(self):
-        """保存配置到文件，并让运行中的 ConfigManager 重新读盘."""
+        """Save the config to the file and have the running ConfigManager reload it from disk."""
         try:
             from src.mcp.tool_catalog import normalize_disabled
 
@@ -172,7 +172,7 @@ class SettingsModel(
             )
             mcp_changed = sorted(new_disabled) != sorted(self._mcp_disabled_snapshot)
 
-            # 原子写：临时文件 + replace，与 ConfigManager 一致
+            # Atomic write: temp file + replace, consistent with ConfigManager
             self._config_path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = self._config_path.with_suffix(".tmp")
             tmp_path.write_text(
@@ -183,31 +183,31 @@ class SettingsModel(
             try:
                 self._config_manager.reload_config()
             except Exception as e:
-                logger.warning(f"ConfigManager 重载失败: {e}", exc_info=True)
-            logger.info("设置已保存")
+                logger.warning(f"ConfigManager reload failed: {e}", exc_info=True)
+            logger.info("Settings saved")
             self._snapshot_mcp_disabled()
             if mcp_changed:
-                self.statusMessage.emit("配置已保存（MCP 工具变更，将重连以更新）")
+                self.statusMessage.emit("Configuration saved (MCP tools changed; will reconnect to update)")
                 self.mcpToolsNeedReconnect.emit()
             else:
-                self.statusMessage.emit("配置已保存")
+                self.statusMessage.emit("Configuration saved")
             self.configSaved.emit()
         except Exception as e:
-            logger.error(f"保存配置失败: {e}", exc_info=True)
-            self.set_error(f"保存配置失败: {e}")
+            logger.error(f"Failed to save config: {e}", exc_info=True)
+            self.set_error(f"Failed to save configuration: {e}")
 
     @Slot()
     def reload(self):
-        """重新加载配置（打开设置窗口时调用；此时才枚举设备）."""
+        """Reload the config (called when the settings window is opened; devices are enumerated at this point)."""
         self._load_config()
         self._load_audio_devices(force=True)
         self._load_cameras(force=True)
         self._load_wake_word()
         self._snapshot_mcp_disabled()
         self.settingsChanged.emit()
-        logger.info("设置已重新加载")
+        logger.info("Settings reloaded")
 
-    # ========== QML Properties（实现见各 mixin）==========
+    # ========== QML Properties (implementations live in each mixin) ==========
     clientId = Property(str, SettingsSystemOptionsMixin._get_clientId, SettingsSystemOptionsMixin._set_clientId, notify=settingsChanged)
     deviceId = Property(str, SettingsSystemOptionsMixin._get_deviceId, SettingsSystemOptionsMixin._set_deviceId, notify=settingsChanged)
     otaUrl = Property(str, SettingsSystemOptionsMixin._get_otaUrl, SettingsSystemOptionsMixin._set_otaUrl, notify=settingsChanged)
@@ -331,9 +331,9 @@ class SettingsModel(
 
     @Slot(str, result=str)
     def browseDirectory(self, which: str) -> str:
-        """打开系统目录选择框。which: cache|log|music|keywords|mcp.
+        """Open the system directory picker. which: cache|log|music|keywords|mcp.
 
-        返回选中的路径；取消返回空串（QML 勿写回）。
+        Returns the selected path; returns an empty string on cancel (QML must not write it back).
         """
         which = (which or "").strip().lower()
         getters = {
@@ -351,11 +351,11 @@ class SettingsModel(
             "mcp": self._set_pathMcpPluginsDir,
         }
         titles = {
-            "cache": "选择缓存目录",
-            "log": "选择日志目录",
-            "music": "选择音乐缓存目录",
-            "keywords": "选择唤醒词目录",
-            "mcp": "选择 MCP 插件目录",
+            "cache": "Select Cache Directory",
+            "log": "Select Log Directory",
+            "music": "Select Music Cache Directory",
+            "keywords": "Select Wake Word Directory",
+            "mcp": "Select MCP Plugin Directory",
         }
         if which not in getters:
             return ""
@@ -367,7 +367,7 @@ class SettingsModel(
 
     @Slot(str)
     def clearPathDir(self, which: str) -> None:
-        """清空某项自定义路径（恢复默认）."""
+        """Clear a custom path (restore the default)."""
         which = (which or "").strip().lower()
         setters = {
             "cache": self._set_pathCacheDir,

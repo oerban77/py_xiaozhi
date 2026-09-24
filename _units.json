@@ -1,0 +1,10277 @@
+[
+ {
+  "text": "是否正在运行.",
+  "count": 4,
+  "kind": "string"
+ },
+ {
+  "text": "qq音乐",
+  "count": 4,
+  "kind": "string"
+ },
+ {
+  "text": "腾讯会议",
+  "count": 4,
+  "kind": "string"
+ },
+ {
+  "text": "输入:",
+  "count": 4,
+  "kind": "string"
+ },
+ {
+  "text": "钉钉",
+  "count": 4,
+  "kind": "string"
+ },
+ {
+  "text": "转换为JSON格式.",
+  "count": 3,
+  "kind": "string"
+ },
+ {
+  "text": "过滤掉不需要的进程",
+  "count": 3,
+  "kind": "comment"
+ },
+ {
+  "text": "停止快捷键监听.",
+  "count": 3,
+  "kind": "string"
+ },
+ {
+  "text": "清理临时文件",
+  "count": 3,
+  "kind": "comment"
+ },
+ {
+  "text": "跳过标题行",
+  "count": 3,
+  "kind": "comment"
+ },
+ {
+  "text": "设备状态",
+  "count": 3,
+  "kind": "comment"
+ },
+ {
+  "text": "系统服务",
+  "count": 3,
+  "kind": "comment"
+ },
+ {
+  "text": "飞书",
+  "count": 3,
+  "kind": "string"
+ },
+ {
+  "text": "从进程信息中提取应用程序名称.\n\n    Args:\n        comm: 进程名称\n        command: 完整命令\n\n    Returns:\n        str: 应用程序名称",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "安全地发送事件.\n\n        优先经 TaskManager.schedule_nowait（线程安全 + 可追踪）；\n        否则回退 run_coroutine_threadsafe。",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "判断是否应该包含该进程.\n\n    Args:\n        comm: 进程名称\n        command: 完整命令\n\n    Returns:\n        bool: 是否包含",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "捕获图像（OpenCV/V4L2 或 picamera2，见 capture_backend）.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "concurrent.futures.Future 不能直接 await，需要特殊处理",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "使用 ALSAErrorSuppressor 抑制 Linux 上的 ALSA 警告",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "============ 模板方法实现 ============",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 公共 API ==========",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "等待 Future 完成（忽略取消异常）",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "使用线程池执行扫描，避免阻塞事件循环",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "\u001b[1m\u001b[36m输入:\u001b[0m",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "防止 __del__ 二次释放",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "[^a-zA-Z0-9一-鿿]",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "使用ps命令获取进程信息",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "统一 float32",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "获取系统对应的扫描器",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "排除系统路径下的进程",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "Opus 输出采样率",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "噪声抑制/高通预处理",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "获取当前设备状态.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "获取当前监听模式.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "是否处于空闲状态.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "是否保持持续监听.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "排除系统进程和服务",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否是系统进程",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "排除明显的系统服务",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "只包含用户应用程序",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "健康检查间隔（秒）",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "启动健康检查任务.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "优先按设备名称匹配",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "其次按设备ID匹配",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "格式化日志记录.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "启动快捷键监听.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "通知连接状态变化",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "是否正在监听.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "是否正在说话.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "发送音频数据.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "发送文本消息.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "系统托盘服务.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "开发工具组件",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "其他系统组件",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "使用进程名称",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "排除系统进程",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "禁止批量下载",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "创建白色背景",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "启动健康检查",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "停止健康检查",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "注册快捷键.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "注销快捷键.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "检查修饰键",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "设置状态.",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "会话状态",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "检查大小",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "控制面板",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "QQ音乐",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "记录响应",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "(默认)",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "未激活",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "输入",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "微信",
+  "count": 2,
+  "kind": "string"
+ },
+ {
+  "text": "居中",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "状态",
+  "count": 2,
+  "kind": "comment"
+ },
+ {
+  "text": "将任意格式的音频下混为单声道.\n\n    支持两种输入:\n    1. np.ndarray: 形状 (N,) 或 (N, C) 的 PCM 数组\n    2. bytes: PCM 字节流 (需指定 dtype 和 in_channels)\n\n    Args:\n        pcm: 输入音频数据 (ndarray 或 bytes)\n        keepdims: True 返回 (N,1)，False 返回 (N,) (仅 ndarray 输入)\n        dtype: PCM 数据类型 (仅 bytes 输入时使用)\n        in_channels: 输入声道数 (仅 bytes 输入时必需)\n\n    Returns:\n        单声道音频数据 (与输入类型相同)\n\n    Examples:\n        >>> # ndarray 输入\n        >>> stereo = np.random.randint(-32768, 32767, (1000, 2), dtype=np.int16)\n        >>> mono = downmix_to_mono(stereo, keepdims=False)  # shape: (1000,)\n\n        >>> # bytes 输入\n        >>> stereo_bytes = b'...'  # 立体声 PCM 数据\n        >>> mono_bytes = downmix_to_mono(stereo_bytes, dtype=np.int16, in_channels=2)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "统一资源路径解析器 - 开发/打包通用\n\n默认用户数据目录（platformdirs）：\n- Windows: C:/Users/xxx/AppData/Local/{app_name}/\n- macOS:   ~/Library/Application Support/{app_name}/\n- Linux:   ~/.local/share/{app_name}/\n\n默认子目录：config/ cache/ logs/ keywords/ mcp_plugins/\n\n可覆盖（config 目录建议保持默认；其它可迁）：\n- 环境变量：XIAOZHI_DATA_DIR / XIAOZHI_CACHE_DIR / XIAOZHI_LOG_DIR /\n  XIAOZHI_MUSIC_CACHE_DIR / XIAOZHI_KEYWORDS_DIR\n- 配置 PATHS.*（见 apply_path_overrides_from_config；改后可迁移旧目录）\n\n核心 API：\n- get_app_root() / get_app_name()\n- get_user_data_dir() / get_user_cache_dir() / get_user_log_dir()\n- get_music_cache_dir() / get_keywords_dir()\n- apply_path_overrides_from_config() / migrate_directory()",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP 工具目录：分组与展示名，供设置 UI.\n\n契约（开发时遵守）\n-----------------\n1. **内置工具**放在 ``src/mcp/tools/<pkg>/register.py``，用 ``McpTool(\"name\", ...)``\n   或 ``McpTool(name=\"name\", ...)`` 注册；目录由扫描这些文件得到，**不写死名单/中文标题**。\n2. **分组 id / 组标题** = 包目录名 ``<pkg>``（如 ``music``、``weather``、``camera``），\n   与磁盘 ``tools/<pkg>`` 一致，设置页直接显示包名。\n3. **工具展示名** = name 最后一段（``music_player.pause`` → ``pause``）。\n4. **外挂**：manifest.tools / 源码 ``name=`` 启发式；组标题 = plugin id\n   （若 manifest 有 ``name`` 字段则用该字段，属插件自描述而非宿主写死）。\n5. **禁用**配置：``MCP_TOOLS.DISABLED``（tool 全名列表）。\n\n运行时已注册、却未扫到的名字会并入目录（source=runtime）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "外挂插件子进程 worker：与宿主通过 stdin/stdout 行分隔 JSON 通信.\n\n协议（每行一个 JSON 对象）::\n\n    → {\"id\":1,\"method\":\"bootstrap\",\"params\":{...}}\n    ← {\"id\":1,\"result\":{\"tools\":[{\"name\",\"description\",\"properties\":[...]}]}}\n\n    → {\"id\":2,\"method\":\"call\",\"params\":{\"name\":\"...\",\"arguments\":{...}}}\n    ← {\"id\":2,\"result\":{\"value\": ...}}  # value 为工具原始返回（bool/int/str 等）\n    ← {\"id\":2,\"error\":{\"message\":\"...\"}}\n\n    → {\"id\":3,\"method\":\"shutdown\",\"params\":{}}\n    ← {\"id\":3,\"result\":{\"ok\":true}}\n\ncapabilities：仅支持只读快照（config_readonly 字典）；logger 在子进程本地创建。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件基类.\n\n    插件通过 PluginContext Get Status，通过 PluginCommands 执行操作。\n\n    属性:\n        name: 插件名称，用于依赖声明和日志\n        priority: 优先级，数值越小越优先（范围: 1-100）\n        requires: 依赖的插件名称列表，PluginManager 会自动注入\n\n    用法:\n        class MyPlugin(Plugin):\n            name = \"my_plugin\"\n            priority = 50\n            requires = [\"audio\"]  # 声明依赖 AudioPlugin\n\n            async def setup(self, ctx, cmd):\n                await super().setup(ctx, cmd)\n                # self.deps[\"audio\"] 可获取 AudioPlugin 实例",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AEC 引擎：libs/webrtc_apm 的实时封装（P0 Self far）.\n\n数据流：\n- near：采集帧（16kHz 单声道 float32）→ ProcessStream → 消回声后上行\n- far：设备实际写出的最终 PCM（TTS + 音乐混合，设备采样率/声道）\n       → 下混 → 重采样到 16kHz → ProcessReverseStream\n\n线程模型（关键）：\n- 输出回调线程只做「下混 + 拷贝入队」（feed_far，微秒级、无锁）；\n  重采样与 APM 调用全部在采集线程（process_near 开头先排空 far 队列）。\n  两个实时回调之间不共享锁，避免输入侧持锁被 GIL 卡住时拖垮输出回调。\n\n设计约束：\n- 库加载/处理失败一律旁路（active=False），不影响通话主链路\n- WebRTC APM 按 10ms 帧处理；协议帧 20/40/60ms 均为其整数倍",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备状态管理器.\n\n    职责:\n    - 管理设备状态 (IDLE, LISTENING, SPEAKING)\n    - 管理监听模式 (REALTIME, AUTO_STOP, MANUAL)\n    - 管理会话状态 (keep_listening, aec_enabled)\n    - 通过事件总线广播状态变更\n\n    用法:\n        state = StateManager(event_bus)\n\n        # 设置状态（会自动广播）\n        await state.set_device_state(DeviceState.LISTENING)\n\n        # 读取状态\n        if state.is_listening():\n            ...",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "事件总线.\n\n    支持异步事件处理，实现组件间松耦合通信。\n\n    用法:     bus = EventBus()\n\n    # 注册处理器 async def on_state_changed(state):     print(f\"State: {state}\")\n\n    bus.on(Events.DEVICE_STATE_CHANGED, on_state_changed)\n\n    # 触发事件 await bus.emit(Events.DEVICE_STATE_CHANGED, DeviceState.LISTENING)\n\n    # 移除处理器 bus.off(Events.DEVICE_STATE_CHANGED, on_state_changed)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "异步任务管理器.\n\n    职责:\n    - 创建和追踪异步任务\n    - 关闭时统一取消所有任务\n    - 提供线程安全的任务调度\n\n    用法:\n        tm = TaskManager()\n        tm.set_loop(asyncio.get_running_loop())\n\n        # 创建任务\n        task = tm.spawn(some_coroutine(), \"task_name\")\n\n        # 线程安全调度\n        tm.schedule_nowait(some_function, arg1, arg2)\n\n        # 关闭时清理\n        await tm.cancel_all()",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重新枚举 PortAudio 设备列表（热插拔友好）.\n\n    调用方须先停掉本进程内所有 sounddevice 流，再调本函数；\n    有活跃流时 ``sd._terminate`` 不安全。\n\n    Args:\n        reinitialize: True 时尝试 ``_terminate`` + ``_initialize`` 强制\n            重建 PortAudio 上下文（有利于 macOS 后连蓝牙出现在列表中）。\n            失败则降级为普通 ``query_devices``。\n\n    Returns:\n        设备信息 dict 列表（与 ``list(sd.query_devices())`` 同形）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出回调：解码 → 转换 → 播放\n\n        数据流：队列 → 重采样 → 上混 → 设备\n\n        循环从队列取 chunk 喂给 convert_output，直到 resampler\n        内部缓冲区凑够 frames 或队列耗尽。解决采样率非整除\n        （如 16kHz→44100Hz）或服务器帧时长不匹配时的卡顿问题。\n\n        Args:\n            outdata: float32 输出缓冲区，shape (frames, channels)\n            frames: 帧数\n            time_info: 时间信息\n            status: 状态标志",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化日志系统.\n\n    Args:\n        level: 日志级别，默认根据环境自动设置\n        log_dir: 日志目录，默认为项目根目录下的 logs\n        enable_console: 是否启用控制台输出\n        enable_file: 是否启用文件输出\n        enable_json: 是否启用 JSON 格式的文件输出\n        enable_async: 是否启用异步日志\n        enable_sensitive_filter: 是否启用敏感信息过滤\n        config: 自定义配置对象\n\n    Returns:\n        日志文件路径（如果启用了文件输出）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清理协议特定资源（不包括公共状态和监控任务）.\n\n        子类实现该方法时应：\n        - 关闭协议特定的网络连接（socket / websocket / mqtt client 等）\n        - 取消协议特定的后台任务（心跳、消息处理等）\n        - 重置协议特定的时间戳/状态\n\n        不要在此方法中：\n        - Settings self.connected = False（基类 _handle_connection_loss 负责）\n        - Cancel self._connection_monitor_task（基类 _handle_connection_loss 负责）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "ALSA 错误输出抑制器。\n\n    在 Linux 系统上，ALSA 库会输出大量警告和错误信息到 stderr，\n    这些信息会干扰终端输出。此上下文管理器可临时抑制这些输出。\n\n    用法:\n        with ALSAErrorSuppressor():\n            # 执行 PyAudio 初始化等操作\n            audio = pyaudio.PyAudio()\n\n    注意:\n        - 仅在 Linux 系统上生效\n        - 在 Windows/macOS 上无操作\n        - 退出上下文时会恢复 stderr",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "热重载音频设备配置\n\n        流程：\n        1. 停止当前音频流\n        2. （可选）重初始化 PortAudio 并重新枚举（利于后连蓝牙出现）\n        3. 重新加载设备配置 + 协议配置\n        4. 重建格式转换器 + Opus 编解码器\n        5. 重新创建并启动音频流\n\n        Args:\n            reenumerate: 是否在停流后强制刷新 PortAudio 设备表\n\n        Returns:\n            bool: 是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备身份与 efuse 存储.\n\nefuse.json 仅平铺字段（不写 device_fingerprint 嵌套）::\n\n    {\n      \"mac_address\": \"...\",\n      \"serial_number\": \"...\",\n      \"hmac_key\": \"...\",\n      \"activation_status\": false\n    }\n\n生成 SN/HMAC 时仍在内存中采集 fingerprint，不落盘。\n旧文件若含 device_fingerprint，加载/校验时剥离并回写。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐相关工具.\n\n- music_player: 播放会话（由容器创建并注入 MCP；对外唯一入口）\n- playback / bus: PlaybackEngine / MusicEventBridge（内部组合，勿当公开 API）\n- cache / download / lyrics: 缓存、直链、歌词\n- online_search / local_library / metadata: 搜歌与本地库\n- register_music_tools: 向 McpServer 注册工具（闭包持有 player）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理连接丢失（公共逻辑）.\n\n        流程：\n        1. 更新连接状态\n        2. 取消连接监控任务\n        3. 调用子类 _do_cleanup() 清理协议特定资源\n        4. 通知观察者（状态变化、音频通道关闭）\n        5. 根据配置决定是否自动重连\n\n        Args:\n            clean: 服务端正常关闭（如会话结束）。只收回通道，\n                   不触发自动重连，也不上报网络错误。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GPIO 输入处理.\n\n封装 gpiozero 按键监听，支持树莓派的 GPIO 按键输入。\n仅支持 Linux System。\n\n按键模块规格：\n- 按下输出低电平（Active Low）\n- 松开输出高电平\n\n默认引脚映射（BCM 编号）：\n- KEY1: GPIO 17 - 开始/停止对话\n- KEY2: GPIO 27 - 中断当前语音\n- KEY3: GPIO 22 - 切换自动/手动模式\n- KEY4: GPIO 23 - 退出程序\n\n修改 DEFAULT_PINS 可自定义引脚。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按 CONFIG_VERSION 做向前迁移；必要时写回磁盘.\n\n        from_version: 磁盘文件中的版本（merge 前）。若省略则读 config 内字段\n        （此时若已 merge 默认值，可能已经是最新版，迁移会被跳过）。\n\n        约定：\n        - 缺省 / 非法版本视为 0\n        - 每步只做可逆性要求低的补丁（改名、补段、规范化）\n        - 升到 CONFIG_VERSION 后写回，避免下次重复迁移",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UI 模块：gui / cli / gpio 三种界面.\n\n按需导入，避免跨模式依赖：\n    from src.ui.gui import GuiViewManager\n    from src.ui.cli import CliViewManager\n    from src.ui.gpio import GpioViewManager  # 仅 Linux\n    from src.ui.shared import ViewPort, create_viewport",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解码 Opus → float32 PCM\n\n        Args:\n            opus_data: Opus 编码数据\n            frame_size: 期望的样本数\n\n        Returns:\n            float32 数组，范围 [-1.0, 1.0]\n\n        Raises:\n            RuntimeError: 解码器未初始化\n            Exception: 解码失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "编码 float32 PCM → Opus\n\n        Args:\n            pcm_float32: float32 数组，范围 [-1.0, 1.0]\n            frame_size: 样本数\n\n        Returns:\n            Opus 编码数据\n\n        Raises:\n            RuntimeError: 编码器未初始化\n            Exception: 编码失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从 Opus 包的 TOC 字节解析编码参数。\n\n    根据 RFC 6716 Section 3.1 解析：\n    - TOC 高 5 位 = config（决定模式/带宽/单帧时长）\n    - TOC 低 2 位 = code（决定帧数量）\n\n    Returns:\n        dict with keys: duration_ms, frame_ms, num_frames, bandwidth, mode\n        空包返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐状态变化事件数据.\n\n    Attributes:\n        state: 播放状态 (\"playing\", \"paused\", \"stopped\", \"completed\")\n        song: 歌曲名称\n        position: 当前播放位置（秒）\n        duration: 总时长（秒）\n        pause_source: 暂停来源 (\"tts\", \"manual\", \"external\", None)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Add common tools（全部经 register_* 显式挂载）.\n\n        music_player: 容器注入的 MusicPlayer；提供时注册音乐工具。\n        volume_controller: 可选注入的 VolumeController；未提供时由 register 内创建。\n        camera / screenshot 由 McpPlugin 在 setup 中单独 register。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "资源池 — 注册清理函数，逆序统一释放.\n\n    用法:\n        pool = ResourcePool()\n        pool.register(\"opus_codec\", opus_codec.close)\n        pool.register(\"audio_stream\", stream_manager.stop)\n        await pool.shutdown()  # 逆序执行所有清理函数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置按键回调.\n\n        Args:\n            on_key1_pressed: KEY1 按下回调\n            on_key2_pressed: KEY2 按下回调\n            on_key3_pressed: KEY3 按下回调\n            on_key4_pressed: KEY4 按下回调\n\n        Returns:\n            是否设置成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自动选择音频设备（简化版）\n\n    策略：\n    1. 系统默认设备（sounddevice 推荐）\n    2. 第一个可用的非虚拟设备\n\n    Args:\n        kind: \"input\" 或 \"output\"\n        include_virtual: 是否包含虚拟设备\n\n    Returns:\n        {index, name, sample_rate, channels} 或 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输入回调：设备 → 编码 → 发送\n\n        数据流：多声道/高采样率 → 下混 → 重采样 → Opus编码 → 网络\n\n        Args:\n            indata: float32 音频数据，shape (frames, channels)\n            frames: 帧数\n            time_info: 时间信息\n            status: 状态标志",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重建音频流（支持热插拔）\n\n        Args:\n            is_input: True=输入流, False=输出流\n            input_callback: 输入回调函数（仅重建输入流时需要）\n            output_callback: 输出回调函数（仅重建输出流时需要）\n\n        Returns:\n            bool: 是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化并加载 APM；失败时 active=False（旁路）.\n\n        Args:\n            near_rate: 采集协议采样率（16kHz）\n            far_rate: 设备输出采样率（far 侧重采样源）\n            delay_ms: 播放到采集的估计延迟\n            enable_preprocess: 是否同时开高通+噪声抑制",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新特定配置项\n        path: 点分隔的配置路径，如 \"SYSTEM_OPTIONS.NETWORK.MQTT_INFO\"\n        save: 是否立即落盘；批量更新时传 False，最后再 save_config()/update_configs\n\n        中间节点若为 None/非 dict，会提升为 dict 再写入（兼容 MQTT_INFO: null 等默认）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取配置好的日志记录器.\n\n    Args:\n        name: 日志记录器名称。如果不传，自动使用调用者的模块名。\n\n    Returns:\n        配置好的日志记录器\n\n    示例:\n        logger = get_logger()  # 自动注入模块名\n        logger = get_logger(\"custom.name\")  # 自定义名称",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "安全地将项目放入队列，队列满时可选择丢弃最旧数据.\n\n    Args:\n        queue: asyncio.Queue 对象\n        item: 要入队的数据\n        replace_oldest: True=队列满时丢弃最旧数据并放入新数据, False=直接丢弃新数据\n\n    Returns:\n        True=成功入队, False=队列满且未入队",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活 UI 基类（非 ABC，避免与 PySide6 QObject 元类冲突）.\n\n    Args:\n        activation_service: ActivationService 实例（由 create() 得到，非单例）\n        init_result: handle_activation 传入的 initialize() 结果，避免重复 initialize",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置格式转换管线（设备 ↔ 协议）。\n\n        根据设备原生参数和协议要求参数，设置输入/输出转换链。\n        输入：设备(f32, device_rate, device_ch) → 协议(f32, 16kHz, 1ch)\n        输出：协议(f32, opus_out_rate, 1ch) → 设备(f32, device_rate, device_ch)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "列出输入/输出设备（设置页与调试用）.\n\n    不主动重初始化 PortAudio；需要热插拔刷新时先\n    ``refresh_portaudio_devices()``，再调本函数。\n\n    Returns:\n        ``{\"input\": [...], \"output\": [...]}``，每项含 index/name/sample_rate/channels",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用macOS系统命令截图（支持显示器选择）.\n\n        Args:\n            display_id: 显示器ID，None=所有显示器，\"main\"=Main display，\"secondary\"=Secondary display，1,2,3...=具体显示器\n\n        Returns:\n            JPEG格式的图片字节数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "EventBus 与 QML 的双向桥接.\n\n    QML → Python: QML 调用 slot，slot 内部 emit EventBus 事件\n    Python → QML: EventBus 事件触发 Python Signal，QML 连接该 Signal\n\n    设备激活由独立 GuiActivation 窗口处理，主界面桥接不再承载激活信号。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "gui → GuiActivation；tui/cli/gpio → CliActivation.\n\n    Args:\n        mode: 运行模式\n        activation_service: ActivationService 实例\n        init_result: initialize() 结果（避免重复 initialize）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频编解码器 - 协调器模式\n\n    组合各个组件，协调数据流\n\n    数据流：\n    - 输入：设备(float32) → 下混+重采样(float32) → Opus编码(float32→bytes) → 网络\n    - 输出：网络 → Opus解码(bytes→float32) → 重采样+上混(float32) → 设备(float32)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截取桌面画面.\n\n        Args:\n            display_id: 显示器ID，None=所有显示器，\"main\"=Main display，\"secondary\"=Secondary display，1,2,3...=具体显示器\n\n        Returns:\n            成功返回True，失败返回False",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将旧目录内容复制到新目录（默认不删除源，安全）.\n\n    skip_dir_names: 顶层（相对 src）目录名集合，整棵子树跳过不拷\n        （例如 cache 迁移时 music 已单独配置则跳过 music/）。\n\n    Returns:\n        {ok, src, dst, files_copied, error?}",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置输入转换链（设备 → 协议）\n\n        Args:\n            from_rate: 设备采样率\n            to_rate: 协议采样率（通常16kHz）\n            from_channels: 设备声道数\n            to_channels: 协议声道数（通常1）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置输出转换链（协议 → 设备）\n\n        Args:\n            from_rate: 协议采样率（通常24kHz）\n            to_rate: 设备采样率\n            from_channels: 协议声道数（通常1）\n            to_channels: 设备声道数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "采样级 PCM FIFO（float32 单声道，线程安全）.\n\n    写入端在 asyncio 线程，读取端在音频输出回调线程；\n    用于 TTS / 音乐分流后在输出回调中混音。\n\n    - push：超出容量丢最旧（记入 dropped）\n    - pull：返回定长块，数据不足补零；完全无数据返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输入转换：多声道/高采样率 → 单声道/16kHz\n\n        Args:\n            audio: float32 音频数据\n            target_size: 目标样本数\n\n        Returns:\n            转换后的 float32 数据，或 None（数据不足）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试启动 UWP（Windows Store）应用程序.\n\n    通过 $env:_APP_QUERY 环境变量传递应用名称，\n    避免将用户输入直接拼接到 PowerShell 脚本中。\n\n    Args:\n        app_name: 应用程序名称\n\n    Returns:\n        启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按名称查找设备（模糊匹配）\n\n    Args:\n        kind: \"input\" 或 \"output\"\n        device_name: 设备名称（支持部分匹配）\n        include_virtual: 是否包含虚拟设备\n\n    Returns:\n        设备信息字典，或 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "写入音乐 PCM（float32，供 MusicPlayer 使用），带水位背压.\n\n        写完后若音乐缓冲超过目标水位则等待回放消耗——这是音乐链路\n        唯一的节拍来源（解码器时钟在暂停后会失准，不能作为依据）。\n        背压上限 2 秒兜底退出，FIFO 容量丢最旧保证不会无限膨胀。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "释放资源，显式销毁 C 层编解码器状态.\n\n        opuslib 的 Encoder/Decoder.__del__ 也会调用 destroy()，\n        必须先将 encoder_state/decoder_state 置空，避免 double free。\n        幂等：可安全重复调用。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "加载 WAV 为 float32 mono，并返回 (samples, sample_rate).\n\n        Args:\n            file_path: WAV 文件路径。\n\n        Returns:\n            (float32 Audio, 采样率)，失败返回 None。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出回调线程：从 TTS/音乐 FIFO 各取 n 样本并混音.\n\n        规则：\n        - 两路都空 → None（上层进入静音/欠载路径）\n        - TTS 在场时音乐按 _MUSIC_DUCK_GAIN 闪避，并在 TTS\n          帧间隙保持若干块（避免闪避增益抖动）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化Opus编解码器\n\n        Args:\n            input_sample_rate: 输入采样率（编码），如 16000\n            output_sample_rate: 输出采样率（解码），如 24000\n            channels: 声道数，默认 1",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从 ConfigManager 重新加载协议音频参数，支持运行时热重载。\n\n        Settings UI 修改 opus_output_sample_rate / frame_duration 后，\n        调用此方法使新值在下次 initialize/reload_devices 时生效。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐播放会话（公开入口）.\n\n组合：\n- PlaybackEngine — 解码队列 / 启停暂停跳转\n- MusicEventBridge — EventBus 绑定与状态/歌词发射\n\n状态字段在 engine；本类只保留生产常用属性（is_playing / paused / current_song）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出转换：单声道/24kHz → 多声道/高采样率\n\n        Args:\n            audio: float32 音频数据\n            target_frames: 目标帧数\n\n        Returns:\n            转换后的 float32 数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化所有插件.\n\n        按拓扑排序后的顺序初始化，自动注入依赖。\n        setup 失败或依赖失败的插件会被 mark_failed 并跳过后续生命周期。\n\n        Args:\n            ctx: 插件上下文\n            cmd: 插件命令接口",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭应用程序.\n\n    Args:\n        args: 包含应用程序名称的参数字典\n            - app_name: 应用程序名称\n            - force: 是否强制关闭（可选，默认 False）\n\n    Returns:\n        关闭是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "匹配应用程序，返回匹配度分数.\n\n        Args:\n            target_name: 目标应用名称\n            app_info: 应用程序信息\n\n        Returns:\n            int: 匹配度分数 (0-100)，0表示不匹配",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将单声道音频上混到多声道（复制到所有声道）\n\n    Args:\n        mono_data: 单声道音频数据，形状 (N,)\n        num_channels: 目标声道数\n\n    Returns:\n        多声道音频数据，形状 (N, num_channels)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Settings opus 库，供 opuslib 使用.\n\n    搜索顺序：\n    1. 项目内置 opus（libs/libopus/）— 版本可控、部署一致\n    2. System opus（brew/apt）— 兜底\n\n    Returns:\n        是否成功加载",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用可插拔后端采集一帧 JPEG（OpenCV/V4L2 或 picamera2）.\n\n        桌面 USB / Pi USB 走 OpenCV；Pi CSI 在 auto 模式下 OpenCV 失败后回退 picamera2。\n        带超时保护，避免驱动挂死拖死线程。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "摄像头采集后端：OpenCV/UVC（桌面+Pi USB）与 Picamera2（Pi CSI）。\n\n桌面 USB 摄像头走 OpenCV；树莓派 CSI 官方栈走 picamera2（可选依赖）。\n``backend=auto`` 时先试 OpenCV，失败再回退 picamera2。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描系统中所有已安装的应用程序.\n\n    Args:\n        args: 包含扫描参数的字典\n            - force_refresh: 是否强制重新扫描（可选，默认False）\n\n    Returns:\n        str: JSON格式的应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "查找最佳匹配的应用程序.\n\n    Args:\n        app_name: 应用程序名称\n        app_type: 应用程序类型过滤 (\"installed\", \"running\", \"any\")\n\n    Returns:\n        最佳匹配的应用程序信息",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册快捷键.\n\n        Args:\n            name: 快捷键名称\n            config: 快捷键配置\n            callback: 回调函数（无参数）\n\n        Returns:\n            是否注册成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "显示主窗口.\n\n        Args:\n            activate: True=抢前台（托盘「显示窗口」/快捷键）；\n                      False=仅显示、不 requestActivate（冷启动，避免挤掉 macOS 全屏 App）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "批量更新多个配置路径，只写盘一次.\n\n        Args:\n            updates: path -> value，例如\n                {\"SYSTEM_OPTIONS.NETWORK.WEBSOCKET_URL\": \"wss://...\"}",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取 keywords 路径，始终使用用户目录\n\n    首次运行时自动从安装目录复制默认文件到用户目录。\n\n    Args:\n        lang: 语言代码，如 \"zh\" 或 \"en\"\n\n    Returns:\n        用户目录下的 keywords 文件路径",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建双工音频流\n\n        Args:\n            input_callback: 输入回调函数\n            output_callback: 输出回调函数\n\n        Raises:\n            Exception: 创建流失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "display可选值：'main'/'Main display'/'Laptop'(Main monitor), 'secondary'/'Secondary display'/'External display'(Secondary monitor), 或留空(所有显示器)；",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音量控制工具.\n\n- VolumeController / 平台后端：见 volume_controller / windows|macos|linux\n- register_volume_tools: 向 McpServer 注册（闭包持有 controller，无模块单例）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "终止指定 PID 的进程.\n\n    Args:\n        pid: 进程 ID\n        force: True 使用 SIGKILL/TerminateProcess，False 使用 SIGTERM\n\n    Returns:\n        是否成功终止",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "audio 失败是否应导致进程退出.\n\n    - XIAOZHI_DISABLE_AUDIO=1：有意禁用，不视为失败\n    - XIAOZHI_DEGRADED_AUDIO=1：失败则降级继续（UI/设置可用）\n    - 默认：audio 失败即 exit 1",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "热刷新设备列表（停流 → PortAudio 重枚举 → 再开流）.\n\n        运行中后连蓝牙时，需经 AudioPlugin 先停流再 ``refresh_portaudio_devices``。\n        无 EventBus 时降级为本地普通枚举。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "查找与应用名匹配的运行中进程.\n\n    使用 AppMatcher 进行智能匹配（包含特殊映射、模糊匹配等）。\n\n    Args:\n        app_name: 目标应用名称\n\n    Returns:\n        匹配的进程信息列表，按匹配度降序排列",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "列出系统中正在运行的应用程序.\n\n    Args:\n        args: 包含过滤参数的字典\n            - filter_name: 应用名称过滤条件（可选）\n\n    Returns:\n        str: JSON格式的运行应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按 AEC_OPTIONS.ENABLED 创建/重建 AEC 引擎（Self far）。\n\n        设备热重载后 far 采样率可能变化，须随 device_config 重建；\n        创建失败不抛出，引擎自身旁路（active=False）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "线程安全地调度可调用对象.\n\n        如果可调用对象返回协程，会自动创建任务。\n\n        Args:\n            fn: 可调用对象\n            *args: 位置参数\n            **kwargs: 关键字参数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向 McpServer 注册音量工具（闭包持有 controller，不写全局单例）.\n\n    controller 为 None 时尝试 create_volume_controller()；仍失败则注册\n    会返回「不可用」结果的工具，避免工具列表缺失。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "外挂插件 python-subprocess runtime：独立进程 + JSON 行协议代理工具.\n\n主进程不 import 插件代码；仅启动 worker、bootstrap 拉取工具 schema，\n并将 McpTool 回调代理为对子进程的 call。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频配置类 — 协议层参数，与设备层（DeviceConfig）独立。\n\n    默认值在类体中声明；通过 reload() 从 ConfigManager 动态加载。\n    不再在 import 时强制 reload，避免 constants 模块副作用。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "列出所有正在运行的应用程序.\n\n    Args:\n        args: 包含列出参数的字典\n            - filter_name: 过滤应用程序名称（可选）\n\n    Returns:\n        JSON 格式的运行中应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "后台按网速 FFmpeg -c copy 整首落盘，不跟播放进度同步.\n\n        类似 HTML audio 的缓冲：播的同时尽快把整文件拉完，听完前也可能已缓存好。\n        换歌会取消上一次预取；Pause/停止当前歌不取消（继续缓冲）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建异步任务并追踪.\n\n        Args:\n            coro: 协程对象\n            name: 任务名称\n\n        Returns:\n            创建的任务对象，如果应用正在关闭则返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MusicPlayer 与 EventBus 的桥：订阅控制事件、发射状态/歌词.\n\n持有 PlaybackEngine 引用；控制请求通过 MusicPlayer 公开方法转发\n（便于测试 monkeypatch player.stop 等）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件管理器.\n\n    职责:\n    - 按依赖关系拓扑排序\n    - 自动注入插件依赖\n    - 统一 setup/start/stop 广播\n    - 错误隔离，单个插件失败不影响其他插件\n    - 失败标记 + 依赖失败时跳过下游",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化所有组件\n\n        流程：\n        1. 加载/检测设备\n        2. 刷新协议配置 + 初始化 Opus\n        3. 配置格式转换管线\n        4. 创建音频流\n        5. 启动音频流",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "热重载唤醒词模型.\n\n        Args:\n            model_path: 新模型路径（如 \"models/en\"）。如果为 None，从配置读取。\n\n        Returns:\n            是否重载成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "列出运行中的用户应用程序.\n\n    只返回用户可见的桌面应用，不包含系统守护进程、Electron 子进程等。\n\n    Args:\n        filter_name: 可选的名称过滤关键词，传入时放宽过滤（用于 kill 匹配）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用Windows API截图.\n\n        Args:\n            display_id: 显示器ID (暂未实现，使用虚拟屏幕)\n\n        Returns:\n            JPEG格式的图片字节数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "加载配置或自动检测设备（按名称匹配）\n\n        Returns:\n            DeviceConfig: 设备配置\n\n        Raises:\n            RuntimeError: 无法找到可用设备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "判断是否应该包含该应用程序.\n\n    Args:\n        display_name: 应用程序显示名称\n        publisher: 发布者（可选）\n\n    Returns:\n        bool: 是否应该包含",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用Linux系统命令截图.\n\n        Args:\n            display_id: 显示器ID (暂未实现，使用默认显示器)\n\n        Returns:\n            JPEG格式的图片字节数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置窗口 ViewModel.\n\n按功能拆成 settings/ 下多个 mixin，本文件组合并声明 QML Property。\n对外 仍为 SettingsModel，QML context 名 settingsModel 不变。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截取macOS单个显示器.\n\n        Args:\n            display_num: 显示器编号 (1, 2, 3, ...)\n\n        Returns:\n            PIL Image对象",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取表情的 QML 可用 URL.\n\n        Args:\n            emotion_name: 表情名称\n\n        Returns:\n            file:// URL 或 emoji 字符",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取设备的帧长度.\n\n    优先从已初始化的配置读取，无配置时根据设备架构自动检测。\n    不在 import constants 时读配置。\n\n    返回:\n        int: 帧长度(毫秒)，支持 20/40/60",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从进程信息中提取应用程序名称.\n\n    Args:\n        image_name: 进程映像名称\n        window_title: 窗口标题\n\n    Returns:\n        str: 应用程序名称",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "WebSocket 协议特定资源清理.\n\n        清理消息处理任务、心跳任务、WebSocket 连接和心跳时间戳.\n        不负责取消连接监控任务（基类 _handle_connection_loss 负责）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化 GPIO 输入.\n\n        Args:\n            pins: GPIO 引脚列表（BCM 编号），默认使用 DEFAULT_PINS\n            bounce_time: 消抖时间（秒）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从 ConfigManager 读取 PATHS，设置运行时覆盖，并可选迁移旧目录.\n\n    环境变量始终优先于配置。config 目录不由此迁移。\n\n    Returns:\n        迁移结果列表（便于 UI/日志）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通过UWP路径启动应用程序.\n\n    Args:\n        uwp_path: UWP应用程序路径（shell:AppsFolder\\...格式）\n\n    Returns:\n        bool: 启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用户数据目录（可写：默认含 config/）\n\n    优先环境变量 XIAOZHI_DATA_DIR，否则 platformdirs。\n    配置文件建议始终在此目录下的 config/，保证能读到 PATHS 覆盖项。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置系统托盘.\n\n        Args:\n            on_show: 显示窗口回调\n            on_quit: 退出回调\n\n        Returns:\n            是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重建音频流（支持热插拔）\n\n        Args:\n            is_input: True=输入流, False=输出流\n\n        Returns:\n            bool: 是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "判断是否应该包含该进程.\n\n    Args:\n        image_name: 进程映像名称\n        window_title: 窗口标题\n\n    Returns:\n        bool: 是否包含",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "拓扑排序插件列表，确保依赖先于被依赖者初始化.\n\n        Returns:\n            排序后的插件列表\n\n        Raises:\n            ValueError: 存在循环依赖",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解码并播放音频（Opus → 扬声器）\n\n        自动从 Opus TOC 字节检测帧时长，无需依赖客户端配置。\n\n        Args:\n            opus_data: Opus 编码数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务容器.\n\n    持有核心服务与 ConversationSession，编排 run / shutdown 生命周期。\n    会话操作走 ``self.session``；门闩走 ``health`` 模块。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按名称终止应用（匹配所有相关进程）.\n\n    Args:\n        app_name: 应用名称\n        force: 是否强制终止\n\n    Returns:\n        是否至少终止了一个进程",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将多个显示器的截图合成为一张图片.\n\n        Args:\n            displays: 显示器信息列表\n\n        Returns:\n            合成后的PIL Image对象",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取动态库路径.\n\n    Args:\n        lib_name: 库名，如 \"libopus\", \"webrtc_apm\"\n\n    Returns:\n        库文件的完整路径，找不到返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "分析图像.\n\n        Args:\n            question: 用户问题\n            image_data: 可选的外部图像数据，为 None 时使用 self.jpeg_data",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "加载日志配置（纯函数，无单例）.\n\n    Args:\n        app_config: 可选 ConfigManager 实例；未传时若已 initialize_config 则读取 LOGGING 段。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停掉本编解码器占用的 sounddevice 流，供热插拔枚举前调用.\n\n        调用后必须再 ``reload_devices()`` 或自行 ``create_streams``，否则无采集/播放。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "递归合并配置：default 为底，custom 覆盖；两边均为 dict 时深合并.\n\n        注意：调用方应传入已 deepcopy 的 default，避免污染类级 DEFAULT_CONFIG。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析.desktop文件.\n\n    Args:\n        desktop_file: .desktop文件路径\n\n    Returns:\n        Dict[str, str]: 应用程序信息",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析Windows快捷方式的目标路径.\n\n    Args:\n        shortcut_path: 快捷方式文件路径\n\n    Returns:\n        目标路径，如果解析失败则返回None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查连接是否存活.\n\n        子类必须实现该方法，返回当前协议连接的健康状态.\n\n        Returns:\n            bool: 连接存活返回 True，否则返回 False",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置页请求刷新设备列表：停流 → 重枚举 → 再开流.\n\n        payload 可为 asyncio.Future，完成后 set_result(list_audio_devices 结果)。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "会话控制：听/说状态机与协议发送.\n\n与 UI 侧 SessionActions（按钮文案/模式）分离：这里只负责 connect /\nlisten / abort / TTS 回环等应用级会话逻辑。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册一个清理函数.\n\n        Args:\n            name: 资源名称（用于日志和排查）\n            cleanup: 清理函数，可以是普通函数或 async 函数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS 快捷键后端.\n\n使用 Carbon API 的 RegisterEventHotKey 注册全局热键。\n这与 Electron 的 globalShortcut 底层使用相同的 API。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连接健康状态监控协程.\n\n        循环检查 self._is_connected() 返回值，\n        发现断开则调用 self._handle_connection_loss().",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重新加载配置文件.\n\n        apply_paths: 是否重新应用 PATHS 覆盖（不迁移目录）。\n        PATHS 目录迁移仅在 initialize_config 时执行。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通过注册表查找应用程序的可执行文件路径.\n\n    Args:\n        app_name: 应用程序名称\n\n    Returns:\n        应用程序路径，如果没找到则返回None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "EventBus：AudioPlugin 发布 codec 就绪/清除.\n\n        EventBus 在 data 为 None 时无参调用 handler，故 codec 必须有默认值。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建适合当前平台的快捷键后端.\n\n    Args:\n        loop: asyncio 事件循环\n\n    Returns:\n        快捷键后端实例，如果无法创建则返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "测试或编程方式设置覆盖（env 仍优先）.\n\n    - 不传某参数：保持该覆盖不变\n    - 传路径字符串/Path：设置覆盖\n    - 显式传 None：清除该覆盖（恢复默认/仅 env）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "歌词更新事件数据.\n\n    Attributes:\n        text: 歌词文本\n        time_sec: 时间戳（秒）\n        song_id: 歌曲 ID（可选）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向资源池注册清理函数。子类重写此方法以注册需要释放的资源。\n        资源按注册的逆序释放，先注册的后释放。\n\n        Args:\n            pool: 资源池实例",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取缓存的应用程序列表.\n\n    Args:\n        force_refresh: 是否强制刷新缓存\n\n    Returns:\n        Application list",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "播放引擎：解码队列、启停/Pause/Resume/跳转与写入 AudioCodec.\n\n由 MusicPlayer 持有；不依赖宿主 self 字段（经 hooks 回调节奏/上下文）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "并行播放判定：AEC 引擎在位且配置允许时，TTS 不暂停音乐.\n\n        引擎旁路（库缺失/连续失败自禁）时自动回退为暂停策略，\n        避免无回声消除的裸并行污染识别。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Reload external plugin only：先卸掉已知外挂工具，再按配置扫描加载.\n\n        注意：不会重新 register 内置工具；内置应已在 tools 中。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "建立 WebSocket 连接.\n\n        如果尚未连接,则创建新的 WebSocket 连接\n        Returns:\n            bool: 连接是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取平台和架构信息.\n\n    Returns:\n        (platform_dir, arch_dir) 如 (\"mac\", \"arm64\") / (\"win\", \"x64\")",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "顺序触发事件.\n\n        按注册顺序依次调用处理器。\n\n        Args:\n            event: 事件名称\n            data: 事件数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册 take_screenshot.\n\n    photo_camera: 可选，用于分析时复用 explain URL/token（与 take_photo 同一 camera）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置重连尝试回调函数.\n\n        Args:\n            callback: 回调函数，接收参数 (attempt: int, max_attempts: int)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启用或禁用自动重连功能.\n\n        Args:\n            enabled: 是否启用自动重连\n            max_attempts: 最大重连尝试次数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置连接状态变化回调函数.\n\n        Args:\n            callback: 回调函数，接收参数 (connected: bool, reason: str)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "触发事件.\n\n        并行调用所有注册的处理器。\n\n        Args:\n            event: 事件名称\n            data: 事件数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "For example, if scan shows {name: 'QQ', display_name: 'QQ音乐'}, use self.application.launch",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据枚举 key 生成应写入的配置片段.\n\n    Returns:\n        可 update 的 dict：camera_index / device / backend",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出回调线程调用：仅下混+拷贝入队，不做重采样/APM（微秒级返回）.\n\n        含静音帧也应喂入，保持 far 流连续；重活由采集线程 process_near 完成。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件协议适配器.\n\n将 ServiceContainer 上的状态与会话能力暴露为 PluginContext /\nPluginCommands，插件只依赖协议，不依赖容器类型。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "判断是否应该包含该应用程序.\n\n    Args:\n        display_name: 应用程序显示名称\n\n    Returns:\n        bool: 是否包含",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键插件模块.\n\n提供跨平台的全局快捷键支持：\n- macOS: 使用 Quartz Event Tap (PyObjC)\n- Linux/Windows: 使用 pynput",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AES-CTR 解密.\n\n    Args:\n        key: 密钥\n        nonce: 与加密相同的 nonce\n        ciphertext: 密文",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AES-CTR 加密.\n\n    Args:\n        key: 密钥\n        nonce: 初始向量（与解密时一致）\n        plaintext: 明文",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "加载可用的音频设备列表（普通枚举，不重初始化 PortAudio）.\n\n        Args:\n            force: True 时强制重新枚举（打开设置时）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "是否应该采集音频.\n\n        在以下情况下需要采集:\n        1. 正在监听且未中止\n        2. 正在说话，但启用了 AEC 且在实时模式下保持监听",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在Windows上启动应用程序.\n\n    Args:\n        app_name: 应用程序名称\n\n    Returns:\n        bool: 启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动快捷方式文件.\n\n    Args:\n        shortcut_path: 快捷方式文件路径\n\n    Returns:\n        bool: 启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "构造 UDP 音频包 nonce（hex 字符串）.\n\n    格式: 固定前缀 4 hex + 长度 4 hex + 原始 nonce 16 hex + 序列号 8 hex",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "协议管理器.\n\n封装通信协议操作，通过事件总线转发消息。\n音频数据走直连通道（有界队列 + 单 consumer），避免 per-frame create_task 堆积。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置保存后 MCP 工具列表变更：已连接则断开并重连，便于服务端重新 list.\n\n        仅刷新协议/工具视图，不恢复聆听会话（避免保存设置后进入「聆听中」）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在Linux上启动应用程序.\n\n    Args:\n        app_name: 应用程序名称\n\n    Returns:\n        bool: 启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在macOS上启动应用程序.\n\n    Args:\n        app_name: 应用程序名称\n\n    Returns:\n        bool: 启动是否成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建跨插件共享服务（McpServer / MusicPlayer），仅容器持有.\n\n    不再写入模块级单例；插件与 MCP 工具经构造注入 / 闭包拿到同一实例。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清理应用程序名称，移除版本号和特殊字符.\n\n    Args:\n        name: 原始名称\n\n    Returns:\n        str: 清理后的名称",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GUI 界面入口（ViewPort + 设置辅助）.\n\n    设备激活在容器启动前由 GuiActivation 独立窗口完成，主界面不再挂激活 Model/API。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐控制请求数据.\n\n    Attributes:\n        source: 请求来源 (\"tts\", \"manual\", \"external\", etc.)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频插件.\n\n负责音频采集、编码、播放和发送。\nAudioCodec 经 Events.AUDIO_CODEC_CHANGED 发布，不直连 MusicPlayer。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件准备阶段.\n\n        Args:\n            ctx: 插件上下文（只读状态访问）\n            cmd: 插件命令接口（执行操作）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描Windows系统中已安装的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: Application list",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注销快捷键.\n\n        Args:\n            name: 快捷键名称\n\n        Returns:\n            是否注销成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "资源池.\n\n统一的资源注册与释放机制。所有需要清理的资源（C扩展、音频流、网络连接等）\n注册到池中，shutdown 时按注册的逆序统一释放，避免重复释放和遗漏。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows系统应用程序启动器.\n\n提供Windows平台下的应用程序启动功能。\n所有 subprocess 调用均使用列表形式，不使用 shell=True。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描Linux系统中已安装的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: Application list",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描macOS系统中已安装的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: Application list",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尽早拦截日志输出（在 start 之前调用）.\n\n        模仿旧实现：在 __init__ 阶段就移除 StreamHandler 并安装自定义处理器。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从配置加载唤醒词.\n\n        Args:\n            update_preview: 是否立即转换拼音预览（转换可能触发额外 import）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打开系统目录选择框。which: cache|log|music|keywords|mcp.\n\n        返回选中的路径；取消返回空串（QML 勿写回）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UI 共用：ViewPort 契约、工厂、激活基类、跨端事件 DTO.\n\nQt ViewModel 在 src.ui.gui.models（仅 GUI 使用）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描Windows系统中正在运行的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: 正在运行的应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活验证码播报模块.\n\n使用预录制 WAV 音效播报激活验证码，仅在设备激活流程中使用。\n不依赖 FFmpeg，可在无系统 FFmpeg 的干净环境中工作。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除事件处理器.\n\n        Args:\n            event: 事件名称\n            handler: 要移除的处理函数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置设备状态.\n\n        Args:\n            state: 新的设备状态\n\n        如果状态发生变化，会通过事件总线广播。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Linux系统应用程序启动器.\n\n提供Linux平台下的应用程序启动功能。\n所有 subprocess 调用均使用列表形式，不使用 shell=True。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS系统应用程序启动器.\n\n提供macOS平台下的应用程序启动功能。\n所有 subprocess 调用均使用列表形式，不使用 shell=True。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "添加音频监听器（线程安全）\n\n        Args:\n            listener: 实现 AudioListener 协议的监听器对象",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "开始解码。source 为本地路径或 http(s)。\n\n        cache_path 已废弃忽略：缓存由后台按网速 copy，不跟播放进度绑。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描Linux系统中正在运行的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: 正在运行的应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描macOS系统中正在运行的应用程序.\n\n    Returns:\n        List[Dict[str, str]]: 正在运行的应用程序列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册事件处理器.\n\n        Args:\n            event: 事件名称\n            handler: 异步处理函数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. Open specific software applications (e.g., 'QQ', 'QQ音乐', 'WeChat', '微信')",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT + UDP 音频协议实现.\n\nMQTT 承载控制 JSON；UDP 承载加密音频帧（见 mqtt_udp / mqtt_crypto）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取连接信息（基类实现，子类可扩展）.\n\n        Returns:\n            dict: 包含连接状态、重连次数等信息的字典",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "应用根目录（开发/打包通用）\n\n    - 开发时: 项目根目录\n    - 打包后: _MEIPASS（PyInstaller onedir）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "跨平台进程管理（基于 psutil）.\n\n用 psutil 替代所有平台特定的 subprocess 进程列表和终止逻辑，\n消除命令注入风险。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取已初始化的配置管理器.\n\n    Raises:\n        RuntimeError: 尚未 initialize_config()",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows: sherpa-onnx C++ 用 std::ifstream(narrow_char*) 读取 tokens.txt，",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通过路径获取配置值\n        path: 点分隔的配置路径，如 \"SYSTEM_OPTIONS.NETWORK.MQTT_INFO\"",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理采集帧（16kHz 单声道 float32），返回消回声后的同长数据.\n\n        任何失败都返回原始数据；连续失败自动旁路。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Examples: '帮我看看这是什么', '拍个照', '看看前面', 'take a photo', 'what is this'.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "旧 music 在 cache 下，但新 music 不是「新 cache/music」→ 由 music 项单独迁，cache 勿再拷",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "外挂 MCP 插件目录加载（python-inprocess / python-subprocess + vendored lib）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT 会话配套的 UDP 加密音频通道.\n\n负责：套接字、收包线程、AES 加解密发包；经 event loop 把帧回调给上层。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在后台线程加载摄像头列表，避免阻塞 Qt 主线程.\n\n        不在应用启动时调用；仅在打开设置 / 刷新 / 摄像头页时触发。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取 WSS 连接信息.\n\n        Returns:\n            dict: 包含连接状态、重连次数等信息的字典",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化配置文件路径.\n\n        配置文件存储到用户数据目录，打包后可写。\n        首次运行时从安装目录迁移默认配置。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化任务管理器.\n\n        Args:\n            loop: 事件循环，为 None 时使用当前运行的循环",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Unbind runtime dependencies when container closes，保留工具列表便于同进程再启动.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "支持简化 dict：{name, type: str|int|bool|string|integer|boolean, ...}.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "'音量设为50', 'Turn up volume', 'Turn down volume slightly', 'Mute'.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动 GPIO 视图.\n\n        Args:\n            mode: 运行模式（GPIO 模式下忽略此参数）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "PluginCommands 适配器：命令落到 ConversationSession / protocol / tasks.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "tuple of frozendict-like：用 tuple[dict] 但 dict 可变；缓存返回 tuple 拷贝用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "非 /Applications 但也不是系统路径的（如 ~/Library/Application Support 下的工具）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排出 resampler 缓冲区中的剩余数据（带上混）。\n\n        用于队列耗尽但缓冲区差少量样本时，避免整帧静音。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用PIL ImageGrab截图.\n\n        Returns:\n            JPEG格式的图片字节数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截取macOS所有显示器并合成.\n\n        Returns:\n            合成后的PIL Image对象",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "codec 在 start() 再发布：MusicPlayer 在 McpPlugin.setup 中订阅 EventBus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动 CLI 视图.\n\n        Args:\n            mode: 运行模式（CLI 模式下忽略此参数）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "播报验证码（非阻塞）.\n\n        Args:\n            code: 验证码字符串，如 \"123456\"",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置编码回调\n\n        Args:\n            callback: 回调函数，接收 Opus 编码数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音量 MCP 工具：由 register_volume_tools 注入 VolumeController，无模块级单例.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "跨平台音量控制器门面.\n\n平台实现见 windows / macos / linux 模块；本类负责探测、装配与依赖检查。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "播报激活验证码.\n\n    Args:\n        code: 验证码字符串\n        locale: 语言代码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除音频监听器（线程安全）\n\n        Args:\n            listener: 要移除的监听器对象",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清除事件处理器.\n\n        Args:\n            event: 事件名称，为 None 时清除所有",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志格式化器模块.\n\n提供多种日志格式化器：\n- 彩色控制台格式化器\n- JSON 结构化格式化器\n- 简单文本格式化器",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CLI 终端显示界面.\n\n提供终端 TUI 界面，包含:\n- 状态仪表盘（顶部框架）\n- 日志显示区域\n- 命令输入区域",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Opus 编解码器\n\n    使用 libopus 的 encode_float 和 decode_float 接口，",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "- Chinese: 'QQ音乐', '微信', 'Calculator', 'Notepad', 'Browser'",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "参数说明：{ question: '你想了解的关于桌面/屏幕的问题', display: '显示器选择(可选)' }；",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "保存唤醒词并生成 keywords.txt.\n\n        Returns:\n            是否保存成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "auto | opencv | picamera2；auto 先 OpenCV，失败再试 CSI(picamera2)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "即使 music 仍默认挂 cache：若 old→new cache 会先拷 music，再 music 对 同内容",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取 ffprobe 可执行文件路径.\n\n    搜索顺序：内置 libs/ffmpeg/ → System PATH",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "接收音频数据\n\n        Args:\n            audio_data: float32 音频数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件与共享服务装配.\n\n集中：创建 McpServer/MusicPlayer、注册插件清单、资源池清理、音频直连。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "外挂 MCP 宿主 API（稳定契约）.\n\n插件仅通过 McpHost 注册工具与按白名单取能力，禁止依赖全局单例。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "analyze 若需要 fallback 到 photo camera 的 explain Settings，挂引用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "天气工具 MCP.\n\n- register_weather_tools: 显式注册（当前 mock，待接真 API）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "============ 连接监控（公共，子类可覆盖 _monitor_interval） ============",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取 ffmpeg 可执行文件路径.\n\n    搜索顺序：内置 libs/ffmpeg/ → System PATH",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "payload: 可选 asyncio.Future，完成时 set_result(list|dict|None)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "例如列表显示'菊花台 - 周杰伦'，调用 search_and_play(song_name='菊花台') 即可。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GUI 专用 Qt ViewModel（QObject + Property）.\n\nCLI/GPIO 不依赖此包。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Future 作 payload：AudioPlugin 在 handler 里 set_result(设备列表)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TUI Settings：配置字段定义与读写（接 ConfigManager + CONFIG_CHANGED）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "保留 indata 的 (frames, channels) 形状，让 downmix_to_mono 正确下混",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AudioCodec 生命周期（AudioPlugin → MusicPlayer 等订阅者，避免直连 set）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "接受 McpTool 或具备 name/description/properties/callback 的对象.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "应用终止和运行进程管理.\n\n通过 process_manager（psutil）提供跨平台的进程终止和列表功能。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP 插件.\n\n管理 MCP 工具和消息处理。McpServer / MusicPlayer 必须由容器注入。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GUI ViewManager：组合 QmlAppHost / 主界面 / 设置控制器，实现 ViewPort.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活 UI 基类.\n\n共享「取码 → 展示 → service.activate → 结果」流程；子类只做展示。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Set callback function for sending messages；传 None 表示解绑。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试自动重连（公共逻辑）.\n\n        使用指数退避策略，调用子类的 connect() 进行实际连接.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化流管理器\n\n        Args:\n            device_config: 设备配置",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动健康门闩与音频降级策略.\n\n与会话业务无关：只根据插件失败集与环境变量决定是否 exit / 降级继续。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册插件.\n\n        先按 priority 排序，后续 setup_all 时会按依赖拓扑排序。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UIPlugin 经 TaskManager.spawn 启动本协程；这里 await run_async",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频设备管理器.\n\n职责：\n- 设备发现和选择\n- 配置持久化（按设备名称，而非 ID）\n- 设备信息查询",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "进程内权威配置：由 initialize_config() 创建，get_config() 读取；无懒单例",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用 PATHS 覆盖并迁移 cache/logs/music/keywords（config 目录不迁）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "v1: 引入版本号；补齐 MCP_TOOLS；规范化 subscribe_topic 字符串 \"null\"",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取应用名称（固定值）\n\n    从 SystemConstants.APP_NAME 获取，确保一致性。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "cache 迁移时：若 music 已单独指到其它目录（或即将单独迁），跳过 cache/music 子树",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP服务器实现.\n\n    由 ServiceContainer 创建，经 McpPlugin 注入。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Return host capabilities by allowlist；未授权或未提供则 None.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "运行回调函数（线程安全）.\n\n        Args:\n            name: 快捷键名称",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GUI 设备激活窗口：QObject 控制器 + 组合 BaseActivation 流程（无多继承）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "统一激活服务门面：组合 identity / ota / client / side_effects.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建编解码器\n\n        Raises:\n            Exception: 创建失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "audio 降级运行（XIAOZHI_DEGRADED_AUDIO=1 且 audio failed）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查关键插件是否可用.\n\n    Returns:\n        错误描述；全部健康时返回 None",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "done callback 无 active exception context，必须传 exc 本体",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "记录外挂 tool_name -> plugin_id，支持按 id 从 McpServer 卸工具.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "之前使用 osascript + f-string 拼接存在 AppleScript 注入漏洞，已移除",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "XRGB / BGRA 等：按 RGB 通道取前 3 再转 BGR（picamera2 常见 RGB）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Seek。position=秒；percent=0~100（按 total_duration 算秒）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐 MCP 工具：由容器注入的 MusicPlayer 注册，不使用全局 get_instance.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件基类.\n\n使用 PluginContext 和 PluginCommands 接口与核心服务交互。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GPIO 按键输入处理类.\n\n    封装 gpiozero 的 Button 类，提供按键事件回调。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "参数可选：PySide6 多重继承时 QObject.__init__ 的 super 链可能无参调用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入文本发送 | r 对话 | x 打断 | s Settings | q Quit | h Help",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动音频流\n\n        Raises:\n            Exception: 启动失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "返回绑定到指定 plugin_id 的视图（共享 add_tool / capabilities）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从收包线程把帧回调调度到 event loop（handler 须为同步，在 loop 线程执行）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CLI模式设备激活处理器.\n\n    继承 BaseActivation，仅覆盖终端输出的展示方法。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置管理器（普通实例；进程权威由 initialize_config/get_config 持有）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如 [\"music_player.stop\", \"self.application.launch\"]",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐缓存：XIAOZHI_MUSIC_CACHE_DIR > 覆盖 > {cache}/music.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "唤醒词目录：XIAOZHI_KEYWORDS_DIR > 覆盖 > {data}/keywords.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频流管理器（sounddevice 封装）\n\n    负责创建和管理音频输入/输出流的生命周期。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Camera：懒创建一次，挂到 server，供 vision 配置与 take_photo 共用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "仅 re-enable，不 stop/start 整棵树（重建会和 CFRunLoop/信号打架）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "延迟加载模型到 start() 阶段，避免 setup() 时与 PortAudio DLL 冲突",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "把 ViewPort 的 set_* 落到 MainModel + EmotionService.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "依赖宿主提供 _get_value / _set_value / settingsChanged.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注意：channels 在创建 Decoder 时已指定，decode_float 不需要此参数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "audio 默认关键；XIAOZHI_DEGRADED_AUDIO=1 时失败仅降级不 exit",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "写入配置的标识：数字 index 字符串 / Device Path / \"picamera2\"",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查音频通道是否打开.\n\n        更准确地检查连接状态，包括WebSocket的实际状态",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "命令: r=开始/Stop | x=打断 | q=Quit | h=Help | 其他=发送文本",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更改 CACHE/LOG/MUSIC/KEYWORDS 后启动时会从旧目录复制到新目录（不删旧）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清除 get_user_data_dir 等 lru 缓存（测试或 DATA_DIR 变更后）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "子进程内给 register(host) 用的最小 Host（与 McpHost 表面兼容）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "应用管理工具.\n\n- register_app_tools: 向 McpServer 显式注册",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 用户要求拍照看东西 (例如: '帮我看看这是什么', '拍个照', '看看前面是什么')",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS 快捷键后端.\n\n    使用 Quartz Event Tap 监听全局热键事件。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析 endpoint：hostname 或 hostname:port；默认端口 8883.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== QML Properties（实现见各 mixin）==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显示窗口；activate=False 时尽量不抢前台（macOS 全屏 Space 友好）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "核心激活：取码 → UI 展示 → service.activate（含剪贴板/播报副作用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "gui / cli / tui / gpio；gpio 仅 Linux，其它平台回退 cli.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "修补 ctypes.util.find_library，让 opuslib 能找到 opus.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AEC（Self far：播放回调最终 PCM 作参考），initialize 时按配置创建",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "有界音频队列 + 单 consumer（替代 per-packet create_task）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志过滤器模块.\n\n提供各种日志过滤功能：\n- 敏感信息脱敏\n- 日志级别过滤\n- 模块过滤",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据 session.tools_meta 向宿主注册代理 McpTool；返回工具名列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "/Library/Application Support 下的用户工具（如安全软件、VPN）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按当前播放时间找该显示哪句歌词.\n\n    返回 (下标, 文本)；没有歌词返回 None。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当用户说'关闭音乐'、'停止音乐'、'不听了'、'别放了'、'关掉音乐'时，必须调用此工具。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用户说「跳到30%」「进度跳转20%」「跳到一半」时：必须用 percent（0-100），",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "pynput 快捷键后端.\n\n    适用于 Linux 和 Windows System。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在 event loop 线程：把 UDP 帧交给协议 on_incoming_audio.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== 可写目录 PATHS（config 目录不由此改）==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "QQuickWindow / QWindow：临时去掉可获焦，避免成为 key window",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "版本以「磁盘文件」为准；merge 会带上默认 CONFIG_VERSION 导致误判已迁移",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "缓存目录：XIAOZHI_CACHE_DIR > 运行时覆盖 > {data}/cache.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "拼给 ffmpeg 的 -headers / -user_agent（HTTP 源常用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "采集线程（已持锁）：重采样 far 队列并喂给 ProcessReverseStream.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Protocol 入站任务走 TaskManager，避免 fire-and-forget",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "或设 XIAOZHI_DEGRADED_AUDIO=1 以无麦模式继续（UI/设置可用）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志配置模块.\n\n提供日志系统的配置数据类与加载函数（无单例 get_instance）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "扫描 ``src/mcp/tools/*/register.py``，结果缓存（进程内）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用提示：当用户说'看'、'看看'、'这是什么'等模糊表达时，优先使用本工具进行拍照识别。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "对齐 Huibq/keep-alive render_api.js：只认 Key + UA",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "「快进30秒」：先 get_status 取当前位置，再 position=当前秒+30。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动快捷键监听.\n\n        Returns:\n            是否成功启动",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "批量写配置并落盘.\n\n    Returns:\n        (ok, message)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "ConfigManager 未初始化：请在入口调用 initialize_config()",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务容器.\n\n整合核心服务，作为应用的中央协调者；会话/门闩/装配/适配器已拆到子模块。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志处理器模块.\n\n提供：\n- 双重轮转文件处理器（时间 + 大小）\n- 异步日志处理器",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Electron/Chromium 子进程（Helper、Renderer、GPU）排除",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打开 VideoCapture；source 为 int index 或设备路径字符串.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用户说「跳到2分钟」「跳到90秒」「回到开头」时：用 position（秒，从0开始）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "查询当前播放状态：歌名、是否播放/Pause、总时长（秒）、当前位置（秒）、进度百分比。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "先 stop 清 keep_listening，再 abort，免得打断后又被续听拉回去",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "线程侧调度的 Future，避免 fire-and-forget create_task",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "安全地发射 EventBus 事件，在 Qt 主线程中调度到 asyncio loop.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "环境变量优先：XIAOZHI_CACHE_DIR / XIAOZHI_LOG_DIR /",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TaskManager.spawn 已记录异常；本地 create_task 时补日志",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "双重轮转文件处理器.\n\n    同时支持按时间和按大小轮转，先触发任一条件即执行轮转。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "capabilities 须可 JSON 序列化；对象类能力子进程无法使用，仅传快照.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析酷我返回的 lrclist.\n\n    返回 (歌词列表, 被过滤的信息行数量).",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "功能：①截取整个桌面画面；②屏幕内容识别与分析；③屏幕OCR文字提取；④界面元素分析；",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Music 收到 None 会自行 stop；完整 detach 由 mcp/容器负责",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "健康检查：禁用则尝试 re-enable；失败只 warning，避免重建风暴挡退出.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "============ 连接状态检查（模板方法，子类实现） ============",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "============ 协议特定清理（模板方法，子类实现） ============",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP 工具启用：黑名单 MCP_TOOLS.DISABLED，分组列表供设置 UI.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "后台线程统一入口：异常必达 statusMessage / testComplete.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连接: Disconnected | 模式: Manual | 表情: neutral",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TUI ViewManager：ViewPort 实现，驱动 Textual App.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备路径优先于 index，如 \"/dev/video0\"（树莓派 USB/V4L2）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志目录：XIAOZHI_LOG_DIR > 运行时覆盖 > {data}/logs.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "持久化字段（平铺）；其它键（如历史 device_fingerprint）加载时丢弃",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频格式转换器\n\n    负责采样率转换和声道转换，内部维护缓冲区以凑够目标帧大小。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件可访问的只读上下文.\n\n    插件通过此接口获取应用状态，但不能直接修改状态。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "已知事件名集合：拼写错误时在 on/emit 打 warning（debug 友好）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "【拍照识图】当用户提到：拍照、拍张照、照张相、看一下、看看、帮我看、这是什么、识别、",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向订阅者（如 MusicPlayer）发布 AudioCodec 实例或 None.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "（macOS 上 key window 会把其它全屏 App 的 Space 挤掉）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TUI 界面（ViewPort：与 GUI/CLI/GPIO 同一套 set_*）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "默认配置（完整产品 schema；加载时 deepcopy，禁止与实例共享嵌套对象）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "WebRTC APM 封装：AEC + 可选 NS/高通，near/far 双流.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建插件实例（Audio 经事件发布 codec，不注入 MusicPlayer）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "其他设备（Windows/macOS/Linux x86）都有足够性能，使用低延迟",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Inject camera（vision 配置 / take_photo 共用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 文字识别OCR ('读一下上面的字', '提取文字', '这上面写的什么')",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "给 CDN / FFmpeg 流式播放用的请求头（不是 JSON API 那套）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Screenshot tools for MCP.\n\n截图实例由调用方创建/注入。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "pulseaudio-utils、wireplumber 或 alsa-utils",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "pynput 快捷键后端.\n\n用于 Linux 和 Windows System。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "冷启动只显示、不抢前台，避免 macOS 把其它全屏 App 的 Space 挤掉",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TUI 模式：基于 Textual 的全屏终端界面（可选 extra: tui）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将损坏的 config.json 备份为 .corrupt-时间戳，返回备份路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "内存视图始终平铺；磁盘上的多余键由 ensure/validate 负责剥离回写",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ffprobe 取时长；source 可以是本地文件或 http(s) URL.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "延迟后恢复检测（等待 abort + clear_audio_queue 完成）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "请求重新枚举音频设备（设置页刷新；需先停流再 PortAudio reinit）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "每个 handler 需要独立的 filter 实例，避免共享状态导致日志丢失.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "异步日志处理器.\n\n    使用队列将日志写入操作移到后台线程，避免阻塞主线程。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "默认允许的 host.get 名称（music_player 等需配置显式加入）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "内置（扫描 tools/）+ 磁盘外挂 + 运行时 + disabled 残留.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows应用程序扫描器.\n\n专门用于Windows系统的应用程序扫描和管理",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "4. 图片问答 ('图里有几个人', '这个是什么颜色', '上面有什么内容')",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置页允许留空=用默认；get_config 对 \"\" 不会回落 default",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "【桌面截图/屏幕分析】当用户提到：截屏、截图、看看桌面、分析屏幕、桌面上有什么、",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "emit 会 await 所有 handler，返回时 future 通常已完成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "懒创建 SettingsModel；打开设置时 reload + 通知 QML.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP 工具黑名单变更：请求会话层断开并重连以刷新服务端 tools/list.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当前 schema 版本；加载时 migrate_config() 会升到此版本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AEC far：设备实际写出的最终 PCM（TTS+音乐混合，含静音保持连续）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "反序释放会导致 spotter 析构时 double free stream。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "插件可执行的命令.\n\n    插件通过此接口执行操作，由核心服务实现具体逻辑。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "优先走 TaskManager；否则本地 create_task 并记录异常.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "排除 .app 内部的子 .app（如 Framework/Helpers/）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "auto：先 OpenCV（USB/UVC），再 picamera2（CSI）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "经 player 转发，测试可 monkeypatch player.stop",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP 工具侧默认 manual；TTS 暂停走 EventBus 不经此工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "屏幕截图、查看当前界面、分析当前页面、读取屏幕内容、屏幕OCR 时调用本工具。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TTS 开始时暂停音乐（TTS/音乐分队列混音，互不丢帧；音乐余量自然淡出）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "ListenOnly：不拦截事件流，Ctrl+C / 系统快捷键可正常到达终端",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "System Preferences → 安全性与隐私 → 隐私 → 辅助功能",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "把回调丢回 Qt 主线程（spawn 的 done 可能在 loop 线程）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "第一期：System / Audio / Camera / Wake Word",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AEC 在位时 TTS 不暂停音乐，混音闪避并行播放（引擎旁路则自动回退暂停）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "（AudioCodec.write_pcm_direct 按缓冲水位放行）。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭日志系统，清理资源.\n\n    在应用退出时调用，确保所有日志都被写入。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "music_player 等不可序列化对象：子进程侧拿不到（与隔离目标一致）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用程序管理通用工具.\n\n提供统一的应用程序匹配、查找、缓存和名称清理功能。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从配置中读取相机参数（采集细节由 capture_backend 统一读取）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Picamera2 默认常为 RGB/XRGB，转成 OpenCV BGR.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 物体/场景识别 ('这是什么东西', '帮我认一下', '识别一下')",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐播放器事件数据类型定义.\n\n用于 EventBus 事件通信的数据结构。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "交给 downloader.resolve 的模板 URL，不是最终 CDN",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "暂停当前正在播放的音乐，保持播放位置，之后可用 resume Resume。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "与 pause 的区别：stop 是彻底关闭，pause 是临时暂停可恢复。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注意：播放列表中的歌曲时，只需使用歌名调用 search_and_play，",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CLI 界面（ViewPort：与 GUI/GPIO 同一套 set_*）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GPIO 界面（ViewPort：与 CLI/GUI 同一套 set_*）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "浮点：保持原 dtype（比如 float32），避免默认为 float64",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通用工具函数集合模块.\n\n包含浏览器操作、剪贴板、验证码提取等通用工具函数。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "可写目录覆盖（config 仍固定在用户数据/config；null=默认）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP 工具暴露（黑名单：不出现在 tools/list，call 亦拒绝）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化配置管理器（直接构造；应用请用 initialize_config）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "KeywordSpotter 在 C++ 层拥有 stream 的所有权，",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注意：INCOMING_AUDIO 走直连通道，不再通过 EventBus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP 工具暴露变更后：断开并重连协议，使服务端重新 tools/list",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取状态快照.\n\n        返回当前所有状态的字典，用于调试和日志。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "方法4: 再次使用open -a（作为最终尝试，不使用osascript）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试使用 PowerShell Start-Process 启动应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS: 只保留 /Applications/ 下的 .app 主进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1) Linux：/dev/video* 优先列出（便于 Pi 选对节点）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "提示: 跳转百分之N请调用 seek(percent=N)，不要用歌词推算",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向 McpServer 注册音乐工具（闭包持有容器注入的 player）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "那些请用 music_player.seek（百分比用 percent）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "适用场景：桌面截图、屏幕分析、界面问题诊断、应用状态查看、错误截图分析等。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "原子写：临时文件 + replace，与 ConfigManager 一致",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "EventBus 桥接器 - Python 信号与 QML 信号双向转换.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== Python → QML 信号 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "直到用户 q/Ctrl+C 或 close() 调用 app.exit()",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3. 输入固定单声道（协议要求 + 避免阵列驱动延迟），输出保持设备声道数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频帧长度(ms)：20(低延迟) / 40(平衡) / 60(低CPU)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "src/utils/resource_finder.py → 往上 3 级",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "far 待处理队列上限（输出回调块数，约 20ms/块 → 0.5s）；",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "入站音频有界队列：满时丢弃最旧帧，防止 event loop 被任务淹没",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "McpTool(\"a.b\", ...) 或 McpTool('a.b',",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Electron/Chromium 子进程后缀，这些是主应用的内部子进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Linux应用程序扫描器.\n\n专门用于Linux系统的应用程序扫描和管理",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS应用程序扫描器.\n\n专门用于macOS系统的应用程序扫描和管理",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析播放地址；可选后台 copy 整首到缓存（按网速，不跟播放进度走）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用于播放用户请求的特定歌曲，例如'播放周杰伦的稻香'、'听一下孤勇者'。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当用户说'暂停音乐'、'先停一下音乐'、'音乐暂停'时，必须调用此工具。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用于用户询问'我有哪些歌'、'本地歌曲列表'、'缓存了什么音乐'等场景。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "优先使用注册时注入的拍照摄像头（共用 vision URL/token）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "并行模式也发恢复：兜底「TTS 期间起播的歌被置为 tts Pause」",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行摄像头扫描（OpenCV/V4L2 + 可选 picamera2）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动仅读配置；Audio/Camera/唤醒词预览延后到打开设置时再处理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "懒创建 SettingsModel（首次注入 QML / 打开设置时）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "延迟补偿（协议帧数），实际 delay_ms = 40 + N * 帧长",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "严格校验（默认关，避免示例包无 platforms/abi 时无法加载）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Opus 库加载器 - 确保 opuslib 能找到 opus 动态库.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "路径迁移 %s: %s -> %s (copied=%s, ok=%s)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按运行模式创建激活 UI（与 create_viewport 对称）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1.5 AEC：以播放回调抽取的 far 参考消回声（旁路时原样返回）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "导入 libs.webrtc_apm，源码运行与打包形态各有路径兜底.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "deque 操作在 GIL 下原子；超限丢最旧（采集线程停转时防堆积）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "路径含非 ASCII 字符时 GBK 代码页会吞掉反斜杠导致打开失败。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "自动对话还在持续听时，打断后回到 listening，别停在 idle",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理工具列表请求（已按 MCP_TOOLS.DISABLED 过滤）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动进程并 bootstrap，返回 tools schema 列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用 FFmpeg -c copy 按网速拉整首，不解码、不跟播放限速.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Linux 音量后端（pactl / wpctl / amixer）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理手动按键快捷键 - 使用 UI_MANUAL_TOGGLE 事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "确保日志已被拦截（如果还没有调用 intercept_logging）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "主界面 ViewPort 写路径：状态 / 对话 / 音乐 / 表情.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP 工具禁用列表相对打开/上次保存是否变化 → 保存后可能触发重连",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用 QTimer.singleShot 确保在 Qt 事件循环中执行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "资源默认采样率（与 assets/sounds 中预置 WAV 对齐）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "外挂 MCP 插件（用户目录 mcp_plugins，自带 lib/）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "内存采集，仅用于生成 SN/HMAC；不写入 efuse.json.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TTS 存在时音乐的混音增益（闪避），及其保持时长（20ms 块数）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5.5 重建 AEC（far 采样率跟随新输出设备，滤波器状态清零）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "释放 soxr 重采样器，防止 nanobind C++ 对象泄漏.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频流管理器.\n\n职责：sounddevice 流创建、生命周期管理",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将 tokens.txt 复制到 ASCII 安全路径的用户目录下。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打断进行中的听/说语义，避免重连后沿用 keep_listening",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "对外暴露统一接口，内部组合 Transport + Gateway.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取或创建配置（无 LoggingConfigManager 单例）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "装饰器：将函数注册为 McpTool（不写全局 registry）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "进程内可选共享（由 McpServer 持有更清晰；此处供简单场景）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用管理 MCP 工具：显式 register_app_tools.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化OpenAI客户端（设置超时防止 API 无响应时线程池挂起）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "拼 UI 上用的歌词行，例如 [00:12/03:45] 歌词内容.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重要：回复用户之前先调用此工具，否则 TTS 结束后音乐会自动恢复。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用 which 检测系统 screencapture 命令是否可用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "参数: city - 城市名称, days - 预报天数(1-7天)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键后端抽象基类.\n\n    定义了所有快捷键后端必须实现的接口。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "============ 自动重连（公共） ============",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置选中的摄像头（写入 backend/device/index）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "可选：用于「刷新音频设备」时协调 AudioPlugin 停流重枚举",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保存配置到文件，并让运行中的 ConfigManager 重新读盘.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐写入端水位背压目标（秒）：越小暂停/插话越跟手，越大抗抖动越强",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TTS 与音乐分流：各自 FIFO，输出回调里混音（互不排队阻塞）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "FRAME_DELAY 以协议帧为单位，换算毫秒后叠加基础输出延迟",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 停止当前流（必须在 PortAudio reinit 之前）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "只负责把音源解成 PCM；缓存预取不走这里（避免和播放进度绑死）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "容器持有的跨插件共享服务（启动时 bind，关闭时 unbind）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动失败时直接退出，避免 zombie wait_shutdown",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置音频直连通道（TTS 音频不经过 EventBus，减少延迟）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "接口协议定义.\n\n定义插件、窗口与核心服务之间的契约，实现松耦合。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Task Manager.\n\n统一管理异步任务的创建、追踪和清理。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "取消所有追踪的任务.\n\n        会等待所有任务完成或取消。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从 server.tools 移除该插件注册的工具；返回移除数量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "统一的应用程序扫描器入口.\n\n根据当前系统自动选择对应的扫描器实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "与实例字段对齐（外部若改过 index 仍以配置为准，配置是权威）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐下载：解析直链；后台 FFmpeg copy 预取到本地缓存.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注意：TTS 说话时音乐会自动暂停，说完自动恢复，无需调用此工具。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "⑤应用程序识别；⑥错误信息截图分析；⑦桌面状态检查；⑧多屏幕截图。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频编解码器完整清理：先通知订阅者清 codec，再 close.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Opus 解码采样率：24000(官方) 或 16000(第三方)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "运行时覆盖（config 加载后 apply；env 优先于这些）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Windows ARM 常见为 ARM64；部分环境仅环境变量可靠",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "降级：音频不可用（无麦/扬声器）。设置仍可用，修复设备后请重启。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "无音频调试可设 XIAOZHI_DISABLE_AUDIO=1；",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP 工具配置重连等：通道打开后保持 IDLE，不自动进入聆听",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "分组 id：优先调用方传入的包名；否则用 name 前缀启发式.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 特殊映射匹配 (95-98分) - 优先匹配更具体的关键词",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "在线直链模板，TTS 结束后可重新 resolve 拿新 CDN",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "参数: city - 城市名称（如：Beijing、上海、广州）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TTS 结束后恢复音乐（并行模式下仅兜底，多数时候无实际暂停）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件是否已标记为失败（setup/start 失败或依赖失败）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "is_audio_channel_opened方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "纯流程对象：把展示回调接到 GuiActivation 控制器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "默认按钮文案；对话进行中会再被 Session 改成「停止对话」",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "QWidget 路径：ShowWithoutActivating",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "原子写入配置文件（临时文件 + rename 防写入中断损坏）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "采样级 PCM 缓冲.\n\n输出回调混音使用的线程安全 FIFO",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "限流：回调内写日志（文件 IO）本身会加剧欠载，2 秒最多一条",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空音乐播放队列（Stop/跳转时用；TTS 队列不受影响）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "只清空输出缓冲区（用于 TTS 停止时防回声，不影响输入管线）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关键插件健康门闩：失败则退出，禁止 silent zombie",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "最先注册 = 最后释放：共享服务 unbind 在插件清理之后",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "单消费者串行处理入站音频，避免 per-frame 任务爆炸.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "manifest 缺少 python_abi（已开启强制校验）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "延迟导入 tooling，路径已在 bootstrap 里设好",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "宿主工程根（含 src/）供 import src.mcp.*",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "有过滤词时放宽条件（用于 kill 匹配场景，需要匹配子进程）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "从 ConfigManager 读取 CAMERA 采集配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "- question: 字符串类型，用户想了解的关于图片的问题",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快速恢复（tts 闪避路径）：解码器与消费循环都在，仅继续消费",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "请提供 position（秒）或 percent（0-100）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "请指定 percent（0-100）或 position（秒）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "禁止用于：进度跳转、跳到百分之几、快进/快退、计算播放位置——",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows 音量后端（pycaw / comtypes）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置变更时重新加载音频设备（含 PortAudio 重枚举）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "建立WebSocket连接 (兼容不同Python版本的写法)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "GUI 激活窗口控制器（只继承 QObject；流程用组合）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置留空时各目录的系统默认绝对路径（不含 PATHS 覆盖）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "界面统一接口：gui / cli / gpio 都实现这一套.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "深拷贝默认配置，避免实例与类属性共享嵌套 dict/list.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "顶层目录过滤：os.walk 可改 dirs in-place",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "协议输出采样率可能随配置热重载变化，FIFO/混音块随之重建",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空 TTS 播放队列（打断/中止时用；音乐队列不受影响）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 热插拔：重建 PortAudio 上下文后再按名称匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "far 两级缓冲：pending 由输出回调写入（仅拷贝），",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "far 先于 near：排空输出回调攒下的参考数据，保持因果",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "程序标识名（ASCII，用于目录、配置、bundle_id）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "状态管理器.\n\n集中管理设备状态，通过事件总线广播状态变更。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从配置读取 MCP_TOOLS.DISABLED（黑名单）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "manifest 缺少 platforms（已开启强制校验）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "统一的应用程序启动器.\n\n根据系统自动选择对应的启动器实现。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows 进程创建标志（仅在 Windows 上可用）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "still 配置；尺寸尽量贴近配置，驱动会选最接近 mode",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "可切换网络/IP，或在设置中更换 MUSIC.URL_API",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CDN 偶发 RemoteDisconnected，多试两次",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "从任意线程安全调度协程到 event loop，并记录异常.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1000/1001/1005 视为正常关闭（服务端收回会话）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除所有已注册 logger 的 StreamHandler",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "展示激活验证码（CLI 打印 / GUI 写 Model）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "bytes 输入: 转换 -> 处理 -> 转回 bytes",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "平台目录别名（mac/macos, win/windows）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志 + 剪贴板 + 播报；不负责 CLI/GUI 文案.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "4. 按配置创建 AEC（Self far），失败自动旁路",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AEC 引擎是否在位且工作中（音乐并行策略等依赖此判断）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "节拍完全由下游背压决定：queue 满则在 put 处等位",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用 encode_float（libopus 原生支持）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用 decode_float（libopus 原生支持）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "near/far 均为 16kHz 单声道，共用一份流配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "realtime 一般还在 listen 里，不用再发一遍",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显示名称（用于窗口标题、Launchpad、安装器 UI）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "macOS 系统路径前缀，这些路径下的进程都是系统守护进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "搜索并播放指定的歌曲。根据歌名在线搜索歌曲并自动开始播放。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当用户说'继续播放'、'恢复音乐'、'把音乐打开'时调用。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "返回格式：'歌名 - 歌手'，例如'菊花台 - 周杰伦'。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "天气 MCP 工具注册（当前 mock，待接真 API）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件管理器.\n\n管理插件生命周期，支持依赖声明和拓扑排序。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止所有插件（逆序；失败插件仍尝试 stop 以便清理）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "McpPlugin 需要容器注入的 MusicPlayer",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT/UDP 音频通道使用的 AES-CTR 加解密.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务端正常收回会话（如 TTS 结束后关闭），不算网络错误",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "---- BaseActivation 展示方法 ----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "彻底清屏：清除屏幕 + 清除滚动缓冲区 + 光标移到左上角",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 摄像头设备列表 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行摄像头测试（走统一 capture_backend）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "只读：数据根与操作提示（默认路径已显示在各输入框占位符）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "编辑后点「保存」写盘并热应用 | Esc Cancel |",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活模块：身份、OTA、HTTP 客户端与 UI 工厂.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "tui / cli / gpio：激活阶段用简单终端交互",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "efuse 文件读写、序列号 / HMAC / MAC.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "刷新协议配置（支持 Settings UI 修改后生效）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "PortAudio 复用 outdata 内存，必须拷贝",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "还要继续听的话，尽量先发 listen，再清队列、改状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扫描开始菜单中的主要应用程序（过滤系统组件和辅助工具）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用于「现在播到哪了」「这首歌多长」「快进前先看进度」等。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停流后才能安全 _terminate PortAudio",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按当前配置重新打开流（名称匹配可能已指向新 index）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "标记插件失败，后续 start/notify 将被跳过.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "macOS: 优先使用 Quartz Event Tap",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无法创建 Event Tap。请确保已授予辅助功能权限：",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "close_audio_channel方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "下次交互时按需重新 open_audio_channel",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理命令 - 全部转发给 CliViewManager.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除根 logger 的所有 StreamHandler",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 音频设备设置 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打开系统文件夹选择对话框；取消返回空串（调用方勿覆盖）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "只负责 QML 引擎生命周期与根对象访问，不碰业务逻辑.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置窗口：SettingsModel 懒加载与打开设置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "reload 配置/设备列表，再让 QML 显示设置窗.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "界面上记录的当前模式（比如 GPIO 按键分支会用到）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向 OTA activate 端点轮询直到成功或超时.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "拉取 OTA 配置并写回 ConfigManager.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连续处理失败达到该次数后自动旁路，避免坏库拖垮音频回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "用哨兵唤醒阻塞在 queue.get() 上的检测循环",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "audio 失败但允许降级：打横幅/日志，继续跑 UI",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "绑定共享服务、注册并初始化插件、挂资源清理与音频直连.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "订阅协议/状态相关事件（可重复调用，以最后一次为准）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果获取失败，返回默认值20ms（适合大多数现代设备）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "系统级提示（降级模式横幅等，payload: str）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注入 TaskManager（容器初始化后可再绑定）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "外挂插件 tool_name -> plugin_id",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Remove tool by name，返回移除数量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置页内置工具行（扫描 tools 包，非写死列表）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果有发布者信息，排除Microsoft发布的系统组件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TTS 逐句闪避：保留解码器与队列（解码器会在满队列处",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "由播放器按总时长自动换算秒数，不要查歌词、不要猜位置。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "与 get_lyrics 无关；百分比跳转不需要歌词。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建音量控制器；依赖不足或初始化失败时返回 None.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "'现在音量多少?', '查看音量', '音量是多少'.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注入依赖插件（由 PluginManager 调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "McpPlugin 需要容器注入的 McpServer",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "open_audio_channel方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "执行录音测试（异常由 _run_worker 兜底）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "执行播放测试（异常由 _run_worker 兜底）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取摄像头列表（不自动触发扫描；由设置页/刷新触发）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== 摄像头设置 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 快捷键设置 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 唤醒词设置 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按 mode 创建界面实现（返回 ViewPort）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "bytes 输入必须指定 in_channels 参数",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将来：if ver < 2: ...; ver = 2",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "efuse 根节点须为 object，实际为 str",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备激活门面（由 create() 构造，非单例）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "---------- 公共接口 ----------",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "追加 float32 单声道数据；容量超限时丢最旧.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Opus 库加载（必须在导入 opuslib 之前）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "允许 stop() 后再 create（热重载路径）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "buffer 为采集线程重采样后的 16k 样本余量",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "复用的 ctypes 帧缓冲（10ms int16）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "短暂暂停检测，让打断流程完成，避免旧音频触发重复检测",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "将所有模块的清理函数注册到资源池（先注册的后释放）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "ConfigManager → 只读 dict 快照",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "兼容旧调用：动态 group 标签表（外挂会往里写）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "特殊应用名称映射 - 按长度排序，避免短名称优先匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "如 /dev/video0；非空时优先于 index",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按配置采集一帧 JPEG 字节；失败返回 None.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "若已通过 /dev/video{i} 列出则跳过重复",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "直链 API 获取播放地址失败（曲库无源或解析失败）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "手动暂停要立即静音：把 codec 侧音乐余量也清掉",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "如果已有音乐在播放，会自动停止当前音乐并播放新歌曲。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "无 codec（禁用音频）时仍尽量枚举，供设置页展示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建套接字并启动接收线程（会先 stop 旧资源）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== 状态更新 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 屏幕渲染 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 输入处理 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 日志处理 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 工具函数 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 按键回调 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 便捷方法 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "系统选项：设备 ID、网络、MQTT、音乐、AEC.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== 系统选项 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打开设置时快照，保存时对比是否变更 MCP 工具暴露",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "========== 配置读写 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重新加载配置（打开设置窗口时调用；此时才枚举设备）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "刷新自动/手动显示（真状态在 Session 里）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动 TUI（await 直到用户退出或任务取消）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "空 = 按插件 enabled_by_default",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "键缺失、或值为 None/标量：建空对象以便继续下钻",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2) 回退：按扩展名，优先「短名字 / 无多余后缀」",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "TTS / 音乐 FIFO 容量（秒），超限丢最旧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "不再用「墙钟-起播时刻」限速——暂停期间墙钟照走，",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "必须先释放 spotter，再释放 stream。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "网络错误：停止持续监听并复位设备状态到 IDLE.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "双保险：若 OPENED 回调顺序异常，仍拉回空闲",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ARM设备（如树莓派）使用较大帧长以减少CPU负载",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐控制命令（从外部控制 MusicPlayer）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "方法1: 使用open -a命令（安全的列表形式）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Windows 系统进程名（小写，不含 .exe）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 扫描开始菜单中的主要应用程序（最直接的方法）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. 扫描注册表中的主要第三方应用（过滤系统组件）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "再多读一帧有时更稳，但已有有效帧可提前结束预热尾部",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "功能：拍照并分析图片内容，回答用户关于图片的问题。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按 song_id 找已缓存的文件（试常见后缀）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在线搜歌（酷我搜索 → 直链 API 模板地址）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自然等位），恢复零成本，不用逐句重启 ffmpeg",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "不要用本工具代替 seek；跳转请调用 seek。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自动模式下是否已经开始对话（按钮显示「停止对话」）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "连接到 MQTT 服务器并建立 UDP 音频通道.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "显式绑定，确保 macOS 网络栈正确路由 UDP",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查音频通道是否打开的抽象方法，需要在子类中实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务端正常关闭：会话结束不算故障，不重连也不报错，",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "----- Settings / 窗口 -----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "激活窗口数据模型 - 管理激活界面状态和数据绑定.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尽力获取进程内已注册 MCP 工具名（可能为空）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AEC 在位时 TTS 与音乐并行播放（闪避混音）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "表情服务 - 处理表情文件的查找和 URL 转换.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如 /dev/video0；非空优先于 index",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "读取当前配置为字符串表（path -> 显示值）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打开后丢弃的预热帧数（USB/Pi 前几帧常无效）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "null = {用户数据}/mcp_plugins",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐 API（空字符串=运行时用内置默认 URL）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "加载配置文件；不存在则创建；损坏则备份后回退默认.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "取 n 个样本；无数据返回 None，不足补零.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 释放转换器（同步，含 soxr 重采样器）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "以下为动态值，reload() 时从配置重新读取",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无订阅者时仍提示未知事件名，避免拼写错误静默丢失",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "确保入站音频 consumer 在运行（幂等）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果日志系统未初始化，添加一个基本的控制台处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "外挂：用户目录插件包（自带 lib/），失败隔离",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "外挂 MCP 插件运行时注册表：归属索引与卸载.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "方法3: 使用xdg-open（适用于桌面环境）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Linux 优先 V4L2，其它平台用默认后端.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "识图、看图、图片、照片、帮我瞧瞧 时调用本工具。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "首次用缓存前调用：建目录，并清理一次 temp.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链 API 已封禁当前 IP（禁止批量下载）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "只清音乐播放队列；TTS 队列独立，不受跳转影响",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注意：该工具会截取桌面，请确保用户同意截图操作。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果图片包含透明度通道(RGBA)，转换为RGB",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "macOS 音量后端（applescript）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "最高优先级，其他插件依赖 audio_codec",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查插件声明的依赖是否都可用（已注册且未失败）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从入度为0的节点中选择 priority 最小的",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Linux/Windows: 使用 pynput",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查修饰键是否匹配（只检查期望的修饰键是否按下）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "界面上的按键、发文本、模式切换等，转成协议调用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "手动录音中途被拉出 listening，复位按钮",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "空闲时直接 detect，服务端常会丢；先听再发",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "服务器可能使用自签名证书，暂时跳过客户端证书验证",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "在连接时创建 Event，确保在正确的事件循环中",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "GPIO UI 模块（Linux/树莓派按键）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GUI 模块：PySide6/QML 图形界面.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "QML 引擎宿主：加载、上下文注入、根窗口操作.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "========== 构造 ==========",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "auto 先 OpenCV，失败再 Pi CSI",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "先转浮点求平均，再四舍五入回原整数类型，避免溢出",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. sounddevice 系统默认（最可靠）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建或返回已初始化的配置管理器（应用入口调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "一般 ok；仅当 music 路径显式独立时跳过",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "OTA URL 或 DEVICE_ID 未配置",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "恢复后会误判落后而全速灌数据，把播放队列冲爆。",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "config → 模式 + 带宽 + 单帧时长",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加锁保护 sherpa-onnx 对象的访问",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "事件总线协议.\n\n    用于组件间解耦通信。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志级别对应的背景色（用于 CRITICAL）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "单文件插件须定义 register(host)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "避免子进程继承 GUI/Qt 相关干扰（可选）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "运行时/残留工具：尽量归到已扫描到的内置包组.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试使用os.startfile启动应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试读一帧判断是否为真正 capture 节点",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2) OpenCV 数字 index（全平台）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "各家 JSON 字段不太一样，尽量抠出 url",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "----- 生产常用状态（扁平访问）-----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "----- 生命周期 / 播放委托 -----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取本地音乐歌单。显示所有已下载并缓存的歌曲。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检测 PIL 是否可用（避免未使用导入的告警）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置音量 0-100（调用方已 clamp）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "---- 兼容旧属性（诊断 / 测试）----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "新的写法 (在Python 3.11+版本中)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动消息处理循环（保存任务引用，关闭时可取消）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "不显示日志行（日志仍被拦截，只是不在界面显示）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建按钮实例（Active Low，内部上拉）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "历史属性名还是 ttsText，实际是对话内容",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "延迟补偿帧数（40ms + N × 协议帧长）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐默认挂在「当前缓存」下：自定义了缓存则跟随",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "写入 keywords.txt 到用户数据目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扩展名与优先文件名（避免目录里多个候选时捡错）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. Opus 编码（float32 输入）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 刷新协议配置并重建 Opus 编解码器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "释放所有已注册的资源，按注册顺序的逆序执行.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直接从 record 获取上下文（如果存在）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "bootstrap 返回 tools 非列表",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "返回 tool_name 列表（去重保序）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 添加常见的系统应用（只保留用户常用的）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扫描注册表中的主要应用程序（过滤系统组件）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "没传 song_id 时从 url 路径里抠",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "【进度/跳转专用】跳转到当前歌曲的指定位置。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "天气数据（当前 mock；待接真 API）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "优先级，数值越小越优先（范围: 1-100）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理 MQTT JSON 消息（线程回调）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "_is_connected方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "以避免生产环境中非正规SSL证书导致连接失败",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "不要在这里调用网络错误回调，让连接处理器处理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ViewModel 基类 - 提供通用功能.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用枚举结果填充输入/输出列表并通知 QML.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Textual App：仪表盘 + 设置屏.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "[green]配置已保存，正在热应用…[/]",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "可选：屏蔽常见虚拟/聚合设备（默认不选它们）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "如果用户目录没有配置文件，尝试从安装目录迁移",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "先校验 JSON，避免把损坏的安装配置拷进来",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "仅当 env 未设时应用 config 覆盖",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3. 释放转换器（含 soxr 重采样器）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 下混（使用 audio_utils）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. 上混（使用 audio_utils）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "必须在 setup_opus() 之后导入",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为 bytes（float32 格式）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "释放 APM 资源；须在音频流停止后调用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "声母列表（按长度降序排列以优先匹配长声母）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭应用，统一通过资源池逆序释放所有资源.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否是大小触发的轮转（同一天可能多次）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP 外挂插件：宿主 API 与加载器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "进程内会话表，供卸载时 terminate",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "方法3: 尝试Applications目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试使用where命令查找并启动应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "脚本从环境变量读取查询字符串，不含用户输入",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按进程组分组，尝试先终止子进程再终止父进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "向 McpServer 注册应用管理工具.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试从/Applications/路径提取",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "图像的JPEG字节数据  # 字节数据长度",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置视觉服务 token（子类按需覆写）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "采集参数（来自 CAMERA.* 配置）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "围着 MusicCache 转的本地列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MusicPlayer 提供给引擎的回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当用户问「歌词是什么」「唱了什么」时调用。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "与拍照共用 vision 配置（若已配置）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "优先使用平台特定方法（更好的多显示器支持）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通过依赖注入获取 AudioPlugin.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "SettingsJSON消息接收回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送文本消息的抽象方法，需要在子类中实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送音频数据的抽象方法，需要在子类中实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打开音频通道的抽象方法，需要在子类中实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭音频通道的抽象方法，需要在子类中实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 打开浏览器访问 xiaozhi.me",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打开设置窗口 - 直接发射信号到 QML.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置编辑弹层；返回 True 表示已保存.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "choice 字段请填合法值（见占位提示）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "官方 24000 / 第三方常 16000",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "释放共享服务引用（资源池最后阶段调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Stop consumer 并清空队列.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "监听模式：根据 AEC 配置决定默认模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重复日志过滤器，抑制短时间内的重复日志.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "管理一个插件子进程的生命周期与 RPC.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "方法2: 使用which查找应用程序路径",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "默认包含其他应用程序（假设是用户安装的）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "预热：很多 USB/Pi 设备前几帧无效",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "枚举可用摄像头（设置页 / 扫描脚本）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "普通摄像头实现，使用远程API进行分析.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据 song_id 生成缓存文件路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "lx-music-api 常见 code",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "歌词拉取、解析，以及按播放进度取当前句.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "----- 搜歌 / 本地库 -----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "恢复播放之前暂停的音乐，从暂停位置继续。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "只有用户主动暂停后要求恢复时才需要调用。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "备用方法：使用PIL ImageGrab",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建 Quartz Event Tap.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UI 插件：起界面、转展示、接用户操作.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "写界面：对话、音乐、状态、表情、按钮等.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UDP 音频传输（加密 Opus 帧）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "_do_cleanup方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "旧的写法 (在较早的Python版本中)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查 WebSocket 连接是否存活.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "请访问 xiaozhi.me 输入验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除 DisplayLogHandler",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "默认 GPIO 引脚配置（BCM 编号）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "手动模式录音切换（点击开始/Stop）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按名称匹配麦克风（热插拔后 ID 会变）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 如果按名称查找失败，自动选择新设备",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "返回 ALSA 错误抑制器上下文管理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "bytes 输出不需要 keepdims",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "--- 迁移步骤（按版本递增追加）---",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志目录（用户数据目录下，打包后可写）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "若相对路径第一段在 skip 中（防御）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "快速退出：正在停止时跳过延迟和队列清理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "会话控制（听/说/打断/TTS 回环）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用将退出以避免空转（zombie）。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送检测到的文本（唤醒词或用户输入）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送 MCP 消息（会自动包装格式）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "事件总线.\n\n提供组件间解耦通信机制。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "JSON 格式化器，用于日志聚合系统.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "方法5: 尝试.desktop文件启动",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扫描 /Applications 目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排除无窗口标题的进程（通常是后台服务）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置视觉服务 URL（子类按需覆写）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "树莓派 CSI (picamera2)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Camera MCP 工具注册与工厂.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "管理 music 缓存目录和临时文件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链 API 请求过于频繁，请稍后再试",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "向 McpServer 注册天气工具.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TODO: 实际项目中应调用天气API",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "插件启动（通常在协议连接建立后调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "唤醒词插件.\n\n检测唤醒词并触发对话。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连接状态与自动重连（公共，从子类上移）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "send_audio方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理单个消息的错误，但继续处理其他消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Settings hello 接收事件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "先移除所有 StreamHandler",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注意：清屏已在 start() 中完成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Windows 不支持 termios",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加简单的 StreamHandler",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取输入设备列表（首次调用时再枚举）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取输出设备列表（首次调用时再枚举）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "唤醒词配置与 keywords 保存.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置窗口数据模型（组合 mixin）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "构建播放序列: 激活提示 + 各个数字",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 保存设备名称（而非 ID）到配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入验证码[：:]\\s*(\\d{6})",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清除运行时路径覆盖（测试或恢复默认）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活验证码副作用：剪贴板与语音播报.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 刷新协议配置并初始化 Opus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "=== 对外接口（保持兼容） ===",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2.5 释放 AEC（须在流停止后）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "PluginContext 适配器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "有界入队：满则丢最旧帧再放入最新帧.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "worker 未 bootstrap",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "外挂 / 通用 name=\"...\"",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "优先 McpTool(...) 形式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用tasklist命令获取进程信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "完全停止并关闭音乐播放，重置到开头。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据display_id决定截图策略",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "复制虚拟屏幕到位图（包括所有显示器）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "只切自动/Manual，不自动开始听",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "订阅配置变更事件（轻量，不加载模型）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Stop UDP（断开回调等路径）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "send_text方法必须由子类实现",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连接监控检查间隔（秒），子类可覆盖.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理接收到的WebSocket消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "---- 终端展示辅助方法 ----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Settings GPIO 按键回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取当前选中的摄像头在列表中的下标.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Device-Id（通常为 MAC）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当前有效路径（应用覆盖前）作为迁移源",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "OTA 配置拉取与本地配置初始化.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 格式转换（下混 + 重采样）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "加载动态库、应用配置、创建流配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "等待检测循环自然退出（由哨兵触发）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Manual：点一下开始/结束录音",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "敏感数据过滤器，自动脱敏敏感信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "彩色日志格式化器，用于控制台输出.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "后台读 stderr，避免管道堵死",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试通过注册表查找并启动应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "判断进程是否为用户可见的应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "去重：避免重复添加开始菜单中的应用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "根据当前系统获取对应的扫描器模块.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "图中描绘的是什么景象？请详细描述。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "免费歌能听；付费歌官方会直接说不行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "播放状态机；状态字段挂在本实例上.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取虚拟屏幕尺寸（包括所有显示器）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "未找到可用的Linux音量控制工具",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "TTS 播放完成，发送音乐恢复请求",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "最低优先级，依赖 UIPlugin",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "goodbye 后清空会话侧字段.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "消息处理任务引用，便于在关闭时取消",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "GPIO 按键界面（状态打日志）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "KEY3: 切自动/Manual.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从配置还原当前选中的枚举 key.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "安全发射 EventBus 事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "20 低延迟 / 60 低 CPU",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "播放音效序列（在工作线程中执行）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 兜底：第一个可用的非虚拟设备",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "验证码[：:]\\s*(\\d{6})",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活码[：:]\\s*(\\d{6})",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 兜底：System opus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "（此时音频流已停止，无并发读取）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "是否仍持有未关闭的输入/输出流.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "采集线程停转时防堆积，超限丢最旧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 停止旧检测循环并释放旧模型",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无配置时自动检测（保持向后兼容）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "服务端协议固定值（不随配置变化）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "简单文本格式化器，用于文件输出.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册工具；记录名称供卸载/诊断.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "方法4: 尝试常见的应用程序路径",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Windows 系统目录进程排除",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试从命令路径中提取.app名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用进程名称（去掉.exe后缀）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "计算匹配度：更具体的匹配得分更高",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3. 标准化名称匹配 (90分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 包含匹配 (70-80分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "分辨率：尽力设置，失败不视为致命",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "直链 API 返回无法解析的数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "缺少歌曲 ID，无法回退官方接口",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "本地缓存曲库：扫描、列表、搜索.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "一首缓存文件的标题/艺人等信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "未知歌曲总时长，无法按百分比跳转",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频编码回调（从音频线程调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件是否失败（未注册视为失败）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "添加没有 name 的插件到末尾",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "连续失败超过此次数后降级日志频率",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "连接到WebSocket服务器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "WSS 连接监控检查间隔（秒）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务端正常收回会话，不算网络错误",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查WebSocket的实际状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理服务器的 hello 消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取激活码（供 QML 调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取配置值，支持点号分隔的路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置配置值，支持点号分隔的路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清空某项自定义路径（恢复默认）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "对话内容（TTS / STT）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "主按钮文案；没有按钮可以空实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Xiaozhi TUI 主应用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取音效文件路径（仅 WAV）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频设备管理器（无状态，纯逻辑）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果无法操作文件描述符，静默失败",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ndarray 输入: 直接处理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理验证码：提取并复制到剪贴板.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果已正确关闭或正在关闭，跳过",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "本地路径或 http(s) 流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭中：关闭未调度协程避免警告",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否正在关闭 - 静默拒绝",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Logger 名称（缩短显示）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保留最后一部分，缩写前面的部分",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "标准 LogRecord 字段",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "如果还没找到起始位置，继续搜索",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析capabilities.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "单次 call 默认超时（秒）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "方法1: 直接使用应用程序名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "方法2: 直接使用应用程序名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Linux: 排除系统守护进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "进程分组映射（用于关闭时分组）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 窗口标题匹配 (60分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除所有非字母数字字符进行比较",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "SettingsJPEG数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "先按配置音质试，再试 128k",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "直链 → 降音质 → 官方接口",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "搜一首歌；失败返回 None.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "仅用于获取当前歌曲的歌词文本。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截图 MCP 工具注册与工厂.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "使用alpha通道作为mask",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取当前音量 (0-100).",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将 tap 添加到当前运行循环",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "主按钮：开始对话 / 停止对话",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置变更时重新加载唤醒词模型.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT 配置（OTA 注入）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行渲染（在事件循环中调用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "原始模式读取输入（支持中文）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除所有标准输出的日志处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活窗口 ViewModel.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "兼容旧逻辑：只配了 index",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "摄像头参数与 VL 配置属性.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Python-QML 桥接层.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "表情名，具体资源各端自己解析.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查文本是否包含激活相关关键词",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "查找系统安装的 opus 库.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "模型目录（只读，安装目录内）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "资源目录（只读，安装目录内）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "服务器取消授权，需要重新激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 通知监听器（线程安全）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 释放 Opus（同步）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入编码器：16kHz单声道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输出解码器：24kHz单声道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "事件总线最后释放（次先注册）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置不可用时保留当前/默认值",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "UI 操作（界面 → 插件）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "队列满时强制腾一个位置放毒丸",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "常见敏感数据格式的正则表达式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "对文本中的敏感信息进行脱敏.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "格式化日志记录为 JSON.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如果同名文件已存在，添加序号",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析capabilities",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无过滤词：严格只返回用户应用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扫描 .desktop 文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加常见的Linux系统应用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析 .desktop 文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试从命令路径中提取应用名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否包含明确包含的关键词",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 精确匹配 (100分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化智普AICamera.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "下载过程中用的临时文件路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链搞不定时，走酷我官方试听",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "酷我官方 playUrl 用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按 id 找文件并读元数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "----- 歌词 -----",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "截取所有屏幕（包括多显示器）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为JPEG格式的字节数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试不同的Linux截图工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "判断是否应该发送麦克风音频.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "为每个插件注入其声明的依赖.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "把状态/协议消息画到界面上.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据配置决定是否尝试自动重连",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取消并等待连接监控任务完成.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理服务器 hello 消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取消连接监控任务（基类管理）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "- 重新运行程序获取新验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理用户命令 - 统一入口.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "KEY1: 开始/停止对话.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "主窗口 ViewModel.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取当前选中的输入设备索引.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取当前选中的输出设备索引.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "测试摄像头，捕获一帧并显示.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "表情服务 - 管理表情资源.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置保存后通知运行时热重载.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "WebSocket 服务地址",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "仍写入用户值，由上层校验提示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "8-bit PCM 为无符号",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 精确匹配（忽略大小写）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "析构函数 - 执行同步清理",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 清空队列（同步版本）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "停止音频流，幂等可重复调用",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "翘舌音（2字符，优先匹配）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "协议要求：输入 16kHz",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "安全调用处理器，捕获异常.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭时静默跳过，不打印警告",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "缩短 logger 名称.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清理超出保留数量的旧文件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志队列已满，丢弃一条日志",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "不写死中文，组标题=目录名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按优先级尝试不同的启动方法",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "明确排除的系统组件和运行库",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Microsoft系统组件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "6. 路径匹配 (50分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "7. 模糊匹配 (30分)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "可展示/可选的摄像头条目.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "给 AE/AWB 一点时间",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "上次失败原因，给上层提示用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "有缓存直接用，没有再下载.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链 API 网络请求失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "过滤掉作词/作曲这类信息行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "假设显示器按上下或左右排列",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无法访问macOS音量控制",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置音量 (0-100).",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "收到JSON消息时的通知.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通知收到 JSON 消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否在 macOS 上",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Carbon 虚拟键码映射",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否匹配已注册的热键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止接收线程并关闭套接字.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置音频数据接收回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置音频通道打开回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置音频通道关闭回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "为每个描述符发送单独的消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动连接健康监控后台任务.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭WebSocket连接",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "CLI 模块：命令行界面.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "- 验证码输入错误或已过期",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置根 logger 级别",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试导入 gpiozero",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ViewModel 基类.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频设备枚举、选择与测试.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "刷新摄像头列表（非阻塞）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "是否需要激活 UI 流程.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自动模式：开始或停止对话.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "把输入框字符串转成配置值.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "理论上不会发生,但保险起见",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. 模糊匹配（包含关系）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "验证码\\s*(\\d{6})",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "已是独立副本时原地合并即可",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置目录（应用内置，只读）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活 HTTP 客户端.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "efuse 路径未初始化",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "仅播报（轮询重试时用）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清空，返回丢弃的样本数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备配置（初始化后填充）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 停止音频流（同步）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 清理监听器（同步）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "快速质量（适合实时处理）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为 numpy 数组",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排空队列中残留的旧音频帧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "第二阶段：配置管理初始化",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "第三阶段：OTA获取配置",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Auto：开始/停止对话",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置已变更（需要热重载）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "负责协议创建与连接管理.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Windows 终端检查",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "从参数创建McpTool",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保证 JSON 可序列化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "尝试常见的应用程序路径.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试启动UWP应用程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按分数排序，返回最佳匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "基础摄像头类，定义接口.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将图像转换为Base64",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "IP 被封了换音质也没用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取消后台预取（换歌时）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从酷我接口拉歌词并解析.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "确保图片格式兼容JPEG",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为PIL Image",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取指定城市的当前天气。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取指定城市的天气预报。",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取指定名称的依赖插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "根据插件名获取插件实例.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "工具注册，需要较早初始化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理自动对话切换快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否匹配已注册的热键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除 event tap",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否匹配快捷键配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "endpoint不能为空",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化回调函数为None",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送检测到唤醒词的消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送物联网设备描述信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送物联网设备状态信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "指数退避等待，最大30秒",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化时先设为 None",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "判断是否应该使用 SSL",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送客户端hello消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "等待服务器hello响应",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "CLI模式设备激活流程.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "用户主动切换：需要到前台",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "UI 相关事件的数据类.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "OTA / 激活配置地址",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 尝试按名称查找设备",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入\\s*(\\d{6})",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "丢弃进程配置（仅测试）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 优先内置 opus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "请在控制面板输入验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 配置格式转换管线",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3. 重新加载设备配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 检查配置是否启用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "第一阶段：设备身份准备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "请求暂停（如 TTS）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查事件是否有处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取事件的处理器数量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "记录日志系统初始化完成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "自动获取调用者的模块名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查终端是否支持颜色.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "添加 Trace ID",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加 trace_id",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查JSONRPC版本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无法创建模块 spec",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "过滤掉不需要的应用程序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否包含排除关键词",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "明确包含的知名应用程序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "只包含有意义的窗口标题",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "统一的应用程序匹配器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "避免短名称误匹配长名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取正在运行的应用程序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "本地音乐缓存目录管理.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建缓存目录（幂等）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "列出缓存里的音乐文件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清空 temp 目录.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链 API 内部错误",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "直链 API 参数错误",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "保存为JPEG字节数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为JPEG字节数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "当前音量 0-100.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查并报告缺少的依赖.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "协议通道建立后的通知.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "收到音频数据时的通知.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "返回所有已失败插件名.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动所有未失败的插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "没有事件循环，直接调用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "约每分钟一次，避免刷屏",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否触发了快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查监听器是否仍在运行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MQTT 连接活动监控",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置网络错误回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "二进制消息，可能是音频",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "- 确保正确输入验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CLI 终端显示界面.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "再安装我们的日志处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "+14 补偿 ANSI",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "所有命令都转发，不拦截",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭 GPIO 资源.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭 GPIO 视图.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "KEY4: 退出程序.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "KEY1 分支会看这个",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "测试输入设备（录音）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "测试输出设备（播放）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键：窗口显示/隐藏",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "回退到 neutral",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "展示错误（可选覆盖）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "r → 开始/停止对话",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按名称匹配扬声器/耳机",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "OpenCV 数字索引",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "分段等待，便于响应中断",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更精确的验证码匹配模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "可选值: v1, v2",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "生成 UUID v4.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从安装目录复制默认文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "只保留平铺身份字段.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 加载/检测设备",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "数据不足，等待下一帧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 重建格式转换器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "6. 重新创建音频流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "4. 释放 Opus",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "code → 帧数量",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频通道是否已打开.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "调度命令（非阻塞）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "切自动/Manual",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显隐主窗口（GUI）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "负责消息发送的网关.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在锁外广播，避免死锁",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志系统是否已初始化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "JSON 文件处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置第三方库日志级别",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "过滤并脱敏日志记录.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "过滤重复的日志消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置未就绪时使用默认",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重新计算下次轮转时间",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送日志记录到队列.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "同步读一行（带超时）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "MCP工具属性定义.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "其他已知系统进程路径",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排除空名称或系统进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "扫描用户应用程序目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排除空名称或系统路径",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "但排除明显的系统组件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除常见的版本号模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "标准化应用程序名称.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除版本号和特殊字符",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取进程所属的分组.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否有匹配的别名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取已安装的应用程序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "计算所有应用的匹配度",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3) 树莓派 CSI",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "智普AI摄像头实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "下载并写入缓存目录.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "本地音频文件元数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "桌面截图摄像头实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截取所有显示器并合成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "也计算左右排列的尺寸",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "选择更紧凑的排列方式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检测所有可用的显示器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音量后端协议与工厂.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备状态变化时处理.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理 TTS 事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "接收并播放音频数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取依赖的插件实例.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "回退到 pynput",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置变更时重新加载.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理模式切换快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理窗口切换快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键后端抽象基类.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "唤醒词检测错误回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "新增连接状态变化回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送中止语音的消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送开始监听的消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送停止监听的消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "调用子类协议特定清理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "- 服务器暂时不可用",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打印带时间戳的日志.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "日志处理器是否已安装",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动 CLI 显示.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭 CLI 显示.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭 CLI 视图.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "GPIO 是否可用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "当前配置的引脚列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "保持运行（事件驱动）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置选中的输入设备.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置选中的输出设备.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "写界面用的方法集合.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "文本 → 发送给助手",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "保存失败（写盘错误）",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "复制单声道到所有声道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "从文本中提取验证码.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "将当前内存配置落盘.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "确保存在客户端ID.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取动态库所在目录.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "v1协议初始化完成",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "已自动修复激活状态",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "首块已消费的样本数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化音频编解码器",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "监听器（线程安全）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. 加载配置参数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "3. 确定模型路径",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "各插件注册自身资源",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "是否应该采集音频.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "应用级会话控制器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "第四阶段：激活流程",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Manual：按下",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Manual：松开",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "并行执行所有处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置持续监听状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "AEC 是否启用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取当前任务数量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取所有任务名称.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "错误日志文件处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用异步处理器包装",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ANSI 颜色代码",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志级别对应的颜色",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "Unix 系统检查",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "计算下次轮转时间.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否需要轮转.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理工具调用请求.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "正则：扫描注册源码",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "排除的应用程序模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除.lnk扩展名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "精确匹配特殊映射键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空应用程序缓存.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化基础摄像头.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取JPEG数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化普通摄像头.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐相关配置读取.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "(时间秒, 文本)",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化截图摄像头.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "导入必要的依赖库.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试不同的截图方法",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检测最多4个显示器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "单显示器，直接返回",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "多显示器，需要合成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "跨平台音量控制器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "异步发送音频数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "依赖的插件名称列表",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "依赖注入的插件实例",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取插件命令接口.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备状态变更通知.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "未失败的插件列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通知收到音频数据.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通知设备状态变更.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键命令适配器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT配置不完整",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取配置管理器实例",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取设备MAC地址",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通知音频通道已打开",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "2. 登录您的账户",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "3. 选择添加设备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "5. 确认添加设备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "- 网络连接不稳定",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "正在关闭应用...",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新自动模式状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "安全渲染（带锁）.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "CLI 终端界面.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动 CLI 显示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "可根据实际接线修改",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "KEY2: 打断.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置为已激活状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置为未激活状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置为检查中状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "摄像头枚举与测试.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "手动模式按钮按下.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "手动模式按钮释放.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "一个可编辑配置项.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活验证码播报器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "回退到 zh-CN",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "复制文本到剪贴板.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活相关关键词列表",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "避免极端情况下重名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保持本地激活状态",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "组件（依赖注入）",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 创建音频流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "6. 启动音频流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "7. 启动音频流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭音频编解码器",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1. 停止音频流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 清理监听器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "标记是否正在停止",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "5. 加载新模型",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取配置管理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "事件处理器协议.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册事件处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移除事件处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "协议要求：单声道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化阶段枚举.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "预定义事件常量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查是否正在关闭",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "等待所有任务完成",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "确保日志目录存在",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取根日志记录器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清除已有的处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "默认敏感字段模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "构建字段匹配正则",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "给文本添加颜色.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "格式化异常信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "格式化堆栈跟踪.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自定义上下文字段",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志配置数据类.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "计算到午夜的秒数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "查找所有轮转文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注册退出时的清理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "备份原有工具列表",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析MCP消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理初始化请求.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "初始化属性列表.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MCP工具定义.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取可执行文件名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加常用系统应用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "优先使用窗口标题",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除.exe后缀",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "一般特殊映射匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查缓存是否有效",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重新扫描应用程序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "计算合成后的尺寸",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "负值表示从上到下",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取插件上下文.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "插件存在循环依赖",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "降级为优先级排序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通知协议已连接.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "订阅配置变更事件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "加载快捷键配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册所有快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理中断快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从配置重新加载.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注销所有快捷键.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取键码和修饰键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "规范化修饰键名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "唤醒词检测回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UDP 音频通道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "默认禁用自动重连",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送MCP消息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "取消连接监控任务",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通知音频通道关闭",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取消消息处理任务",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "- 检查网络连接",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清屏并初始化界面",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "安装日志处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尽早拦截日志输出",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用闭包捕获索引",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置状态不一致.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "主窗口数据模型.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键配置属性.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键：手动模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "快捷键：自动模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "快捷键：模式切换",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更新唤醒词预览.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "从文件加载配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活服务未初始化",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "未获取到激活数据",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐状态或歌词.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "状态: Idle",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备 index",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止验证码播报.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "尝试加载动态库.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "1) 精确优先名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "激活结果类型.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频监听器协议",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 清空队列",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "下混后的声道数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "上混前的声道数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "累积到目标大小",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "编码器未初始化",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解码器未初始化",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出路径绝不抛",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取事件总线.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "中止语音输出.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "连接协议通道.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建异步任务.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "请求关闭应用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "预定义事件名称",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐播放器事件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "毒丸：Quit",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置监听模式.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设置中止状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取事件循环.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取关闭事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "等待关闭信号.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "导出的公共接口",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建处理器列表",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "字段名匹配脱敏",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "定期清理旧记录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "构建基础日志行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加上下文信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "格式化时间戳.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "提取额外字段.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "运行环境枚举.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移动到文件末尾",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "生成轮转文件名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "构建轮转文件名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按修改时间排序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "删除超出的文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理不同的方法",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "返回服务器信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送成功响应.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送错误响应.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "where命令",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按名称排序去重",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "优先使用中文名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "内核和核心进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析CSV格式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "系统工具和驱动",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "无用的快捷方式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除多余的空格",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "长度相近的匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取缓存信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "截取指定显示器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换为JPEG",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "垂直排列更紧凑",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "水平排列更紧凑",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建设备上下文",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "平台音量实现.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "Kahn 算法",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注销所有快捷键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "事件回调函数.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新修饰键状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取期望的键码",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "tap 已失效",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "按键按下回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按键释放回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取按键名称.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "检查修饰键状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "健康检查循环.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止旧的监听器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建新的监听器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "会话相关操作.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解析描述符数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查是否为数组",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "网络I/O错误",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭音频通道.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打印设备信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打印激活信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备激活成功!",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "显示区最少行数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "ANSI 样式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置命令回调.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "先获取事件循环",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化屏幕显示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "键盘输入循环.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "恢复标准日志.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "获取终端尺寸.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "开始/停止对话",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "终端没有主按钮",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更新设备信息.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "MQTT 配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "UI 服务层.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "转换为 URL",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "查找表情文件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新托盘提示.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "显示托盘通知.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "托盘是否可用.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "运行激活流程.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "展示激活结果.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "自动模式切换.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭 TUI.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理用户命令.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止之前的播报",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设备配置数据类",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "打开网页链接.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "显示/隐藏窗口",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备需要激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "可读样本总数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化转换器",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "2. 重采样",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "1. 重采样",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取出目标帧数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用生命周期",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "播放状态变化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "配置变更事件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频回调类型",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AEC 配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重置中止标志",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "是否已中止.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "复合状态查询",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取消所有任务",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用参数覆盖",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "控制台处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "正则模式脱敏",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加线程信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加进程信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加异常信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加额外字段",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "时间轮转计算",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重新打开文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "关闭处理器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "恢复原有工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "异步调用工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "调用回调函数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "格式化返回值",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "先终止子进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "应用过滤条件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取第一个命令",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查排除模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "桌面环境服务",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "移除常见后缀",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "系统核心进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "开始菜单目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "全局应用缓存",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查直接映射",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查包含关系",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "准备文件数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查响应状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "平台特定导入",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "截取主显示器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "截取副显示器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取位图数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取像素数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建临时文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "构建完整命令",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "读取截图数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "东北风 3级",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "快捷键配置.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建事件监听",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重启监听器.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "启动自动对话",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "(重连失败)",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "默认重连5次",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "连接检测失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "通知开始重连",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动连接监控",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重置重连计数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "验证传输方式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "协议特定清理",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设备激活失败",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "可能的原因:",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "是否已初始化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "标记已初始化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动输入循环",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "恢复标准日志",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化屏幕.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "渲染仪表盘.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "渲染输入区.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清空输入区.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重绘输入行.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "防止重复安装",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置命令回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设置按下回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "属性变化信号",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更新激活码.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备信息显示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "快捷键：中断",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "AEC 启用",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "预加载表情.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建托盘图标",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用应用图标",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显示设置窗口",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "x → 打断",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "客户端 ID",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "帧时长 ms",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "如：你好小智",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频资源目录",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "停止音频播放",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "等待线程结束",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "已经是单声道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通用模式匹配",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "跳过说明文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "设备已激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清空缓冲区",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重建输入流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重建输出流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "零声母标记",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "适配器创建",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "开始监听.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止监听.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "处理事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "触发事件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "事件处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "监听模式.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "中止原因.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "事件类型.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "系统常量.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "请求关闭.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "文件处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "高亮前景色",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加线程名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化父类",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行轮转.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清理旧文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "压缩文件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "创建监听器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "添加工具.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "调用工具.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册表查找",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "UWP应用",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "终止主进程",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "驱动和扩展",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "网易云音乐",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "缓存5分钟",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "模糊匹配.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "捕获图像.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "准备请求头",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "使用场景：",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "参数说明：",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "未知艺术家",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "歌词内容:",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "导入依赖库",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "分配缓冲区",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "插件停止.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "构建依赖图",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "注册快捷键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "停止插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "验证修饰键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "停止监听器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "界面插件.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备信息:",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "需重新激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活步骤:",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "解决方案:",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "仪表盘数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入区行数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更新状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新表情.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "添加日志.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "调度渲染.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "构建状态行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空旧区域",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显示帮助.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "移动光标.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重置状态.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音频帧长度",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "唤醒词文本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "转换唤醒词",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保存到文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空缓存.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "隐藏托盘.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "中断请求.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "发送文本.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "退出请求.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "对话: —",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "音乐: —",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "设备 ID",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "停止播报.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "不抑制异常",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "多声道下混",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "丢弃最旧的",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "放入新数据",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "环境变量名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "不覆盖已有",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析结果",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "状态标记",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "取出一帧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "生命周期",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "网络连接",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "异步任务",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "事件订阅",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "操作方法",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "协议相关",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "网络错误",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频通道",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "歌词更新",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "进度更新",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "请求恢复",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打开设置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "丢弃最旧",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清空残留",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "中止标志",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "监听模式",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "中止状态",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "模块版本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "主要函数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "格式化器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理参数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志级别",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "异常信息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查时间",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行轮转",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建队列",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "忽略通知",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "查找工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "获取参数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "类型检查",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "解析参数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "常见路径",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "系统组件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "系统工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "办公软件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "开发工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通信软件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "媒体软件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "游戏平台",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "实用工具",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "降低分数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "兼容旧名",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "准备消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送请求",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "收集响应",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "未知标题",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "清理资源",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "执行命令",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "被谁依赖",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "拓扑排序",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注入依赖",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "加载配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建后端",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动后端",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "重新注册",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "验证键码",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查主键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "短暂等待",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "正常断开",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "重连成功",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活信息",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "布局设置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "回调函数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "日志缓冲",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "命令队列",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "样式函数",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保存光标",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "恢复光标",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输入提示",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "显示帮助",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发送文本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查平台",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保存回调",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "通用信号",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音频测试",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "音乐配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "更新配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "检查缓存",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "查找文件",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "最终回退",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "加载图标",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "创建菜单",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "双击激活",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "窗口控制",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发文本.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "状态栏.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "全局实例",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "绑定设备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "添加设备",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "你好小智",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输入流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "输出流",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "舌尖音",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "舌根音",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "舌面音",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "发文本",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "过滤器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "处理器",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "前景色",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "背景色",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "时间戳",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "初始化",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "已激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "内容区",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "分隔线",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "预留行",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "启动.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "关闭.",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "验证码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活码",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "流式",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "文件",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "输出",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "唇音",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "其他",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "打断",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "注册",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "触发",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "配置",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "消息",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "卸载",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "文档",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "驱动",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "更新",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "补丁",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "网站",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "在线",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "报告",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "反馈",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "封禁",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "付费",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "作词",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "作曲",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "编曲",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "制作",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "演唱",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "原唱",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "翻唱",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "按键",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "清屏",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "框架",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "绘制",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "中断",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "信号",
+  "count": 1,
+  "kind": "comment"
+ },
+ {
+  "text": "保存",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "登录",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "激活",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "面板",
+  "count": 1,
+  "kind": "string"
+ },
+ {
+  "text": "是",
+  "count": 1,
+  "kind": "string"
+ }
+]

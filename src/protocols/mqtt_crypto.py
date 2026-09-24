@@ -1,4 +1,4 @@
-"""MQTT/UDP 音频通道使用的 AES-CTR 加解密."""
+"""AES-CTR encryption/decryption used by the MQTT/UDP audio channel."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 def aes_ctr_encrypt(key: bytes, nonce: bytes, plaintext: bytes) -> bytes:
-    """AES-CTR 加密.
+    """AES-CTR encryption.
 
     Args:
-        key: 密钥
-        nonce: 初始向量（与解密时一致）
-        plaintext: 明文
+        key: the key
+        nonce: initialization vector (same as when decrypting)
+        plaintext: the plaintext
     """
     cipher = Cipher(algorithms.AES(key), modes.CTR(nonce), backend=default_backend())
     encryptor = cipher.encryptor()
@@ -20,12 +20,12 @@ def aes_ctr_encrypt(key: bytes, nonce: bytes, plaintext: bytes) -> bytes:
 
 
 def aes_ctr_decrypt(key: bytes, nonce: bytes, ciphertext: bytes) -> bytes:
-    """AES-CTR 解密.
+    """AES-CTR decryption.
 
     Args:
-        key: 密钥
-        nonce: 与加密相同的 nonce
-        ciphertext: 密文
+        key: the key
+        nonce: the same nonce as for encryption
+        ciphertext: the ciphertext
     """
     cipher = Cipher(algorithms.AES(key), modes.CTR(nonce), backend=default_backend())
     decryptor = cipher.decryptor()
@@ -33,9 +33,9 @@ def aes_ctr_decrypt(key: bytes, nonce: bytes, ciphertext: bytes) -> bytes:
 
 
 def build_audio_nonce(aes_nonce_hex: str, audio_len: int, sequence: int) -> str:
-    """构造 UDP 音频包 nonce（hex 字符串）.
+    """Build the nonce for a UDP audio packet (hex string).
 
-    格式: 固定前缀 4 hex + 长度 4 hex + 原始 nonce 16 hex + 序列号 8 hex
+    Format: fixed prefix 4 hex + length 4 hex + original nonce 16 hex + sequence number 8 hex
     """
     return (
         aes_nonce_hex[:4]

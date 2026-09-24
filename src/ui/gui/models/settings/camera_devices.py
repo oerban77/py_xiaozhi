@@ -1,4 +1,4 @@
-"""摄像头枚举与测试."""
+"""Camera enumeration and testing."""
 
 from PySide6.QtCore import Slot
 
@@ -8,12 +8,12 @@ logger = get_logger()
 
 
 class SettingsCameraDevicesMixin:
-    # ========== 摄像头设备列表 ==========
+    # ========== Camera device list ==========
 
     def _load_cameras(self, force: bool = False):
-        """在后台线程加载摄像头列表，避免阻塞 Qt 主线程.
+        """Load the camera list on a background thread to avoid blocking the Qt main thread.
 
-        不在应用启动时调用；仅在打开设置 / 刷新 / 摄像头页时触发。
+        Not called at application startup; only triggered when the settings are opened / refreshed / the camera page is shown.
         """
         if self._cameras_loading:
             return
@@ -28,7 +28,7 @@ class SettingsCameraDevicesMixin:
         )
 
     def _do_load_cameras(self):
-        """执行摄像头扫描（OpenCV/V4L2 + 可选 picamera2）."""
+        """Run the camera scan (OpenCV/V4L2 + optional picamera2)."""
         cameras: list[dict] = []
         try:
             from src.mcp.tools.camera.capture_backend import list_camera_devices
@@ -44,32 +44,32 @@ class SettingsCameraDevicesMixin:
                         "path": d.path,
                     }
                 )
-            logger.info(f"摄像头扫描完成: 找到 {len(cameras)} 个")
+            logger.info(f"Camera scan complete: found {len(cameras)}")
         except Exception as e:
-            logger.error(f"扫描摄像头失败: {e}", exc_info=True)
+            logger.error(f"Failed to scan cameras: {e}", exc_info=True)
             raise
         finally:
             self._cameras = cameras
             self._cameras_loaded_once = True
             self.devicesChanged.emit()
             self.statusMessage.emit(
-                f"摄像头列表已刷新（{len(cameras)} 个）"
+                f"Camera list refreshed ({len(cameras)} found)"
                 if cameras
-                else "未检测到摄像头（Pi CSI 需安装 picamera2）"
+                else "No camera detected (Pi CSI requires picamera2)"
             )
 
     @Slot(result=list)
     def getCameras(self) -> list:
-        """获取摄像头列表（不自动触发扫描；由设置页/刷新触发）."""
+        """Get the camera list (does not trigger a scan; triggered by the settings page / refresh)."""
         return [c["name"] for c in self._cameras]
 
     @Slot()
     def refreshCameras(self):
-        """刷新摄像头列表（非阻塞）."""
+        """Refresh the camera list (non-blocking)."""
         self._load_cameras(force=True)
 
     def _current_camera_key(self) -> str:
-        """从配置还原当前选中的枚举 key."""
+        """Restore the currently selected enum key from config."""
         device = str(self._get_value("CAMERA.device", "") or "").strip()
         backend = (
             str(self._get_value("CAMERA.backend", "auto") or "auto").strip().lower()
@@ -84,12 +84,12 @@ class SettingsCameraDevicesMixin:
             return "0"
 
     def _get_selectedCameraIndex(self) -> int:
-        """获取当前选中的摄像头在列表中的下标."""
+        """Get the index of the currently selected camera in the list."""
         current_key = self._current_camera_key()
         for i, c in enumerate(self._cameras):
             if c.get("key") == current_key:
                 return i
-        # 兼容旧逻辑：只配了 index
+        # Backward compatibility: only index was configured
         try:
             current_idx = int(self._get_value("CAMERA.camera_index", 0) or 0)
         except (TypeError, ValueError):
@@ -100,7 +100,7 @@ class SettingsCameraDevicesMixin:
         return 0
 
     def _set_selectedCameraIndex(self, index: int):
-        """设置选中的摄像头（写入 backend/device/index）."""
+        """Set the selected camera (writes backend/device/index)."""
         if 0 <= index < len(self._cameras):
             camera = self._cameras[index]
             from src.mcp.tools.camera.capture_backend import apply_device_selection
@@ -108,22 +108,22 @@ class SettingsCameraDevicesMixin:
             updates = apply_device_selection(str(camera.get("key", "")))
             for path, value in updates.items():
                 self._set_value(path, value)
-            logger.info(f"选择摄像头: {camera['name']} -> {updates}")
+            logger.info(f"Camera selected: {camera['name']} -> {updates}")
 
     @Slot()
     def testCamera(self):
-        """测试摄像头，捕获一帧并显示."""
+        """Test the camera by capturing and displaying one frame."""
         if not self._cameras:
-            self.statusMessage.emit("没有可用的摄像头")
+            self.statusMessage.emit("No camera available")
             return
 
         idx = self._get_selectedCameraIndex()
         if idx < 0 or idx >= len(self._cameras):
-            self.statusMessage.emit("请先选择摄像头")
+            self.statusMessage.emit("Please select a camera first")
             return
 
         camera = self._cameras[idx]
-        self.statusMessage.emit(f"正在测试摄像头 {camera['name']}...")
+        self.statusMessage.emit(f"Testing camera {camera['name']}...")
 
         self._run_worker(
             self._do_camera_test,
@@ -133,7 +133,7 @@ class SettingsCameraDevicesMixin:
         )
 
     def _do_camera_test(self, camera: dict):
-        """执行摄像头测试（走统一 capture_backend）."""
+        """Run the camera test (via the unified capture_backend)."""
         from src.mcp.tools.camera.capture_backend import (
             CaptureConfig,
             apply_device_selection,
@@ -167,12 +167,12 @@ class SettingsCameraDevicesMixin:
         jpeg = capture_jpeg(cfg)
         if not jpeg:
             self.statusMessage.emit(
-                "[失败] 无法捕获图像（Pi CSI 请装 python3-picamera2 或改选 USB）"
+                "[FAIL] Could not capture image (Pi CSI: install python3-picamera2 or use USB)"
             )
             self.testComplete.emit("camera", False)
             return
 
         self.statusMessage.emit(
-            f"[成功] 摄像头正常 (JPEG {len(jpeg)} bytes, {camera['name']})"
+            f"[OK] Camera working (JPEG {len(jpeg)} bytes, {camera['name']})"
         )
         self.testComplete.emit("camera", True)

@@ -14,7 +14,7 @@ ScrollView {
         spacing: Theme.spacingLg
 
         Text {
-            text: "音乐配置"
+            text: "Music Configuration"
             font.pixelSize: Theme.fontSizeXl
             font.weight: Font.DemiBold
             color: Theme.textPrimary
@@ -26,7 +26,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "API 设置"
+                text: "API Settings"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -39,7 +39,7 @@ ScrollView {
                 columnSpacing: Theme.spacingLg
 
                 Text {
-                    text: "搜索 API"
+                    text: "Search API"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
                     Layout.preferredWidth: 120
@@ -51,7 +51,7 @@ ScrollView {
                     // 边改边写回；只靠 editingFinished 时点保存常写不上空串
                     onTextEdited: if (settingsModel) settingsModel.musicSearchUrl = text
                     onEditingFinished: if (settingsModel) settingsModel.musicSearchUrl = text
-                    placeholderText: "留空使用默认酷我搜索 API"
+                    placeholderText: "Leave empty to use the default Kuwo search API"
                     font.pixelSize: Theme.fontSizeSm
                     background: Rectangle {
                         radius: Theme.radiusSm
@@ -61,7 +61,7 @@ ScrollView {
                 }
 
                 Text {
-                    text: "直链 API"
+                    text: "Direct Link API"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
                     Layout.preferredWidth: 120
@@ -72,7 +72,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.musicUrlApi : ""
                     onTextEdited: if (settingsModel) settingsModel.musicUrlApi = text
                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApi = text
-                    placeholderText: "留空使用默认 lx-music-api"
+                    placeholderText: "Leave empty to use the default lx-music-api"
                     font.pixelSize: Theme.fontSizeSm
                     background: Rectangle {
                         radius: Theme.radiusSm
@@ -93,7 +93,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.musicUrlApiKey : ""
                     onTextEdited: if (settingsModel) settingsModel.musicUrlApiKey = text
                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApiKey = text
-                    placeholderText: "留空使用默认 Key"
+                    placeholderText: "Leave empty to use the default key"
                     font.pixelSize: Theme.fontSizeSm
                     background: Rectangle {
                         radius: Theme.radiusSm
@@ -104,7 +104,7 @@ ScrollView {
             }
 
             Text {
-                text: "搜索 API 使用酷我官方接口，直链 API 用于获取播放地址（需配合 API Key）"
+                text: "The search API uses the official Kuwo endpoint; the direct link API fetches playback URLs (requires an API key)."
                 font.pixelSize: Theme.fontSizeXs
                 color: Theme.textPlaceholder
                 wrapMode: Text.WordWrap
@@ -124,7 +124,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "播放偏好"
+                text: "Playback Preferences"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -137,7 +137,7 @@ ScrollView {
                 columnSpacing: Theme.spacingLg
 
                 Text {
-                    text: "默认音质"
+                    text: "Default Quality"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
                     Layout.preferredWidth: 120

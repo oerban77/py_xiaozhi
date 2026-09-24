@@ -17,7 +17,7 @@ _SUBPROCESS_KW = (
     {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 )
 
-# 本地路径或 http(s) 流
+# Local path or http(s) stream
 AudioSource = str | Path
 
 
@@ -35,7 +35,7 @@ def _source_label(source: AudioSource) -> str:
 
 
 def _ffmpeg_header_args(headers: Mapping[str, str] | None) -> list[str]:
-    """拼给 ffmpeg 的 -headers / -user_agent（HTTP 源常用）."""
+    """Build the -headers / -user_agent arguments for ffmpeg (common for HTTP sources)."""
     if not headers:
         return []
     args: list[str] = []
@@ -57,14 +57,14 @@ def _ffmpeg_header_args(headers: Mapping[str, str] | None) -> list[str]:
 
 
 class MusicDecoder:
-    """只负责把音源解成 PCM；缓存预取不走这里（避免和播放进度绑死）."""
+    """Only decodes the audio source into PCM; cache prefetching is not handled here (so it is not tied to playback progress)."""
 
     @staticmethod
     async def get_duration(
         source: AudioSource,
         headers: Mapping[str, str] | None = None,
     ) -> float:
-        """ffprobe 取时长；source 可以是本地文件或 http(s) URL."""
+        """Get the duration with ffprobe; source can be a local file or an http(s) URL."""
         try:
             ffprobe = get_ffprobe_path()
             try:
@@ -78,12 +78,12 @@ class MusicDecoder:
                 await check.wait()
             except FileNotFoundError:
                 logger.warning(
-                    "ffprobe 不可用（未找到内置 libs/ffmpeg 且系统 PATH 无 ffprobe），"
-                    f"无法获取音频时长。尝试路径: {ffprobe}"
+                    "ffprobe unavailable (bundled libs/ffmpeg not found and ffprobe not on system PATH), "
+                    f"cannot get audio duration. Tried path: {ffprobe}"
                 )
                 return 0
             except OSError as e:
-                logger.warning(f"ffprobe 启动失败: {ffprobe}: {e}", exc_info=True)
+                logger.warning(f"ffprobe failed to start: {ffprobe}: {e}", exc_info=True)
                 return 0
 
             cmd = [ffprobe, "-v", "error"]
@@ -108,15 +108,15 @@ class MusicDecoder:
             if process.returncode == 0:
                 duration_str = stdout.decode("utf-8").strip()
                 duration = float(duration_str)
-                logger.debug(f"解析音频时长: {duration:.2f}秒 ({_source_label(source)})")
+                logger.debug(f"Parsed audio duration: {duration:.2f}s ({_source_label(source)})")
                 return duration
             else:
                 error_msg = stderr.decode("utf-8", errors="ignore")
-                logger.warning(f"ffprobe 获取时长失败: {error_msg}")
+                logger.warning(f"ffprobe failed to get duration: {error_msg}")
                 return 0
 
         except Exception as e:
-            logger.warning(f"解析音频时长失败: {e}", exc_info=True)
+            logger.warning(f"Failed to parse audio duration: {e}", exc_info=True)
             return 0
 
     def __init__(self, sample_rate: int = 24000, channels: int = 1):
@@ -134,16 +134,17 @@ class MusicDecoder:
         headers: Mapping[str, str] | None = None,
         cache_path: Path | None = None,
     ) -> bool:
-        """开始解码。source 为本地路径或 http(s)。
+        """Start decoding. source is a local path or http(s).
 
-        cache_path 已废弃忽略：缓存由后台按网速 copy，不跟播放进度绑。
+        cache_path is deprecated and ignored: the cache is copied in the background
+        based on network speed and is not tied to playback progress.
         """
         _ = cache_path
         http = is_http_url(source)
         if not http:
             path = Path(source)
             if not path.exists():
-                logger.error(f"音频文件不存在: {path}")
+                logger.error(f"Audio file does not exist: {path}")
                 return False
             source = path
 
@@ -162,23 +163,23 @@ class MusicDecoder:
                 await result.wait()
                 if result.returncode not in (0, None):
                     logger.error(
-                        f"FFmpeg 无法启动（退出码 {result.returncode}）: {ffmpeg}。"
-                        "安装包应内置可移植二进制；若仍失败请反馈版本与平台。"
-                        "源码运行请执行 ./scripts/bundle_ffmpeg.sh 或安装系统 ffmpeg"
+                        f"FFmpeg failed to start (exit code {result.returncode}): {ffmpeg}. "
+                        "The package should bundle a portable binary; if it still fails, please report the version and platform. "
+                        "For source runs, run ./scripts/bundle_ffmpeg.sh or install system ffmpeg"
                     )
                     return False
             except FileNotFoundError:
                 logger.error(
-                    "FFmpeg 不可用：未找到内置 libs/ffmpeg/<plat>/<arch>/ffmpeg，"
-                    f"且系统 PATH 中也没有。尝试路径: {ffmpeg}。"
-                    "安装包用户无需单独安装系统 FFmpeg；若使用安装包仍失败，"
-                    "请重新下载完整安装包。源码运行请安装 ffmpeg 或执行 "
+                    "FFmpeg unavailable: bundled libs/ffmpeg/<plat>/<arch>/ffmpeg not found, "
+                    f"and not on system PATH either. Tried path: {ffmpeg}. "
+                    "Package users do not need to install system FFmpeg; if the package still fails, "
+                    "please re-download the full package. For source runs, install ffmpeg or run "
                     "./scripts/bundle_ffmpeg.sh"
                 )
                 return False
             except OSError as e:
                 logger.error(
-                    f"FFmpeg 启动失败（可能缺少动态库）: {ffmpeg}: {e}",
+                    f"FFmpeg failed to start (possibly missing shared libraries): {ffmpeg}: {e}",
                     exc_info=True,
                 )
                 return False
@@ -224,15 +225,15 @@ class MusicDecoder:
             self._decode_task = asyncio.create_task(self._read_pcm_stream(output_queue))
 
             position_info = f" from {start_position:.1f}s" if start_position > 0 else ""
-            mode = "流式" if http else "文件"
+            mode = "stream" if http else "file"
             logger.info(
-                f"开始解码音频({mode}): {_source_label(source)}{position_info} "
+                f"Starting audio decode ({mode}): {_source_label(source)}{position_info} "
                 f"[{self.sample_rate}Hz, {self.channels}ch]"
             )
             return True
 
         except Exception as e:
-            logger.error(f"启动音频解码失败: {e}", exc_info=True)
+            logger.error(f"Failed to start audio decoding: {e}", exc_info=True)
             return False
 
     async def _read_pcm_stream(self, output_queue: asyncio.Queue):
@@ -240,8 +241,8 @@ class MusicDecoder:
         frame_size_samples = int(self.sample_rate * (frame_duration_ms / 1000))
         frame_size_bytes = frame_size_samples * 2 * self.channels
         logger.info(
-            f"解码器参数: 帧大小={frame_size_samples}样本, "
-            f"{frame_size_bytes}字节, {frame_duration_ms}ms"
+            f"Decoder params: frame size={frame_size_samples} samples, "
+            f"{frame_size_bytes} bytes, {frame_duration_ms}ms"
         )
 
         eof_reached = False
@@ -254,7 +255,7 @@ class MusicDecoder:
                 if not chunk:
                     duration_decoded = frame_count * frame_duration_ms / 1000
                     logger.info(
-                        f"音频解码完成，共 {frame_count} 帧，时长约 {duration_decoded:.1f}秒"
+                        f"Audio decode complete: {frame_count} frames, duration ~{duration_decoded:.1f}s"
                     )
 
                     if self._process:
@@ -269,7 +270,7 @@ class MusicDecoder:
                                 if err.strip():
                                     logger.warning(f"FFmpeg: {err.strip()[:300]}")
                         except Exception as e:
-                            logger.debug(f"读取 FFmpeg stderr 失败: {e}")
+                            logger.debug(f"Failed to read FFmpeg stderr: {e}")
 
                     eof_reached = True
                     break
@@ -282,29 +283,29 @@ class MusicDecoder:
                 if self.channels > 1:
                     audio_array = audio_array.reshape(-1, self.channels)
 
-                # 节拍完全由下游背压决定：queue 满则在 put 处等位
-                # （AudioCodec.write_pcm_direct 按缓冲水位放行）。
-                # 不再用「墙钟-起播时刻」限速——暂停期间墙钟照走，
-                # 恢复后会误判落后而全速灌数据，把播放队列冲爆。
+                # The pacing is decided entirely by downstream backpressure: when the queue is full, put() blocks
+                # (AudioCodec.write_pcm_direct gates on the buffer level).
+                # No longer rate-limited by "wall clock - start time" — the wall clock keeps advancing during a pause,
+                # and on resume it would falsely appear behind and flood data at full speed, blowing the playback queue.
                 await output_queue.put(audio_array)
 
         except asyncio.CancelledError:
-            logger.debug("解码任务被取消")
+            logger.debug("Decode task cancelled")
         except Exception as e:
-            logger.error(f"读取 PCM 流失败: {e}", exc_info=True)
+            logger.error(f"Failed to read PCM stream: {e}", exc_info=True)
         finally:
             if eof_reached:
                 try:
                     await output_queue.put(None)
                 except Exception as e:
-                    logger.debug(f"发送 EOF 信号失败: {e}")
+                    logger.debug(f"Failed to send EOF signal: {e}")
 
     async def stop(self):
         if self._stopped:
             return
 
         self._stopped = True
-        logger.debug("停止音频解码器")
+        logger.debug("Stopping audio decoder")
 
         if self._decode_task and not self._decode_task.done():
             self._decode_task.cancel()
@@ -313,7 +314,7 @@ class MusicDecoder:
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                logger.error(f"解码任务异常: {e}", exc_info=True)
+                logger.error(f"Decode task error: {e}", exc_info=True)
 
         proc = self._process
         self._process = None
@@ -326,12 +327,12 @@ class MusicDecoder:
                     proc.kill()
                     await proc.wait()
                 except Exception as e:
-                    logger.debug(f"强制结束 FFmpeg 失败: {e}")
+                    logger.debug(f"Failed to force-kill FFmpeg: {e}")
             except ProcessLookupError:
                 pass
             except Exception as e:
                 if str(e).strip():
-                    logger.debug(f"结束 FFmpeg 进程: {e}")
+                    logger.debug(f"Terminated FFmpeg process: {e}")
 
     def is_running(self) -> bool:
         return (
@@ -345,4 +346,4 @@ class MusicDecoder:
             try:
                 await self._decode_task
             except Exception as e:
-                logger.error(f"等待解码完成失败: {e}", exc_info=True)
+                logger.error(f"Failed to wait for decoding to finish: {e}", exc_info=True)

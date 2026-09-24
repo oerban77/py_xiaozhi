@@ -1,4 +1,4 @@
-"""macOS 音量后端（applescript）."""
+"""macOS volume backend (applescript)."""
 
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ class MacosVolumeBackend:
             applescript = self._lazy_import("applescript")
             result = applescript.run("get volume settings")
             if not result or result.code != 0:
-                raise Exception("无法访问macOS音量控制")
-            logger.debug("macOS音量控制初始化成功")
+                raise Exception("Cannot access macOS volume control")
+            logger.debug("macOS volume control initialized")
         except Exception as e:
-            logger.error(f"macOS音量控制初始化失败: {e}", exc_info=True)
+            logger.error(f"macOS volume control init failed: {e}", exc_info=True)
             raise
 
     def get_volume(self) -> int:
@@ -40,7 +40,7 @@ class MacosVolumeBackend:
                 return int(result.out.strip())
             return DEFAULT_VOLUME
         except Exception as e:
-            logger.warning(f"获取macOS音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to get macOS volume: {e}", exc_info=True)
             return DEFAULT_VOLUME
 
     def set_volume(self, volume: int) -> None:
@@ -48,4 +48,4 @@ class MacosVolumeBackend:
             applescript = self._lazy_import("applescript")
             applescript.run(f"set volume output volume {volume}")
         except Exception as e:
-            logger.warning(f"设置macOS音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to set macOS volume: {e}", exc_info=True)

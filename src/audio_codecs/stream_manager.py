@@ -1,6 +1,6 @@
-"""音频流管理器.
+"""Audio stream manager.
 
-职责：sounddevice 流创建、生命周期管理
+Responsibilities: sounddevice stream creation and lifecycle management
 """
 
 from collections.abc import Callable
@@ -16,16 +16,16 @@ logger = get_logger()
 
 
 class AudioStreamManager:
-    """音频流管理器（sounddevice 封装）
+    """Audio stream manager (sounddevice wrapper)
 
-    负责创建和管理音频输入/输出流的生命周期。
+    Creates and manages the lifecycle of audio input/output streams.
     """
 
     def __init__(self, device_config: DeviceConfig):
-        """初始化流管理器
+        """Initialize the stream manager
 
         Args:
-            device_config: 设备配置
+            device_config: device configuration
         """
         self.device_config = device_config
         self.input_stream = None
@@ -35,71 +35,71 @@ class AudioStreamManager:
     def create_streams(
         self, input_callback: Callable, output_callback: Callable
     ) -> None:
-        """创建双工音频流
+        """Create a duplex audio stream
 
         Args:
-            input_callback: 输入回调函数
-            output_callback: 输出回调函数
+            input_callback: inputCallback function
+            output_callback: outputCallback function
 
         Raises:
-            Exception: 创建流失败
+            Exception: stream creation failed
         """
-        # 允许 stop() 后再 create（热重载路径）
+        # Allow create() after stop() (hot-reload path)
         self._stopped = False
         try:
-            # 使用 ALSAErrorSuppressor 抑制 Linux 上的 ALSA 警告
+            # Use ALSAErrorSuppressor to suppress ALSA warnings on Linux
             with ALSAErrorSuppressor():
-                # 输入流
+                # Input stream
                 self.input_stream = sd.InputStream(
                     device=self.device_config.input_device_id,
                     samplerate=self.device_config.input_sample_rate,
                     channels=self.device_config.input_channels,
-                    dtype=np.float32,  # 统一 float32
+                    dtype=np.float32,  # Unified float32
                     blocksize=self.device_config.input_frame_size,
                     callback=input_callback,
                     latency="low",
                 )
 
-                # 输出流
+                # Output stream
                 self.output_stream = sd.OutputStream(
                     device=self.device_config.output_device_id,
                     samplerate=self.device_config.output_sample_rate,
                     channels=self.device_config.output_channels,
-                    dtype=np.float32,  # 统一 float32
+                    dtype=np.float32,  # Unified float32
                     blocksize=self.device_config.output_frame_size,
                     callback=output_callback,
                     latency="low",
                 )
 
             logger.info(
-                f"音频流已创建 | "
-                f"输入: {self.device_config.input_sample_rate}Hz "
+                f"Audio stream created | "
+                f"input: {self.device_config.input_sample_rate}Hz "
                 f"{self.device_config.input_channels}ch | "
-                f"输出: {self.device_config.output_sample_rate}Hz "
+                f"output: {self.device_config.output_sample_rate}Hz "
                 f"{self.device_config.output_channels}ch"
             )
         except Exception as e:
-            logger.error(f"创建音频流失败: {e}", exc_info=True)
+            logger.error(f"Failed to create audio stream: {e}", exc_info=True)
             raise
 
     def start(self) -> None:
-        """启动音频流
+        """Start the audio stream
 
         Raises:
-            Exception: 启动失败
+            Exception: startup failed
         """
         try:
             if self.input_stream:
                 self.input_stream.start()
             if self.output_stream:
                 self.output_stream.start()
-            logger.info("音频流已启动")
+            logger.info("Audio stream started")
         except Exception as e:
-            logger.error(f"启动音频流失败: {e}", exc_info=True)
+            logger.error(f"Failed to start audio stream: {e}", exc_info=True)
             raise
 
     def stop(self) -> None:
-        """停止音频流，幂等可重复调用"""
+        """Stop the audio stream; idempotent and safe to call repeatedly"""
         if getattr(self, "_stopped", False):
             return
         self._stopped = True
@@ -115,12 +115,12 @@ class AudioStreamManager:
                 self.output_stream.close()
                 self.output_stream = None
 
-            logger.info("音频流已停止")
+            logger.info("Audio stream stopped")
         except Exception as e:
-            logger.error(f"停止音频流失败: {e}", exc_info=True)
+            logger.error(f"Failed to stop audio stream: {e}", exc_info=True)
 
     def is_active(self) -> bool:
-        """是否仍持有未关闭的输入/输出流."""
+        """Whether it still holds an unclosed input/output stream."""
         return bool(self.input_stream or self.output_stream)
 
     def reinitialize_stream(
@@ -129,21 +129,21 @@ class AudioStreamManager:
         input_callback: Callable = None,
         output_callback: Callable = None,
     ) -> bool:
-        """重建音频流（支持热插拔）
+        """Rebuild the audio stream (supports hot-plugging)
 
         Args:
-            is_input: True=输入流, False=输出流
-            input_callback: 输入回调函数（仅重建输入流时需要）
-            output_callback: 输出回调函数（仅重建输出流时需要）
+            is_input: True=Input stream, False=Output stream
+            input_callback: input callback function (only needed when rebuilding the input stream)
+            output_callback: output callback function (only needed when rebuilding the output stream)
 
         Returns:
-            bool: 是否成功
+            bool: Whether successful
         """
         try:
-            # 使用 ALSAErrorSuppressor 抑制 Linux 上的 ALSA 警告
+            # Use ALSAErrorSuppressor to suppress ALSA warnings on Linux
             with ALSAErrorSuppressor():
                 if is_input and input_callback:
-                    # 重建输入流
+                    # Rebuild the input stream
                     if self.input_stream:
                         self.input_stream.stop()
                         self.input_stream.close()
@@ -158,11 +158,11 @@ class AudioStreamManager:
                         latency="low",
                     )
                     self.input_stream.start()
-                    logger.info("输入流重新初始化成功")
+                    logger.info("Input stream reinitialized")
                     return True
 
                 elif not is_input and output_callback:
-                    # 重建输出流
+                    # Rebuild the output stream
                     if self.output_stream:
                         self.output_stream.stop()
                         self.output_stream.close()
@@ -177,12 +177,12 @@ class AudioStreamManager:
                         latency="low",
                     )
                     self.output_stream.start()
-                    logger.info("输出流重新初始化成功")
+                    logger.info("Output stream reinitialized")
                     return True
 
             return False
 
         except Exception as e:
-            stream_type = "输入" if is_input else "输出"
-            logger.error(f"{stream_type}流重建失败: {e}", exc_info=True)
+            stream_type = "input" if is_input else "output"
+            logger.error(f"{stream_type} stream rebuild failed: {e}", exc_info=True)
             return False

@@ -1,6 +1,7 @@
-"""启动健康门闩与音频降级策略.
+"""Startup health gate and audio degradation strategy.
 
-与会话业务无关：只根据插件失败集与环境变量决定是否 exit / 降级继续。
+Independent of session business logic: decides whether to exit / continue degraded
+based only on the set of failed plugins and environment variables.
 """
 
 from __future__ import annotations
@@ -8,13 +9,14 @@ from __future__ import annotations
 import os
 from typing import Optional, Protocol
 
-# 启动失败时直接退出，避免 zombie wait_shutdown
+# Exit directly on startup failure to avoid a zombie wait_shutdown
 CRITICAL_PLUGINS = ("ui",)
-# audio 默认关键；XIAOZHI_DEGRADED_AUDIO=1 时失败仅降级不 exit
+# Audio is critical by default; when XIAOZHI_DEGRADED_AUDIO=1 a failure only degrades instead of exiting
 AUDIO_CRITICAL = True
 
 DEGRADED_AUDIO_NOTICE = (
-    "降级：音频不可用（无麦/扬声器）。设置仍可用，修复设备后请重启。"
+    "Degraded mode: audio is unavailable (no microphone/speakers). Settings still work; "
+    "please restart after fixing the device."
 )
 
 
@@ -23,11 +25,11 @@ class _PluginHealth(Protocol):
 
 
 def audio_is_fatal() -> bool:
-    """audio 失败是否应导致进程退出.
+    """Whether an audio failure should cause the process to exit.
 
-    - XIAOZHI_DISABLE_AUDIO=1：有意禁用，不视为失败
-    - XIAOZHI_DEGRADED_AUDIO=1：失败则降级继续（UI/设置可用）
-    - 默认：audio 失败即 exit 1
+    - XIAOZHI_DISABLE_AUDIO=1: intentionally disabled, not treated as a failure
+    - XIAOZHI_DEGRADED_AUDIO=1: continue degraded on failure (UI/settings still usable)
+    - Default: an audio failure exits with code 1
     """
     if os.getenv("XIAOZHI_DISABLE_AUDIO") == "1":
         return False
@@ -37,10 +39,10 @@ def audio_is_fatal() -> bool:
 
 
 def check_critical_plugins(plugins: _PluginHealth) -> Optional[str]:
-    """检查关键插件是否可用.
+    """Check whether the critical plugins are available.
 
     Returns:
-        错误描述；全部健康时返回 None
+        An error description; None when everything is healthy
     """
     failed: list[str] = []
     for name in CRITICAL_PLUGINS:
@@ -56,11 +58,11 @@ def check_critical_plugins(plugins: _PluginHealth) -> Optional[str]:
     hints = []
     if "audio" in failed:
         hints.append(
-            "无音频调试可设 XIAOZHI_DISABLE_AUDIO=1；"
-            "或设 XIAOZHI_DEGRADED_AUDIO=1 以无麦模式继续（UI/设置可用）。"
+            "For audio debugging you can set XIAOZHI_DISABLE_AUDIO=1; "
+            "or set XIAOZHI_DEGRADED_AUDIO=1 to continue without a microphone (UI/settings still usable)."
         )
     return (
-        f"关键插件启动失败: {', '.join(failed)}。"
-        "应用将退出以避免空转（zombie）。"
+        f"Critical plugin startup failed: {', '.join(failed)}."
+        "The application will exit to avoid spinning idle (zombie)."
         + (" " + " ".join(hints) if hints else "")
     )

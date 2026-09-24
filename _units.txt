@@ -1,0 +1,3388 @@
+[4|string] 是否正在运行.
+[4|string] qq音乐
+[4|string] 腾讯会议
+[4|string] 输入:
+[4|string] 钉钉
+[3|string] 转换为JSON格式.
+[3|comment] 过滤掉不需要的进程
+[3|string] 停止快捷键监听.
+[3|comment] 清理临时文件
+[3|comment] 跳过标题行
+[3|comment] 设备状态
+[3|comment] 系统服务
+[3|string] 飞书
+[2|string] 从进程信息中提取应用程序名称.
+
+    Args:
+        comm: 进程名称
+        command: 完整命令
+
+    Returns:
+        str: 应用程序名称
+[2|string] 安全地发送事件.
+
+        优先经 TaskManager.schedule_nowait（线程安全 + 可追踪）；
+        否则回退 run_coroutine_threadsafe。
+[2|string] 判断是否应该包含该进程.
+
+    Args:
+        comm: 进程名称
+        command: 完整命令
+
+    Returns:
+        bool: 是否包含
+[2|string] 捕获图像（OpenCV/V4L2 或 picamera2，见 capture_backend）.
+[2|comment] concurrent.futures.Future 不能直接 await，需要特殊处理
+[2|comment] 使用 ALSAErrorSuppressor 抑制 Linux 上的 ALSA 警告
+[2|comment] ============ 模板方法实现 ============
+[2|comment] ========== 公共 API ==========
+[2|comment] 等待 Future 完成（忽略取消异常）
+[2|comment] 使用线程池执行扫描，避免阻塞事件循环
+[2|string] [1m[36m输入:[0m
+[2|comment] 防止 __del__ 二次释放
+[2|string] [^a-zA-Z0-9一-鿿]
+[2|comment] 使用ps命令获取进程信息
+[2|comment] 统一 float32
+[2|comment] 获取系统对应的扫描器
+[2|comment] 排除系统路径下的进程
+[2|string] Opus 输出采样率
+[2|comment] 噪声抑制/高通预处理
+[2|string] 获取当前设备状态.
+[2|string] 获取当前监听模式.
+[2|string] 是否处于空闲状态.
+[2|string] 是否保持持续监听.
+[2|comment] 排除系统进程和服务
+[2|comment] 检查是否是系统进程
+[2|comment] 排除明显的系统服务
+[2|comment] 只包含用户应用程序
+[2|comment] 健康检查间隔（秒）
+[2|string] 启动健康检查任务.
+[2|comment] 优先按设备名称匹配
+[2|comment] 其次按设备ID匹配
+[2|string] 格式化日志记录.
+[2|string] 启动快捷键监听.
+[2|comment] 通知连接状态变化
+[2|string] 是否正在监听.
+[2|string] 是否正在说话.
+[2|string] 发送音频数据.
+[2|string] 发送文本消息.
+[2|string] 系统托盘服务.
+[2|comment] 开发工具组件
+[2|comment] 其他系统组件
+[2|comment] 使用进程名称
+[2|comment] 排除系统进程
+[2|string] 禁止批量下载
+[2|comment] 创建白色背景
+[2|comment] 启动健康检查
+[2|comment] 停止健康检查
+[2|string] 注册快捷键.
+[2|string] 注销快捷键.
+[2|comment] 检查修饰键
+[2|string] 设置状态.
+[2|comment] 会话状态
+[2|comment] 检查大小
+[2|string] 控制面板
+[2|string] QQ音乐
+[2|comment] 记录响应
+[2|string] (默认)
+[2|string] 未激活
+[2|string] 输入
+[2|string] 微信
+[2|comment] 居中
+[2|comment] 状态
+[1|string] 将任意格式的音频下混为单声道.
+
+    支持两种输入:
+    1. np.ndarray: 形状 (N,) 或 (N, C) 的 PCM 数组
+    2. bytes: PCM 字节流 (需指定 dtype 和 in_channels)
+
+    Args:
+        pcm: 输入音频数据 (ndarray 或 bytes)
+        keepdims: True 返回 (N,1)，False 返回 (N,) (仅 ndarray 输入)
+        dtype: PCM 数据类型 (仅 bytes 输入时使用)
+        in_channels: 输入声道数 (仅 bytes 输入时必需)
+
+    Returns:
+        单声道音频数据 (与输入类型相同)
+
+    Examples:
+        >>> # ndarray 输入
+        >>> stereo = np.random.randint(-32768, 32767, (1000, 2), dtype=np.int16)
+        >>> mono = downmix_to_mono(stereo, keepdims=False)  # shape: (1000,)
+
+        >>> # bytes 输入
+        >>> stereo_bytes = b'...'  # 立体声 PCM 数据
+        >>> mono_bytes = downmix_to_mono(stereo_bytes, dtype=np.int16, in_channels=2)
+[1|string] 统一资源路径解析器 - 开发/打包通用
+
+默认用户数据目录（platformdirs）：
+- Windows: C:/Users/xxx/AppData/Local/{app_name}/
+- macOS:   ~/Library/Application Support/{app_name}/
+- Linux:   ~/.local/share/{app_name}/
+
+默认子目录：config/ cache/ logs/ keywords/ mcp_plugins/
+
+可覆盖（config 目录建议保持默认；其它可迁）：
+- 环境变量：XIAOZHI_DATA_DIR / XIAOZHI_CACHE_DIR / XIAOZHI_LOG_DIR /
+  XIAOZHI_MUSIC_CACHE_DIR / XIAOZHI_KEYWORDS_DIR
+- 配置 PATHS.*（见 apply_path_overrides_from_config；改后可迁移旧目录）
+
+核心 API：
+- get_app_root() / get_app_name()
+- get_user_data_dir() / get_user_cache_dir() / get_user_log_dir()
+- get_music_cache_dir() / get_keywords_dir()
+- apply_path_overrides_from_config() / migrate_directory()
+[1|string] MCP 工具目录：分组与展示名，供设置 UI.
+
+契约（开发时遵守）
+-----------------
+1. **内置工具**放在 ``src/mcp/tools/<pkg>/register.py``，用 ``McpTool("name", ...)``
+   或 ``McpTool(name="name", ...)`` 注册；目录由扫描这些文件得到，**不写死名单/中文标题**。
+2. **分组 id / 组标题** = 包目录名 ``<pkg>``（如 ``music``、``weather``、``camera``），
+   与磁盘 ``tools/<pkg>`` 一致，设置页直接显示包名。
+3. **工具展示名** = name 最后一段（``music_player.pause`` → ``pause``）。
+4. **外挂**：manifest.tools / 源码 ``name=`` 启发式；组标题 = plugin id
+   （若 manifest 有 ``name`` 字段则用该字段，属插件自描述而非宿主写死）。
+5. **禁用**配置：``MCP_TOOLS.DISABLED``（tool 全名列表）。
+
+运行时已注册、却未扫到的名字会并入目录（source=runtime）。
+[1|string] 外挂插件子进程 worker：与宿主通过 stdin/stdout 行分隔 JSON 通信.
+
+协议（每行一个 JSON 对象）::
+
+    → {"id":1,"method":"bootstrap","params":{...}}
+    ← {"id":1,"result":{"tools":[{"name","description","properties":[...]}]}}
+
+    → {"id":2,"method":"call","params":{"name":"...","arguments":{...}}}
+    ← {"id":2,"result":{"value": ...}}  # value 为工具原始返回（bool/int/str 等）
+    ← {"id":2,"error":{"message":"..."}}
+
+    → {"id":3,"method":"shutdown","params":{}}
+    ← {"id":3,"result":{"ok":true}}
+
+capabilities：仅支持只读快照（config_readonly 字典）；logger 在子进程本地创建。
+[1|string] 插件基类.
+
+    插件通过 PluginContext Get Status，通过 PluginCommands 执行操作。
+
+    属性:
+        name: 插件名称，用于依赖声明和日志
+        priority: 优先级，数值越小越优先（范围: 1-100）
+        requires: 依赖的插件名称列表，PluginManager 会自动注入
+
+    用法:
+        class MyPlugin(Plugin):
+            name = "my_plugin"
+            priority = 50
+            requires = ["audio"]  # 声明依赖 AudioPlugin
+
+            async def setup(self, ctx, cmd):
+                await super().setup(ctx, cmd)
+                # self.deps["audio"] 可获取 AudioPlugin 实例
+[1|string] AEC 引擎：libs/webrtc_apm 的实时封装（P0 Self far）.
+
+数据流：
+- near：采集帧（16kHz 单声道 float32）→ ProcessStream → 消回声后上行
+- far：设备实际写出的最终 PCM（TTS + 音乐混合，设备采样率/声道）
+       → 下混 → 重采样到 16kHz → ProcessReverseStream
+
+线程模型（关键）：
+- 输出回调线程只做「下混 + 拷贝入队」（feed_far，微秒级、无锁）；
+  重采样与 APM 调用全部在采集线程（process_near 开头先排空 far 队列）。
+  两个实时回调之间不共享锁，避免输入侧持锁被 GIL 卡住时拖垮输出回调。
+
+设计约束：
+- 库加载/处理失败一律旁路（active=False），不影响通话主链路
+- WebRTC APM 按 10ms 帧处理；协议帧 20/40/60ms 均为其整数倍
+[1|string] 设备状态管理器.
+
+    职责:
+    - 管理设备状态 (IDLE, LISTENING, SPEAKING)
+    - 管理监听模式 (REALTIME, AUTO_STOP, MANUAL)
+    - 管理会话状态 (keep_listening, aec_enabled)
+    - 通过事件总线广播状态变更
+
+    用法:
+        state = StateManager(event_bus)
+
+        # 设置状态（会自动广播）
+        await state.set_device_state(DeviceState.LISTENING)
+
+        # 读取状态
+        if state.is_listening():
+            ...
+[1|string] 事件总线.
+
+    支持异步事件处理，实现组件间松耦合通信。
+
+    用法:     bus = EventBus()
+
+    # 注册处理器 async def on_state_changed(state):     print(f"State: {state}")
+
+    bus.on(Events.DEVICE_STATE_CHANGED, on_state_changed)
+
+    # 触发事件 await bus.emit(Events.DEVICE_STATE_CHANGED, DeviceState.LISTENING)
+
+    # 移除处理器 bus.off(Events.DEVICE_STATE_CHANGED, on_state_changed)
+[1|string] 异步任务管理器.
+
+    职责:
+    - 创建和追踪异步任务
+    - 关闭时统一取消所有任务
+    - 提供线程安全的任务调度
+
+    用法:
+        tm = TaskManager()
+        tm.set_loop(asyncio.get_running_loop())
+
+        # 创建任务
+        task = tm.spawn(some_coroutine(), "task_name")
+
+        # 线程安全调度
+        tm.schedule_nowait(some_function, arg1, arg2)
+
+        # 关闭时清理
+        await tm.cancel_all()
+[1|string] 重新枚举 PortAudio 设备列表（热插拔友好）.
+
+    调用方须先停掉本进程内所有 sounddevice 流，再调本函数；
+    有活跃流时 ``sd._terminate`` 不安全。
+
+    Args:
+        reinitialize: True 时尝试 ``_terminate`` + ``_initialize`` 强制
+            重建 PortAudio 上下文（有利于 macOS 后连蓝牙出现在列表中）。
+            失败则降级为普通 ``query_devices``。
+
+    Returns:
+        设备信息 dict 列表（与 ``list(sd.query_devices())`` 同形）
+[1|string] 输出回调：解码 → 转换 → 播放
+
+        数据流：队列 → 重采样 → 上混 → 设备
+
+        循环从队列取 chunk 喂给 convert_output，直到 resampler
+        内部缓冲区凑够 frames 或队列耗尽。解决采样率非整除
+        （如 16kHz→44100Hz）或服务器帧时长不匹配时的卡顿问题。
+
+        Args:
+            outdata: float32 输出缓冲区，shape (frames, channels)
+            frames: 帧数
+            time_info: 时间信息
+            status: 状态标志
+[1|string] 初始化日志系统.
+
+    Args:
+        level: 日志级别，默认根据环境自动设置
+        log_dir: 日志目录，默认为项目根目录下的 logs
+        enable_console: 是否启用控制台输出
+        enable_file: 是否启用文件输出
+        enable_json: 是否启用 JSON 格式的文件输出
+        enable_async: 是否启用异步日志
+        enable_sensitive_filter: 是否启用敏感信息过滤
+        config: 自定义配置对象
+
+    Returns:
+        日志文件路径（如果启用了文件输出）
+[1|string] 清理协议特定资源（不包括公共状态和监控任务）.
+
+        子类实现该方法时应：
+        - 关闭协议特定的网络连接（socket / websocket / mqtt client 等）
+        - 取消协议特定的后台任务（心跳、消息处理等）
+        - 重置协议特定的时间戳/状态
+
+        不要在此方法中：
+        - Settings self.connected = False（基类 _handle_connection_loss 负责）
+        - Cancel self._connection_monitor_task（基类 _handle_connection_loss 负责）
+[1|string] ALSA 错误输出抑制器。
+
+    在 Linux 系统上，ALSA 库会输出大量警告和错误信息到 stderr，
+    这些信息会干扰终端输出。此上下文管理器可临时抑制这些输出。
+
+    用法:
+        with ALSAErrorSuppressor():
+            # 执行 PyAudio 初始化等操作
+            audio = pyaudio.PyAudio()
+
+    注意:
+        - 仅在 Linux 系统上生效
+        - 在 Windows/macOS 上无操作
+        - 退出上下文时会恢复 stderr
+[1|string] 热重载音频设备配置
+
+        流程：
+        1. 停止当前音频流
+        2. （可选）重初始化 PortAudio 并重新枚举（利于后连蓝牙出现）
+        3. 重新加载设备配置 + 协议配置
+        4. 重建格式转换器 + Opus 编解码器
+        5. 重新创建并启动音频流
+
+        Args:
+            reenumerate: 是否在停流后强制刷新 PortAudio 设备表
+
+        Returns:
+            bool: 是否成功
+[1|string] 设备身份与 efuse 存储.
+
+efuse.json 仅平铺字段（不写 device_fingerprint 嵌套）::
+
+    {
+      "mac_address": "...",
+      "serial_number": "...",
+      "hmac_key": "...",
+      "activation_status": false
+    }
+
+生成 SN/HMAC 时仍在内存中采集 fingerprint，不落盘。
+旧文件若含 device_fingerprint，加载/校验时剥离并回写。
+[1|string] 音乐相关工具.
+
+- music_player: 播放会话（由容器创建并注入 MCP；对外唯一入口）
+- playback / bus: PlaybackEngine / MusicEventBridge（内部组合，勿当公开 API）
+- cache / download / lyrics: 缓存、直链、歌词
+- online_search / local_library / metadata: 搜歌与本地库
+- register_music_tools: 向 McpServer 注册工具（闭包持有 player）
+[1|string] 处理连接丢失（公共逻辑）.
+
+        流程：
+        1. 更新连接状态
+        2. 取消连接监控任务
+        3. 调用子类 _do_cleanup() 清理协议特定资源
+        4. 通知观察者（状态变化、音频通道关闭）
+        5. 根据配置决定是否自动重连
+
+        Args:
+            clean: 服务端正常关闭（如会话结束）。只收回通道，
+                   不触发自动重连，也不上报网络错误。
+[1|string] GPIO 输入处理.
+
+封装 gpiozero 按键监听，支持树莓派的 GPIO 按键输入。
+仅支持 Linux System。
+
+按键模块规格：
+- 按下输出低电平（Active Low）
+- 松开输出高电平
+
+默认引脚映射（BCM 编号）：
+- KEY1: GPIO 17 - 开始/停止对话
+- KEY2: GPIO 27 - 中断当前语音
+- KEY3: GPIO 22 - 切换自动/手动模式
+- KEY4: GPIO 23 - 退出程序
+
+修改 DEFAULT_PINS 可自定义引脚。
+[1|string] 按 CONFIG_VERSION 做向前迁移；必要时写回磁盘.
+
+        from_version: 磁盘文件中的版本（merge 前）。若省略则读 config 内字段
+        （此时若已 merge 默认值，可能已经是最新版，迁移会被跳过）。
+
+        约定：
+        - 缺省 / 非法版本视为 0
+        - 每步只做可逆性要求低的补丁（改名、补段、规范化）
+        - 升到 CONFIG_VERSION 后写回，避免下次重复迁移
+[1|string] UI 模块：gui / cli / gpio 三种界面.
+
+按需导入，避免跨模式依赖：
+    from src.ui.gui import GuiViewManager
+    from src.ui.cli import CliViewManager
+    from src.ui.gpio import GpioViewManager  # 仅 Linux
+    from src.ui.shared import ViewPort, create_viewport
+[1|string] 解码 Opus → float32 PCM
+
+        Args:
+            opus_data: Opus 编码数据
+            frame_size: 期望的样本数
+
+        Returns:
+            float32 数组，范围 [-1.0, 1.0]
+
+        Raises:
+            RuntimeError: 解码器未初始化
+            Exception: 解码失败
+[1|string] 编码 float32 PCM → Opus
+
+        Args:
+            pcm_float32: float32 数组，范围 [-1.0, 1.0]
+            frame_size: 样本数
+
+        Returns:
+            Opus 编码数据
+
+        Raises:
+            RuntimeError: 编码器未初始化
+            Exception: 编码失败
+[1|string] 从 Opus 包的 TOC 字节解析编码参数。
+
+    根据 RFC 6716 Section 3.1 解析：
+    - TOC 高 5 位 = config（决定模式/带宽/单帧时长）
+    - TOC 低 2 位 = code（决定帧数量）
+
+    Returns:
+        dict with keys: duration_ms, frame_ms, num_frames, bandwidth, mode
+        空包返回 None
+[1|string] 音乐状态变化事件数据.
+
+    Attributes:
+        state: 播放状态 ("playing", "paused", "stopped", "completed")
+        song: 歌曲名称
+        position: 当前播放位置（秒）
+        duration: 总时长（秒）
+        pause_source: 暂停来源 ("tts", "manual", "external", None)
+[1|string] Add common tools（全部经 register_* 显式挂载）.
+
+        music_player: 容器注入的 MusicPlayer；提供时注册音乐工具。
+        volume_controller: 可选注入的 VolumeController；未提供时由 register 内创建。
+        camera / screenshot 由 McpPlugin 在 setup 中单独 register。
+[1|string] 资源池 — 注册清理函数，逆序统一释放.
+
+    用法:
+        pool = ResourcePool()
+        pool.register("opus_codec", opus_codec.close)
+        pool.register("audio_stream", stream_manager.stop)
+        await pool.shutdown()  # 逆序执行所有清理函数
+[1|string] 设置按键回调.
+
+        Args:
+            on_key1_pressed: KEY1 按下回调
+            on_key2_pressed: KEY2 按下回调
+            on_key3_pressed: KEY3 按下回调
+            on_key4_pressed: KEY4 按下回调
+
+        Returns:
+            是否设置成功
+[1|string] 自动选择音频设备（简化版）
+
+    策略：
+    1. 系统默认设备（sounddevice 推荐）
+    2. 第一个可用的非虚拟设备
+
+    Args:
+        kind: "input" 或 "output"
+        include_virtual: 是否包含虚拟设备
+
+    Returns:
+        {index, name, sample_rate, channels} 或 None
+[1|string] 输入回调：设备 → 编码 → 发送
+
+        数据流：多声道/高采样率 → 下混 → 重采样 → Opus编码 → 网络
+
+        Args:
+            indata: float32 音频数据，shape (frames, channels)
+            frames: 帧数
+            time_info: 时间信息
+            status: 状态标志
+[1|string] 重建音频流（支持热插拔）
+
+        Args:
+            is_input: True=输入流, False=输出流
+            input_callback: 输入回调函数（仅重建输入流时需要）
+            output_callback: 输出回调函数（仅重建输出流时需要）
+
+        Returns:
+            bool: 是否成功
+[1|string] 初始化并加载 APM；失败时 active=False（旁路）.
+
+        Args:
+            near_rate: 采集协议采样率（16kHz）
+            far_rate: 设备输出采样率（far 侧重采样源）
+            delay_ms: 播放到采集的估计延迟
+            enable_preprocess: 是否同时开高通+噪声抑制
+[1|string] 更新特定配置项
+        path: 点分隔的配置路径，如 "SYSTEM_OPTIONS.NETWORK.MQTT_INFO"
+        save: 是否立即落盘；批量更新时传 False，最后再 save_config()/update_configs
+
+        中间节点若为 None/非 dict，会提升为 dict 再写入（兼容 MQTT_INFO: null 等默认）。
+[1|string] 获取配置好的日志记录器.
+
+    Args:
+        name: 日志记录器名称。如果不传，自动使用调用者的模块名。
+
+    Returns:
+        配置好的日志记录器
+
+    示例:
+        logger = get_logger()  # 自动注入模块名
+        logger = get_logger("custom.name")  # 自定义名称
+[1|string] 安全地将项目放入队列，队列满时可选择丢弃最旧数据.
+
+    Args:
+        queue: asyncio.Queue 对象
+        item: 要入队的数据
+        replace_oldest: True=队列满时丢弃最旧数据并放入新数据, False=直接丢弃新数据
+
+    Returns:
+        True=成功入队, False=队列满且未入队
+[1|string] 激活 UI 基类（非 ABC，避免与 PySide6 QObject 元类冲突）.
+
+    Args:
+        activation_service: ActivationService 实例（由 create() 得到，非单例）
+        init_result: handle_activation 传入的 initialize() 结果，避免重复 initialize
+[1|string] 配置格式转换管线（设备 ↔ 协议）。
+
+        根据设备原生参数和协议要求参数，设置输入/输出转换链。
+        输入：设备(f32, device_rate, device_ch) → 协议(f32, 16kHz, 1ch)
+        输出：协议(f32, opus_out_rate, 1ch) → 设备(f32, device_rate, device_ch)
+[1|string] 列出输入/输出设备（设置页与调试用）.
+
+    不主动重初始化 PortAudio；需要热插拔刷新时先
+    ``refresh_portaudio_devices()``，再调本函数。
+
+    Returns:
+        ``{"input": [...], "output": [...]}``，每项含 index/name/sample_rate/channels
+[1|string] 使用macOS系统命令截图（支持显示器选择）.
+
+        Args:
+            display_id: 显示器ID，None=所有显示器，"main"=Main display，"secondary"=Secondary display，1,2,3...=具体显示器
+
+        Returns:
+            JPEG格式的图片字节数据
+[1|string] EventBus 与 QML 的双向桥接.
+
+    QML → Python: QML 调用 slot，slot 内部 emit EventBus 事件
+    Python → QML: EventBus 事件触发 Python Signal，QML 连接该 Signal
+
+    设备激活由独立 GuiActivation 窗口处理，主界面桥接不再承载激活信号。
+[1|string] gui → GuiActivation；tui/cli/gpio → CliActivation.
+
+    Args:
+        mode: 运行模式
+        activation_service: ActivationService 实例
+        init_result: initialize() 结果（避免重复 initialize）
+[1|string] 音频编解码器 - 协调器模式
+
+    组合各个组件，协调数据流
+
+    数据流：
+    - 输入：设备(float32) → 下混+重采样(float32) → Opus编码(float32→bytes) → 网络
+    - 输出：网络 → Opus解码(bytes→float32) → 重采样+上混(float32) → 设备(float32)
+[1|string] 截取桌面画面.
+
+        Args:
+            display_id: 显示器ID，None=所有显示器，"main"=Main display，"secondary"=Secondary display，1,2,3...=具体显示器
+
+        Returns:
+            成功返回True，失败返回False
+[1|string] 将旧目录内容复制到新目录（默认不删除源，安全）.
+
+    skip_dir_names: 顶层（相对 src）目录名集合，整棵子树跳过不拷
+        （例如 cache 迁移时 music 已单独配置则跳过 music/）。
+
+    Returns:
+        {ok, src, dst, files_copied, error?}
+[1|string] 配置输入转换链（设备 → 协议）
+
+        Args:
+            from_rate: 设备采样率
+            to_rate: 协议采样率（通常16kHz）
+            from_channels: 设备声道数
+            to_channels: 协议声道数（通常1）
+[1|string] 配置输出转换链（协议 → 设备）
+
+        Args:
+            from_rate: 协议采样率（通常24kHz）
+            to_rate: 设备采样率
+            from_channels: 协议声道数（通常1）
+            to_channels: 设备声道数
+[1|string] 采样级 PCM FIFO（float32 单声道，线程安全）.
+
+    写入端在 asyncio 线程，读取端在音频输出回调线程；
+    用于 TTS / 音乐分流后在输出回调中混音。
+
+    - push：超出容量丢最旧（记入 dropped）
+    - pull：返回定长块，数据不足补零；完全无数据返回 None
+[1|string] 输入转换：多声道/高采样率 → 单声道/16kHz
+
+        Args:
+            audio: float32 音频数据
+            target_size: 目标样本数
+
+        Returns:
+            转换后的 float32 数据，或 None（数据不足）
+[1|string] 尝试启动 UWP（Windows Store）应用程序.
+
+    通过 $env:_APP_QUERY 环境变量传递应用名称，
+    避免将用户输入直接拼接到 PowerShell 脚本中。
+
+    Args:
+        app_name: 应用程序名称
+
+    Returns:
+        启动是否成功
+[1|string] 按名称查找设备（模糊匹配）
+
+    Args:
+        kind: "input" 或 "output"
+        device_name: 设备名称（支持部分匹配）
+        include_virtual: 是否包含虚拟设备
+
+    Returns:
+        设备信息字典，或 None
+[1|string] 写入音乐 PCM（float32，供 MusicPlayer 使用），带水位背压.
+
+        写完后若音乐缓冲超过目标水位则等待回放消耗——这是音乐链路
+        唯一的节拍来源（解码器时钟在暂停后会失准，不能作为依据）。
+        背压上限 2 秒兜底退出，FIFO 容量丢最旧保证不会无限膨胀。
+[1|string] 释放资源，显式销毁 C 层编解码器状态.
+
+        opuslib 的 Encoder/Decoder.__del__ 也会调用 destroy()，
+        必须先将 encoder_state/decoder_state 置空，避免 double free。
+        幂等：可安全重复调用。
+[1|string] 加载 WAV 为 float32 mono，并返回 (samples, sample_rate).
+
+        Args:
+            file_path: WAV 文件路径。
+
+        Returns:
+            (float32 Audio, 采样率)，失败返回 None。
+[1|string] 输出回调线程：从 TTS/音乐 FIFO 各取 n 样本并混音.
+
+        规则：
+        - 两路都空 → None（上层进入静音/欠载路径）
+        - TTS 在场时音乐按 _MUSIC_DUCK_GAIN 闪避，并在 TTS
+          帧间隙保持若干块（避免闪避增益抖动）
+[1|string] 初始化Opus编解码器
+
+        Args:
+            input_sample_rate: 输入采样率（编码），如 16000
+            output_sample_rate: 输出采样率（解码），如 24000
+            channels: 声道数，默认 1
+[1|string] 从 ConfigManager 重新加载协议音频参数，支持运行时热重载。
+
+        Settings UI 修改 opus_output_sample_rate / frame_duration 后，
+        调用此方法使新值在下次 initialize/reload_devices 时生效。
+[1|string] 音乐播放会话（公开入口）.
+
+组合：
+- PlaybackEngine — 解码队列 / 启停暂停跳转
+- MusicEventBridge — EventBus 绑定与状态/歌词发射
+
+状态字段在 engine；本类只保留生产常用属性（is_playing / paused / current_song）。
+[1|string] 输出转换：单声道/24kHz → 多声道/高采样率
+
+        Args:
+            audio: float32 音频数据
+            target_frames: 目标帧数
+
+        Returns:
+            转换后的 float32 数据
+[1|string] 初始化所有插件.
+
+        按拓扑排序后的顺序初始化，自动注入依赖。
+        setup 失败或依赖失败的插件会被 mark_failed 并跳过后续生命周期。
+
+        Args:
+            ctx: 插件上下文
+            cmd: 插件命令接口
+[1|string] 关闭应用程序.
+
+    Args:
+        args: 包含应用程序名称的参数字典
+            - app_name: 应用程序名称
+            - force: 是否强制关闭（可选，默认 False）
+
+    Returns:
+        关闭是否成功
+[1|string] 匹配应用程序，返回匹配度分数.
+
+        Args:
+            target_name: 目标应用名称
+            app_info: 应用程序信息
+
+        Returns:
+            int: 匹配度分数 (0-100)，0表示不匹配
+[1|string] 将单声道音频上混到多声道（复制到所有声道）
+
+    Args:
+        mono_data: 单声道音频数据，形状 (N,)
+        num_channels: 目标声道数
+
+    Returns:
+        多声道音频数据，形状 (N, num_channels)
+[1|string] Settings opus 库，供 opuslib 使用.
+
+    搜索顺序：
+    1. 项目内置 opus（libs/libopus/）— 版本可控、部署一致
+    2. System opus（brew/apt）— 兜底
+
+    Returns:
+        是否成功加载
+[1|string] 使用可插拔后端采集一帧 JPEG（OpenCV/V4L2 或 picamera2）.
+
+        桌面 USB / Pi USB 走 OpenCV；Pi CSI 在 auto 模式下 OpenCV 失败后回退 picamera2。
+        带超时保护，避免驱动挂死拖死线程。
+[1|string] 摄像头采集后端：OpenCV/UVC（桌面+Pi USB）与 Picamera2（Pi CSI）。
+
+桌面 USB 摄像头走 OpenCV；树莓派 CSI 官方栈走 picamera2（可选依赖）。
+``backend=auto`` 时先试 OpenCV，失败再回退 picamera2。
+[1|string] 扫描系统中所有已安装的应用程序.
+
+    Args:
+        args: 包含扫描参数的字典
+            - force_refresh: 是否强制重新扫描（可选，默认False）
+
+    Returns:
+        str: JSON格式的应用程序列表
+[1|string] 查找最佳匹配的应用程序.
+
+    Args:
+        app_name: 应用程序名称
+        app_type: 应用程序类型过滤 ("installed", "running", "any")
+
+    Returns:
+        最佳匹配的应用程序信息
+[1|string] 注册快捷键.
+
+        Args:
+            name: 快捷键名称
+            config: 快捷键配置
+            callback: 回调函数（无参数）
+
+        Returns:
+            是否注册成功
+[1|string] 显示主窗口.
+
+        Args:
+            activate: True=抢前台（托盘「显示窗口」/快捷键）；
+                      False=仅显示、不 requestActivate（冷启动，避免挤掉 macOS 全屏 App）
+[1|string] 批量更新多个配置路径，只写盘一次.
+
+        Args:
+            updates: path -> value，例如
+                {"SYSTEM_OPTIONS.NETWORK.WEBSOCKET_URL": "wss://..."}
+[1|string] 获取 keywords 路径，始终使用用户目录
+
+    首次运行时自动从安装目录复制默认文件到用户目录。
+
+    Args:
+        lang: 语言代码，如 "zh" 或 "en"
+
+    Returns:
+        用户目录下的 keywords 文件路径
+[1|string] 创建双工音频流
+
+        Args:
+            input_callback: 输入回调函数
+            output_callback: 输出回调函数
+
+        Raises:
+            Exception: 创建流失败
+[1|string] display可选值：'main'/'Main display'/'Laptop'(Main monitor), 'secondary'/'Secondary display'/'External display'(Secondary monitor), 或留空(所有显示器)；
+[1|string] 音量控制工具.
+
+- VolumeController / 平台后端：见 volume_controller / windows|macos|linux
+- register_volume_tools: 向 McpServer 注册（闭包持有 controller，无模块单例）
+[1|string] 终止指定 PID 的进程.
+
+    Args:
+        pid: 进程 ID
+        force: True 使用 SIGKILL/TerminateProcess，False 使用 SIGTERM
+
+    Returns:
+        是否成功终止
+[1|string] audio 失败是否应导致进程退出.
+
+    - XIAOZHI_DISABLE_AUDIO=1：有意禁用，不视为失败
+    - XIAOZHI_DEGRADED_AUDIO=1：失败则降级继续（UI/设置可用）
+    - 默认：audio 失败即 exit 1
+[1|string] 热刷新设备列表（停流 → PortAudio 重枚举 → 再开流）.
+
+        运行中后连蓝牙时，需经 AudioPlugin 先停流再 ``refresh_portaudio_devices``。
+        无 EventBus 时降级为本地普通枚举。
+[1|string] 查找与应用名匹配的运行中进程.
+
+    使用 AppMatcher 进行智能匹配（包含特殊映射、模糊匹配等）。
+
+    Args:
+        app_name: 目标应用名称
+
+    Returns:
+        匹配的进程信息列表，按匹配度降序排列
+[1|string] 列出系统中正在运行的应用程序.
+
+    Args:
+        args: 包含过滤参数的字典
+            - filter_name: 应用名称过滤条件（可选）
+
+    Returns:
+        str: JSON格式的运行应用程序列表
+[1|string] 按 AEC_OPTIONS.ENABLED 创建/重建 AEC 引擎（Self far）。
+
+        设备热重载后 far 采样率可能变化，须随 device_config 重建；
+        创建失败不抛出，引擎自身旁路（active=False）。
+[1|string] 线程安全地调度可调用对象.
+
+        如果可调用对象返回协程，会自动创建任务。
+
+        Args:
+            fn: 可调用对象
+            *args: 位置参数
+            **kwargs: 关键字参数
+[1|string] 向 McpServer 注册音量工具（闭包持有 controller，不写全局单例）.
+
+    controller 为 None 时尝试 create_volume_controller()；仍失败则注册
+    会返回「不可用」结果的工具，避免工具列表缺失。
+[1|string] 外挂插件 python-subprocess runtime：独立进程 + JSON 行协议代理工具.
+
+主进程不 import 插件代码；仅启动 worker、bootstrap 拉取工具 schema，
+并将 McpTool 回调代理为对子进程的 call。
+[1|string] 音频配置类 — 协议层参数，与设备层（DeviceConfig）独立。
+
+    默认值在类体中声明；通过 reload() 从 ConfigManager 动态加载。
+    不再在 import 时强制 reload，避免 constants 模块副作用。
+[1|string] 列出所有正在运行的应用程序.
+
+    Args:
+        args: 包含列出参数的字典
+            - filter_name: 过滤应用程序名称（可选）
+
+    Returns:
+        JSON 格式的运行中应用程序列表
+[1|string] 后台按网速 FFmpeg -c copy 整首落盘，不跟播放进度同步.
+
+        类似 HTML audio 的缓冲：播的同时尽快把整文件拉完，听完前也可能已缓存好。
+        换歌会取消上一次预取；Pause/停止当前歌不取消（继续缓冲）。
+[1|string] 创建异步任务并追踪.
+
+        Args:
+            coro: 协程对象
+            name: 任务名称
+
+        Returns:
+            创建的任务对象，如果应用正在关闭则返回 None
+[1|string] MusicPlayer 与 EventBus 的桥：订阅控制事件、发射状态/歌词.
+
+持有 PlaybackEngine 引用；控制请求通过 MusicPlayer 公开方法转发
+（便于测试 monkeypatch player.stop 等）。
+[1|string] 插件管理器.
+
+    职责:
+    - 按依赖关系拓扑排序
+    - 自动注入插件依赖
+    - 统一 setup/start/stop 广播
+    - 错误隔离，单个插件失败不影响其他插件
+    - 失败标记 + 依赖失败时跳过下游
+[1|string] 初始化所有组件
+
+        流程：
+        1. 加载/检测设备
+        2. 刷新协议配置 + 初始化 Opus
+        3. 配置格式转换管线
+        4. 创建音频流
+        5. 启动音频流
+[1|string] 热重载唤醒词模型.
+
+        Args:
+            model_path: 新模型路径（如 "models/en"）。如果为 None，从配置读取。
+
+        Returns:
+            是否重载成功
+[1|string] 列出运行中的用户应用程序.
+
+    只返回用户可见的桌面应用，不包含系统守护进程、Electron 子进程等。
+
+    Args:
+        filter_name: 可选的名称过滤关键词，传入时放宽过滤（用于 kill 匹配）
+[1|string] 使用Windows API截图.
+
+        Args:
+            display_id: 显示器ID (暂未实现，使用虚拟屏幕)
+
+        Returns:
+            JPEG格式的图片字节数据
+[1|string] 加载配置或自动检测设备（按名称匹配）
+
+        Returns:
+            DeviceConfig: 设备配置
+
+        Raises:
+            RuntimeError: 无法找到可用设备
+[1|string] 判断是否应该包含该应用程序.
+
+    Args:
+        display_name: 应用程序显示名称
+        publisher: 发布者（可选）
+
+    Returns:
+        bool: 是否应该包含
+[1|string] 使用Linux系统命令截图.
+
+        Args:
+            display_id: 显示器ID (暂未实现，使用默认显示器)
+
+        Returns:
+            JPEG格式的图片字节数据
+[1|string] 设置窗口 ViewModel.
+
+按功能拆成 settings/ 下多个 mixin，本文件组合并声明 QML Property。
+对外 仍为 SettingsModel，QML context 名 settingsModel 不变。
+[1|string] 截取macOS单个显示器.
+
+        Args:
+            display_num: 显示器编号 (1, 2, 3, ...)
+
+        Returns:
+            PIL Image对象
+[1|string] 获取表情的 QML 可用 URL.
+
+        Args:
+            emotion_name: 表情名称
+
+        Returns:
+            file:// URL 或 emoji 字符
+[1|string] 获取设备的帧长度.
+
+    优先从已初始化的配置读取，无配置时根据设备架构自动检测。
+    不在 import constants 时读配置。
+
+    返回:
+        int: 帧长度(毫秒)，支持 20/40/60
+[1|string] 从进程信息中提取应用程序名称.
+
+    Args:
+        image_name: 进程映像名称
+        window_title: 窗口标题
+
+    Returns:
+        str: 应用程序名称
+[1|string] WebSocket 协议特定资源清理.
+
+        清理消息处理任务、心跳任务、WebSocket 连接和心跳时间戳.
+        不负责取消连接监控任务（基类 _handle_connection_loss 负责）.
+[1|string] 初始化 GPIO 输入.
+
+        Args:
+            pins: GPIO 引脚列表（BCM 编号），默认使用 DEFAULT_PINS
+            bounce_time: 消抖时间（秒）
+[1|string] 从 ConfigManager 读取 PATHS，设置运行时覆盖，并可选迁移旧目录.
+
+    环境变量始终优先于配置。config 目录不由此迁移。
+
+    Returns:
+        迁移结果列表（便于 UI/日志）
+[1|string] 通过UWP路径启动应用程序.
+
+    Args:
+        uwp_path: UWP应用程序路径（shell:AppsFolder\...格式）
+
+    Returns:
+        bool: 启动是否成功
+[1|string] 用户数据目录（可写：默认含 config/）
+
+    优先环境变量 XIAOZHI_DATA_DIR，否则 platformdirs。
+    配置文件建议始终在此目录下的 config/，保证能读到 PATHS 覆盖项。
+[1|string] 设置系统托盘.
+
+        Args:
+            on_show: 显示窗口回调
+            on_quit: 退出回调
+
+        Returns:
+            是否成功
+[1|string] 重建音频流（支持热插拔）
+
+        Args:
+            is_input: True=输入流, False=输出流
+
+        Returns:
+            bool: 是否成功
+[1|string] 判断是否应该包含该进程.
+
+    Args:
+        image_name: 进程映像名称
+        window_title: 窗口标题
+
+    Returns:
+        bool: 是否包含
+[1|string] 拓扑排序插件列表，确保依赖先于被依赖者初始化.
+
+        Returns:
+            排序后的插件列表
+
+        Raises:
+            ValueError: 存在循环依赖
+[1|string] 解码并播放音频（Opus → 扬声器）
+
+        自动从 Opus TOC 字节检测帧时长，无需依赖客户端配置。
+
+        Args:
+            opus_data: Opus 编码数据
+[1|string] 服务容器.
+
+    持有核心服务与 ConversationSession，编排 run / shutdown 生命周期。
+    会话操作走 ``self.session``；门闩走 ``health`` 模块。
+[1|string] 按名称终止应用（匹配所有相关进程）.
+
+    Args:
+        app_name: 应用名称
+        force: 是否强制终止
+
+    Returns:
+        是否至少终止了一个进程
+[1|string] 将多个显示器的截图合成为一张图片.
+
+        Args:
+            displays: 显示器信息列表
+
+        Returns:
+            合成后的PIL Image对象
+[1|string] 获取动态库路径.
+
+    Args:
+        lib_name: 库名，如 "libopus", "webrtc_apm"
+
+    Returns:
+        库文件的完整路径，找不到返回 None
+[1|string] 分析图像.
+
+        Args:
+            question: 用户问题
+            image_data: 可选的外部图像数据，为 None 时使用 self.jpeg_data
+[1|string] 加载日志配置（纯函数，无单例）.
+
+    Args:
+        app_config: 可选 ConfigManager 实例；未传时若已 initialize_config 则读取 LOGGING 段。
+[1|string] 停掉本编解码器占用的 sounddevice 流，供热插拔枚举前调用.
+
+        调用后必须再 ``reload_devices()`` 或自行 ``create_streams``，否则无采集/播放。
+[1|string] 递归合并配置：default 为底，custom 覆盖；两边均为 dict 时深合并.
+
+        注意：调用方应传入已 deepcopy 的 default，避免污染类级 DEFAULT_CONFIG。
+[1|string] 解析.desktop文件.
+
+    Args:
+        desktop_file: .desktop文件路径
+
+    Returns:
+        Dict[str, str]: 应用程序信息
+[1|string] 解析Windows快捷方式的目标路径.
+
+    Args:
+        shortcut_path: 快捷方式文件路径
+
+    Returns:
+        目标路径，如果解析失败则返回None
+[1|string] 检查连接是否存活.
+
+        子类必须实现该方法，返回当前协议连接的健康状态.
+
+        Returns:
+            bool: 连接存活返回 True，否则返回 False
+[1|string] 设置页请求刷新设备列表：停流 → 重枚举 → 再开流.
+
+        payload 可为 asyncio.Future，完成后 set_result(list_audio_devices 结果)。
+[1|string] 会话控制：听/说状态机与协议发送.
+
+与 UI 侧 SessionActions（按钮文案/模式）分离：这里只负责 connect /
+listen / abort / TTS 回环等应用级会话逻辑。
+[1|string] 注册一个清理函数.
+
+        Args:
+            name: 资源名称（用于日志和排查）
+            cleanup: 清理函数，可以是普通函数或 async 函数
+[1|string] macOS 快捷键后端.
+
+使用 Carbon API 的 RegisterEventHotKey 注册全局热键。
+这与 Electron 的 globalShortcut 底层使用相同的 API。
+[1|string] 连接健康状态监控协程.
+
+        循环检查 self._is_connected() 返回值，
+        发现断开则调用 self._handle_connection_loss().
+[1|string] 重新加载配置文件.
+
+        apply_paths: 是否重新应用 PATHS 覆盖（不迁移目录）。
+        PATHS 目录迁移仅在 initialize_config 时执行。
+[1|string] 通过注册表查找应用程序的可执行文件路径.
+
+    Args:
+        app_name: 应用程序名称
+
+    Returns:
+        应用程序路径，如果没找到则返回None
+[1|string] EventBus：AudioPlugin 发布 codec 就绪/清除.
+
+        EventBus 在 data 为 None 时无参调用 handler，故 codec 必须有默认值。
+[1|string] 创建适合当前平台的快捷键后端.
+
+    Args:
+        loop: asyncio 事件循环
+
+    Returns:
+        快捷键后端实例，如果无法创建则返回 None
+[1|string] 测试或编程方式设置覆盖（env 仍优先）.
+
+    - 不传某参数：保持该覆盖不变
+    - 传路径字符串/Path：设置覆盖
+    - 显式传 None：清除该覆盖（恢复默认/仅 env）
+[1|string] 歌词更新事件数据.
+
+    Attributes:
+        text: 歌词文本
+        time_sec: 时间戳（秒）
+        song_id: 歌曲 ID（可选）
+[1|string] 向资源池注册清理函数。子类重写此方法以注册需要释放的资源。
+        资源按注册的逆序释放，先注册的后释放。
+
+        Args:
+            pool: 资源池实例
+[1|string] 获取缓存的应用程序列表.
+
+    Args:
+        force_refresh: 是否强制刷新缓存
+
+    Returns:
+        Application list
+[1|string] 播放引擎：解码队列、启停/Pause/Resume/跳转与写入 AudioCodec.
+
+由 MusicPlayer 持有；不依赖宿主 self 字段（经 hooks 回调节奏/上下文）。
+[1|string] 并行播放判定：AEC 引擎在位且配置允许时，TTS 不暂停音乐.
+
+        引擎旁路（库缺失/连续失败自禁）时自动回退为暂停策略，
+        避免无回声消除的裸并行污染识别。
+[1|string] Reload external plugin only：先卸掉已知外挂工具，再按配置扫描加载.
+
+        注意：不会重新 register 内置工具；内置应已在 tools 中。
+[1|string] 建立 WebSocket 连接.
+
+        如果尚未连接,则创建新的 WebSocket 连接
+        Returns:
+            bool: 连接是否成功
+[1|string] 获取平台和架构信息.
+
+    Returns:
+        (platform_dir, arch_dir) 如 ("mac", "arm64") / ("win", "x64")
+[1|string] 顺序触发事件.
+
+        按注册顺序依次调用处理器。
+
+        Args:
+            event: 事件名称
+            data: 事件数据
+[1|string] 注册 take_screenshot.
+
+    photo_camera: 可选，用于分析时复用 explain URL/token（与 take_photo 同一 camera）。
+[1|string] 设置重连尝试回调函数.
+
+        Args:
+            callback: 回调函数，接收参数 (attempt: int, max_attempts: int)
+[1|string] 启用或禁用自动重连功能.
+
+        Args:
+            enabled: 是否启用自动重连
+            max_attempts: 最大重连尝试次数
+[1|string] 设置连接状态变化回调函数.
+
+        Args:
+            callback: 回调函数，接收参数 (connected: bool, reason: str)
+[1|string] 触发事件.
+
+        并行调用所有注册的处理器。
+
+        Args:
+            event: 事件名称
+            data: 事件数据
+[1|string] For example, if scan shows {name: 'QQ', display_name: 'QQ音乐'}, use self.application.launch
+[1|string] 根据枚举 key 生成应写入的配置片段.
+
+    Returns:
+        可 update 的 dict：camera_index / device / backend
+[1|string] 输出回调线程调用：仅下混+拷贝入队，不做重采样/APM（微秒级返回）.
+
+        含静音帧也应喂入，保持 far 流连续；重活由采集线程 process_near 完成。
+[1|string] 插件协议适配器.
+
+将 ServiceContainer 上的状态与会话能力暴露为 PluginContext /
+PluginCommands，插件只依赖协议，不依赖容器类型。
+[1|string] 判断是否应该包含该应用程序.
+
+    Args:
+        display_name: 应用程序显示名称
+
+    Returns:
+        bool: 是否包含
+[1|string] 快捷键插件模块.
+
+提供跨平台的全局快捷键支持：
+- macOS: 使用 Quartz Event Tap (PyObjC)
+- Linux/Windows: 使用 pynput
+[1|string] AES-CTR 解密.
+
+    Args:
+        key: 密钥
+        nonce: 与加密相同的 nonce
+        ciphertext: 密文
+[1|string] AES-CTR 加密.
+
+    Args:
+        key: 密钥
+        nonce: 初始向量（与解密时一致）
+        plaintext: 明文
+[1|string] 加载可用的音频设备列表（普通枚举，不重初始化 PortAudio）.
+
+        Args:
+            force: True 时强制重新枚举（打开设置时）
+[1|string] 是否应该采集音频.
+
+        在以下情况下需要采集:
+        1. 正在监听且未中止
+        2. 正在说话，但启用了 AEC 且在实时模式下保持监听
+[1|string] 在Windows上启动应用程序.
+
+    Args:
+        app_name: 应用程序名称
+
+    Returns:
+        bool: 启动是否成功
+[1|string] 启动快捷方式文件.
+
+    Args:
+        shortcut_path: 快捷方式文件路径
+
+    Returns:
+        bool: 启动是否成功
+[1|string] 构造 UDP 音频包 nonce（hex 字符串）.
+
+    格式: 固定前缀 4 hex + 长度 4 hex + 原始 nonce 16 hex + 序列号 8 hex
+[1|string] 协议管理器.
+
+封装通信协议操作，通过事件总线转发消息。
+音频数据走直连通道（有界队列 + 单 consumer），避免 per-frame create_task 堆积。
+[1|string] 设置保存后 MCP 工具列表变更：已连接则断开并重连，便于服务端重新 list.
+
+        仅刷新协议/工具视图，不恢复聆听会话（避免保存设置后进入「聆听中」）。
+[1|string] 在Linux上启动应用程序.
+
+    Args:
+        app_name: 应用程序名称
+
+    Returns:
+        bool: 启动是否成功
+[1|string] 在macOS上启动应用程序.
+
+    Args:
+        app_name: 应用程序名称
+
+    Returns:
+        bool: 启动是否成功
+[1|string] 创建跨插件共享服务（McpServer / MusicPlayer），仅容器持有.
+
+    不再写入模块级单例；插件与 MCP 工具经构造注入 / 闭包拿到同一实例。
+[1|string] 清理应用程序名称，移除版本号和特殊字符.
+
+    Args:
+        name: 原始名称
+
+    Returns:
+        str: 清理后的名称
+[1|string] GUI 界面入口（ViewPort + 设置辅助）.
+
+    设备激活在容器启动前由 GuiActivation 独立窗口完成，主界面不再挂激活 Model/API。
+[1|string] 音乐控制请求数据.
+
+    Attributes:
+        source: 请求来源 ("tts", "manual", "external", etc.)
+[1|string] 音频插件.
+
+负责音频采集、编码、播放和发送。
+AudioCodec 经 Events.AUDIO_CODEC_CHANGED 发布，不直连 MusicPlayer。
+[1|string] 插件准备阶段.
+
+        Args:
+            ctx: 插件上下文（只读状态访问）
+            cmd: 插件命令接口（执行操作）
+[1|string] 扫描Windows系统中已安装的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: Application list
+[1|string] 注销快捷键.
+
+        Args:
+            name: 快捷键名称
+
+        Returns:
+            是否注销成功
+[1|string] 资源池.
+
+统一的资源注册与释放机制。所有需要清理的资源（C扩展、音频流、网络连接等）
+注册到池中，shutdown 时按注册的逆序统一释放，避免重复释放和遗漏。
+[1|string] Windows系统应用程序启动器.
+
+提供Windows平台下的应用程序启动功能。
+所有 subprocess 调用均使用列表形式，不使用 shell=True。
+[1|string] 扫描Linux系统中已安装的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: Application list
+[1|string] 扫描macOS系统中已安装的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: Application list
+[1|string] 尽早拦截日志输出（在 start 之前调用）.
+
+        模仿旧实现：在 __init__ 阶段就移除 StreamHandler 并安装自定义处理器。
+[1|string] 从配置加载唤醒词.
+
+        Args:
+            update_preview: 是否立即转换拼音预览（转换可能触发额外 import）
+[1|string] 打开系统目录选择框。which: cache|log|music|keywords|mcp.
+
+        返回选中的路径；取消返回空串（QML 勿写回）。
+[1|string] UI 共用：ViewPort 契约、工厂、激活基类、跨端事件 DTO.
+
+Qt ViewModel 在 src.ui.gui.models（仅 GUI 使用）。
+[1|string] 扫描Windows系统中正在运行的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: 正在运行的应用程序列表
+[1|string] 激活验证码播报模块.
+
+使用预录制 WAV 音效播报激活验证码，仅在设备激活流程中使用。
+不依赖 FFmpeg，可在无系统 FFmpeg 的干净环境中工作。
+[1|string] 移除事件处理器.
+
+        Args:
+            event: 事件名称
+            handler: 要移除的处理函数
+[1|string] 设置设备状态.
+
+        Args:
+            state: 新的设备状态
+
+        如果状态发生变化，会通过事件总线广播。
+[1|string] Linux系统应用程序启动器.
+
+提供Linux平台下的应用程序启动功能。
+所有 subprocess 调用均使用列表形式，不使用 shell=True。
+[1|string] macOS系统应用程序启动器.
+
+提供macOS平台下的应用程序启动功能。
+所有 subprocess 调用均使用列表形式，不使用 shell=True。
+[1|string] 添加音频监听器（线程安全）
+
+        Args:
+            listener: 实现 AudioListener 协议的监听器对象
+[1|string] 开始解码。source 为本地路径或 http(s)。
+
+        cache_path 已废弃忽略：缓存由后台按网速 copy，不跟播放进度绑。
+[1|string] 扫描Linux系统中正在运行的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: 正在运行的应用程序列表
+[1|string] 扫描macOS系统中正在运行的应用程序.
+
+    Returns:
+        List[Dict[str, str]]: 正在运行的应用程序列表
+[1|string] 注册事件处理器.
+
+        Args:
+            event: 事件名称
+            handler: 异步处理函数
+[1|string] 1. Open specific software applications (e.g., 'QQ', 'QQ音乐', 'WeChat', '微信')
+[1|string] MQTT + UDP 音频协议实现.
+
+MQTT 承载控制 JSON；UDP 承载加密音频帧（见 mqtt_udp / mqtt_crypto）。
+[1|string] 获取连接信息（基类实现，子类可扩展）.
+
+        Returns:
+            dict: 包含连接状态、重连次数等信息的字典
+[1|string] 应用根目录（开发/打包通用）
+
+    - 开发时: 项目根目录
+    - 打包后: _MEIPASS（PyInstaller onedir）
+[1|string] 跨平台进程管理（基于 psutil）.
+
+用 psutil 替代所有平台特定的 subprocess 进程列表和终止逻辑，
+消除命令注入风险。
+[1|string] 获取已初始化的配置管理器.
+
+    Raises:
+        RuntimeError: 尚未 initialize_config()
+[1|comment] Windows: sherpa-onnx C++ 用 std::ifstream(narrow_char*) 读取 tokens.txt，
+[1|string] 通过路径获取配置值
+        path: 点分隔的配置路径，如 "SYSTEM_OPTIONS.NETWORK.MQTT_INFO"
+[1|string] 处理采集帧（16kHz 单声道 float32），返回消回声后的同长数据.
+
+        任何失败都返回原始数据；连续失败自动旁路。
+[1|string] Examples: '帮我看看这是什么', '拍个照', '看看前面', 'take a photo', 'what is this'.
+[1|comment] 旧 music 在 cache 下，但新 music 不是「新 cache/music」→ 由 music 项单独迁，cache 勿再拷
+[1|string] 外挂 MCP 插件目录加载（python-inprocess / python-subprocess + vendored lib）.
+[1|string] MQTT 会话配套的 UDP 加密音频通道.
+
+负责：套接字、收包线程、AES 加解密发包；经 event loop 把帧回调给上层。
+[1|string] 在后台线程加载摄像头列表，避免阻塞 Qt 主线程.
+
+        不在应用启动时调用；仅在打开设置 / 刷新 / 摄像头页时触发。
+[1|string] 获取 WSS 连接信息.
+
+        Returns:
+            dict: 包含连接状态、重连次数等信息的字典
+[1|string] 初始化配置文件路径.
+
+        配置文件存储到用户数据目录，打包后可写。
+        首次运行时从安装目录迁移默认配置。
+[1|string] 初始化任务管理器.
+
+        Args:
+            loop: 事件循环，为 None 时使用当前运行的循环
+[1|string] Unbind runtime dependencies when container closes，保留工具列表便于同进程再启动.
+[1|string] 支持简化 dict：{name, type: str|int|bool|string|integer|boolean, ...}.
+[1|string] '音量设为50', 'Turn up volume', 'Turn down volume slightly', 'Mute'.
+[1|string] 启动 GPIO 视图.
+
+        Args:
+            mode: 运行模式（GPIO 模式下忽略此参数）
+[1|string] PluginCommands 适配器：命令落到 ConversationSession / protocol / tasks.
+[1|comment] tuple of frozendict-like：用 tuple[dict] 但 dict 可变；缓存返回 tuple 拷贝用
+[1|comment] 非 /Applications 但也不是系统路径的（如 ~/Library/Application Support 下的工具）
+[1|string] 排出 resampler 缓冲区中的剩余数据（带上混）。
+
+        用于队列耗尽但缓冲区差少量样本时，避免整帧静音。
+[1|string] 使用PIL ImageGrab截图.
+
+        Returns:
+            JPEG格式的图片字节数据
+[1|string] 截取macOS所有显示器并合成.
+
+        Returns:
+            合成后的PIL Image对象
+[1|comment] codec 在 start() 再发布：MusicPlayer 在 McpPlugin.setup 中订阅 EventBus
+[1|string] 启动 CLI 视图.
+
+        Args:
+            mode: 运行模式（CLI 模式下忽略此参数）
+[1|string] 播报验证码（非阻塞）.
+
+        Args:
+            code: 验证码字符串，如 "123456"
+[1|string] 设置编码回调
+
+        Args:
+            callback: 回调函数，接收 Opus 编码数据
+[1|string] 音量 MCP 工具：由 register_volume_tools 注入 VolumeController，无模块级单例.
+[1|string] 跨平台音量控制器门面.
+
+平台实现见 windows / macos / linux 模块；本类负责探测、装配与依赖检查。
+[1|string] 播报激活验证码.
+
+    Args:
+        code: 验证码字符串
+        locale: 语言代码
+[1|string] 移除音频监听器（线程安全）
+
+        Args:
+            listener: 要移除的监听器对象
+[1|string] 清除事件处理器.
+
+        Args:
+            event: 事件名称，为 None 时清除所有
+[1|string] 日志格式化器模块.
+
+提供多种日志格式化器：
+- 彩色控制台格式化器
+- JSON 结构化格式化器
+- 简单文本格式化器
+[1|string] CLI 终端显示界面.
+
+提供终端 TUI 界面，包含:
+- 状态仪表盘（顶部框架）
+- 日志显示区域
+- 命令输入区域
+[1|string] Opus 编解码器
+
+    使用 libopus 的 encode_float 和 decode_float 接口，
+[1|string] - Chinese: 'QQ音乐', '微信', 'Calculator', 'Notepad', 'Browser'
+[1|string] 参数说明：{ question: '你想了解的关于桌面/屏幕的问题', display: '显示器选择(可选)' }；
+[1|string] 保存唤醒词并生成 keywords.txt.
+
+        Returns:
+            是否保存成功
+[1|comment] auto | opencv | picamera2；auto 先 OpenCV，失败再试 CSI(picamera2)
+[1|comment] 即使 music 仍默认挂 cache：若 old→new cache 会先拷 music，再 music 对 同内容
+[1|string] 获取 ffprobe 可执行文件路径.
+
+    搜索顺序：内置 libs/ffmpeg/ → System PATH
+[1|string] 接收音频数据
+
+        Args:
+            audio_data: float32 音频数据
+[1|string] 插件与共享服务装配.
+
+集中：创建 McpServer/MusicPlayer、注册插件清单、资源池清理、音频直连。
+[1|string] 外挂 MCP 宿主 API（稳定契约）.
+
+插件仅通过 McpHost 注册工具与按白名单取能力，禁止依赖全局单例。
+[1|comment] analyze 若需要 fallback 到 photo camera 的 explain Settings，挂引用
+[1|string] 天气工具 MCP.
+
+- register_weather_tools: 显式注册（当前 mock，待接真 API）
+[1|comment] ============ 连接监控（公共，子类可覆盖 _monitor_interval） ============
+[1|string] 获取 ffmpeg 可执行文件路径.
+
+    搜索顺序：内置 libs/ffmpeg/ → System PATH
+[1|comment] payload: 可选 asyncio.Future，完成时 set_result(list|dict|None)
+[1|string] 例如列表显示'菊花台 - 周杰伦'，调用 search_and_play(song_name='菊花台') 即可。
+[1|string] GUI 专用 Qt ViewModel（QObject + Property）.
+
+CLI/GPIO 不依赖此包。
+[1|comment] Future 作 payload：AudioPlugin 在 handler 里 set_result(设备列表)
+[1|string] TUI Settings：配置字段定义与读写（接 ConfigManager + CONFIG_CHANGED）.
+[1|comment] 保留 indata 的 (frames, channels) 形状，让 downmix_to_mono 正确下混
+[1|comment] AudioCodec 生命周期（AudioPlugin → MusicPlayer 等订阅者，避免直连 set）
+[1|string] 接受 McpTool 或具备 name/description/properties/callback 的对象.
+[1|string] 应用终止和运行进程管理.
+
+通过 process_manager（psutil）提供跨平台的进程终止和列表功能。
+[1|string] MCP 插件.
+
+管理 MCP 工具和消息处理。McpServer / MusicPlayer 必须由容器注入。
+[1|string] GUI ViewManager：组合 QmlAppHost / 主界面 / 设置控制器，实现 ViewPort.
+[1|string] 激活 UI 基类.
+
+共享「取码 → 展示 → service.activate → 结果」流程；子类只做展示。
+[1|string] Set callback function for sending messages；传 None 表示解绑。
+[1|string] 尝试自动重连（公共逻辑）.
+
+        使用指数退避策略，调用子类的 connect() 进行实际连接.
+[1|string] 初始化流管理器
+
+        Args:
+            device_config: 设备配置
+[1|string] 启动健康门闩与音频降级策略.
+
+与会话业务无关：只根据插件失败集与环境变量决定是否 exit / 降级继续。
+[1|string] 注册插件.
+
+        先按 priority 排序，后续 setup_all 时会按依赖拓扑排序。
+[1|comment] UIPlugin 经 TaskManager.spawn 启动本协程；这里 await run_async
+[1|string] 音频设备管理器.
+
+职责：
+- 设备发现和选择
+- 配置持久化（按设备名称，而非 ID）
+- 设备信息查询
+[1|comment] 进程内权威配置：由 initialize_config() 创建，get_config() 读取；无懒单例
+[1|comment] 应用 PATHS 覆盖并迁移 cache/logs/music/keywords（config 目录不迁）
+[1|comment] v1: 引入版本号；补齐 MCP_TOOLS；规范化 subscribe_topic 字符串 "null"
+[1|string] 获取应用名称（固定值）
+
+    从 SystemConstants.APP_NAME 获取，确保一致性。
+[1|comment] cache 迁移时：若 music 已单独指到其它目录（或即将单独迁），跳过 cache/music 子树
+[1|string] MCP服务器实现.
+
+    由 ServiceContainer 创建，经 McpPlugin 注入。
+[1|string] Return host capabilities by allowlist；未授权或未提供则 None.
+[1|string] 运行回调函数（线程安全）.
+
+        Args:
+            name: 快捷键名称
+[1|string] GUI 设备激活窗口：QObject 控制器 + 组合 BaseActivation 流程（无多继承）.
+[1|string] 统一激活服务门面：组合 identity / ota / client / side_effects.
+[1|string] 创建编解码器
+
+        Raises:
+            Exception: 创建失败
+[1|comment] audio 降级运行（XIAOZHI_DEGRADED_AUDIO=1 且 audio failed）
+[1|string] 检查关键插件是否可用.
+
+    Returns:
+        错误描述；全部健康时返回 None
+[1|comment] done callback 无 active exception context，必须传 exc 本体
+[1|string] 记录外挂 tool_name -> plugin_id，支持按 id 从 McpServer 卸工具.
+[1|comment] 之前使用 osascript + f-string 拼接存在 AppleScript 注入漏洞，已移除
+[1|comment] XRGB / BGRA 等：按 RGB 通道取前 3 再转 BGR（picamera2 常见 RGB）
+[1|string] Seek。position=秒；percent=0~100（按 total_duration 算秒）.
+[1|string] 音乐 MCP 工具：由容器注入的 MusicPlayer 注册，不使用全局 get_instance.
+[1|string] 插件基类.
+
+使用 PluginContext 和 PluginCommands 接口与核心服务交互。
+[1|string] GPIO 按键输入处理类.
+
+    封装 gpiozero 的 Button 类，提供按键事件回调。
+[1|comment] 参数可选：PySide6 多重继承时 QObject.__init__ 的 super 链可能无参调用
+[1|string] 输入文本发送 | r 对话 | x 打断 | s Settings | q Quit | h Help
+[1|string] 启动音频流
+
+        Raises:
+            Exception: 启动失败
+[1|string] 返回绑定到指定 plugin_id 的视图（共享 add_tool / capabilities）.
+[1|string] 从收包线程把帧回调调度到 event loop（handler 须为同步，在 loop 线程执行）.
+[1|string] CLI模式设备激活处理器.
+
+    继承 BaseActivation，仅覆盖终端输出的展示方法。
+[1|string] 配置管理器（普通实例；进程权威由 initialize_config/get_config 持有）.
+[1|comment] 如 ["music_player.stop", "self.application.launch"]
+[1|string] 音乐缓存：XIAOZHI_MUSIC_CACHE_DIR > 覆盖 > {cache}/music.
+[1|string] 唤醒词目录：XIAOZHI_KEYWORDS_DIR > 覆盖 > {data}/keywords.
+[1|string] 音频流管理器（sounddevice 封装）
+
+    负责创建和管理音频输入/输出流的生命周期。
+[1|comment] Camera：懒创建一次，挂到 server，供 vision 配置与 take_photo 共用
+[1|comment] 仅 re-enable，不 stop/start 整棵树（重建会和 CFRunLoop/信号打架）
+[1|comment] 延迟加载模型到 start() 阶段，避免 setup() 时与 PortAudio DLL 冲突
+[1|string] 把 ViewPort 的 set_* 落到 MainModel + EmotionService.
+[1|string] 依赖宿主提供 _get_value / _set_value / settingsChanged.
+[1|comment] 注意：channels 在创建 Decoder 时已指定，decode_float 不需要此参数
+[1|comment] audio 默认关键；XIAOZHI_DEGRADED_AUDIO=1 时失败仅降级不 exit
+[1|comment] 写入配置的标识：数字 index 字符串 / Device Path / "picamera2"
+[1|string] 检查音频通道是否打开.
+
+        更准确地检查连接状态，包括WebSocket的实际状态
+[1|string] 命令: r=开始/Stop | x=打断 | q=Quit | h=Help | 其他=发送文本
+[1|comment] 更改 CACHE/LOG/MUSIC/KEYWORDS 后启动时会从旧目录复制到新目录（不删旧）
+[1|string] 清除 get_user_data_dir 等 lru 缓存（测试或 DATA_DIR 变更后）.
+[1|string] 子进程内给 register(host) 用的最小 Host（与 McpHost 表面兼容）.
+[1|string] 应用管理工具.
+
+- register_app_tools: 向 McpServer 显式注册
+[1|string] 1. 用户要求拍照看东西 (例如: '帮我看看这是什么', '拍个照', '看看前面是什么')
+[1|string] macOS 快捷键后端.
+
+    使用 Quartz Event Tap 监听全局热键事件。
+[1|string] 解析 endpoint：hostname 或 hostname:port；默认端口 8883.
+[1|comment] ========== QML Properties（实现见各 mixin）==========
+[1|string] 显示窗口；activate=False 时尽量不抢前台（macOS 全屏 Space 友好）.
+[1|string] 核心激活：取码 → UI 展示 → service.activate（含剪贴板/播报副作用）.
+[1|string] gui / cli / tui / gpio；gpio 仅 Linux，其它平台回退 cli.
+[1|string] 修补 ctypes.util.find_library，让 opuslib 能找到 opus.
+[1|comment] AEC（Self far：播放回调最终 PCM 作参考），initialize 时按配置创建
+[1|comment] 有界音频队列 + 单 consumer（替代 per-packet create_task）
+[1|string] 日志过滤器模块.
+
+提供各种日志过滤功能：
+- 敏感信息脱敏
+- 日志级别过滤
+- 模块过滤
+[1|string] 根据 session.tools_meta 向宿主注册代理 McpTool；返回工具名列表.
+[1|comment] /Library/Application Support 下的用户工具（如安全软件、VPN）
+[1|string] 按当前播放时间找该显示哪句歌词.
+
+    返回 (下标, 文本)；没有歌词返回 None。
+[1|string] 当用户说'关闭音乐'、'停止音乐'、'不听了'、'别放了'、'关掉音乐'时，必须调用此工具。
+[1|string] 用户说「跳到30%」「进度跳转20%」「跳到一半」时：必须用 percent（0-100），
+[1|string] pynput 快捷键后端.
+
+    适用于 Linux 和 Windows System。
+[1|string] 在 event loop 线程：把 UDP 帧交给协议 on_incoming_audio.
+[1|comment] ========== 可写目录 PATHS（config 目录不由此改）==========
+[1|comment] QQuickWindow / QWindow：临时去掉可获焦，避免成为 key window
+[1|comment] 版本以「磁盘文件」为准；merge 会带上默认 CONFIG_VERSION 导致误判已迁移
+[1|string] 缓存目录：XIAOZHI_CACHE_DIR > 运行时覆盖 > {data}/cache.
+[1|string] 拼给 ffmpeg 的 -headers / -user_agent（HTTP 源常用）.
+[1|string] 采集线程（已持锁）：重采样 far 队列并喂给 ProcessReverseStream.
+[1|comment] Protocol 入站任务走 TaskManager，避免 fire-and-forget
+[1|string] 或设 XIAOZHI_DEGRADED_AUDIO=1 以无麦模式继续（UI/设置可用）。
+[1|string] 日志配置模块.
+
+提供日志系统的配置数据类与加载函数（无单例 get_instance）。
+[1|string] 扫描 ``src/mcp/tools/*/register.py``，结果缓存（进程内）.
+[1|string] 使用提示：当用户说'看'、'看看'、'这是什么'等模糊表达时，优先使用本工具进行拍照识别。
+[1|comment] 对齐 Huibq/keep-alive render_api.js：只认 Key + UA
+[1|string] 「快进30秒」：先 get_status 取当前位置，再 position=当前秒+30。
+[1|string] 启动快捷键监听.
+
+        Returns:
+            是否成功启动
+[1|string] 批量写配置并落盘.
+
+    Returns:
+        (ok, message)
+[1|string] ConfigManager 未初始化：请在入口调用 initialize_config()
+[1|string] 服务容器.
+
+整合核心服务，作为应用的中央协调者；会话/门闩/装配/适配器已拆到子模块。
+[1|string] 日志处理器模块.
+
+提供：
+- 双重轮转文件处理器（时间 + 大小）
+- 异步日志处理器
+[1|comment] Electron/Chromium 子进程（Helper、Renderer、GPU）排除
+[1|string] 打开 VideoCapture；source 为 int index 或设备路径字符串.
+[1|string] 用户说「跳到2分钟」「跳到90秒」「回到开头」时：用 position（秒，从0开始）。
+[1|string] 查询当前播放状态：歌名、是否播放/Pause、总时长（秒）、当前位置（秒）、进度百分比。
+[1|comment] 先 stop 清 keep_listening，再 abort，免得打断后又被续听拉回去
+[1|comment] 线程侧调度的 Future，避免 fire-and-forget create_task
+[1|string] 安全地发射 EventBus 事件，在 Qt 主线程中调度到 asyncio loop.
+[1|comment] 环境变量优先：XIAOZHI_CACHE_DIR / XIAOZHI_LOG_DIR /
+[1|comment] TaskManager.spawn 已记录异常；本地 create_task 时补日志
+[1|string] 双重轮转文件处理器.
+
+    同时支持按时间和按大小轮转，先触发任一条件即执行轮转。
+[1|string] capabilities 须可 JSON 序列化；对象类能力子进程无法使用，仅传快照.
+[1|string] 解析酷我返回的 lrclist.
+
+    返回 (歌词列表, 被过滤的信息行数量).
+[1|string] 功能：①截取整个桌面画面；②屏幕内容识别与分析；③屏幕OCR文字提取；④界面元素分析；
+[1|comment] Music 收到 None 会自行 stop；完整 detach 由 mcp/容器负责
+[1|string] 健康检查：禁用则尝试 re-enable；失败只 warning，避免重建风暴挡退出.
+[1|comment] ============ 连接状态检查（模板方法，子类实现） ============
+[1|comment] ============ 协议特定清理（模板方法，子类实现） ============
+[1|string] MCP 工具启用：黑名单 MCP_TOOLS.DISABLED，分组列表供设置 UI.
+[1|string] 后台线程统一入口：异常必达 statusMessage / testComplete.
+[1|string] 连接: Disconnected | 模式: Manual | 表情: neutral
+[1|string] TUI ViewManager：ViewPort 实现，驱动 Textual App.
+[1|comment] 设备路径优先于 index，如 "/dev/video0"（树莓派 USB/V4L2）
+[1|string] 日志目录：XIAOZHI_LOG_DIR > 运行时覆盖 > {data}/logs.
+[1|comment] 持久化字段（平铺）；其它键（如历史 device_fingerprint）加载时丢弃
+[1|string] 音频格式转换器
+
+    负责采样率转换和声道转换，内部维护缓冲区以凑够目标帧大小。
+[1|string] 插件可访问的只读上下文.
+
+    插件通过此接口获取应用状态，但不能直接修改状态。
+[1|comment] 已知事件名集合：拼写错误时在 on/emit 打 warning（debug 友好）
+[1|string] 【拍照识图】当用户提到：拍照、拍张照、照张相、看一下、看看、帮我看、这是什么、识别、
+[1|string] 向订阅者（如 MusicPlayer）发布 AudioCodec 实例或 None.
+[1|comment] （macOS 上 key window 会把其它全屏 App 的 Space 挤掉）
+[1|string] TUI 界面（ViewPort：与 GUI/CLI/GPIO 同一套 set_*）.
+[1|comment] 默认配置（完整产品 schema；加载时 deepcopy，禁止与实例共享嵌套对象）
+[1|string] WebRTC APM 封装：AEC + 可选 NS/高通，near/far 双流.
+[1|comment] 创建插件实例（Audio 经事件发布 codec，不注入 MusicPlayer）
+[1|comment] 其他设备（Windows/macOS/Linux x86）都有足够性能，使用低延迟
+[1|string] Inject camera（vision 配置 / take_photo 共用）.
+[1|string] 3. 文字识别OCR ('读一下上面的字', '提取文字', '这上面写的什么')
+[1|string] 给 CDN / FFmpeg 流式播放用的请求头（不是 JSON API 那套）.
+[1|string] Screenshot tools for MCP.
+
+截图实例由调用方创建/注入。
+[1|string] pulseaudio-utils、wireplumber 或 alsa-utils
+[1|string] pynput 快捷键后端.
+
+用于 Linux 和 Windows System。
+[1|comment] 冷启动只显示、不抢前台，避免 macOS 把其它全屏 App 的 Space 挤掉
+[1|string] TUI 模式：基于 Textual 的全屏终端界面（可选 extra: tui）.
+[1|string] 将损坏的 config.json 备份为 .corrupt-时间戳，返回备份路径.
+[1|comment] 内存视图始终平铺；磁盘上的多余键由 ensure/validate 负责剥离回写
+[1|string] ffprobe 取时长；source 可以是本地文件或 http(s) URL.
+[1|comment] 延迟后恢复检测（等待 abort + clear_audio_queue 完成）
+[1|comment] 请求重新枚举音频设备（设置页刷新；需先停流再 PortAudio reinit）
+[1|string] 每个 handler 需要独立的 filter 实例，避免共享状态导致日志丢失.
+[1|string] 异步日志处理器.
+
+    使用队列将日志写入操作移到后台线程，避免阻塞主线程。
+[1|comment] 默认允许的 host.get 名称（music_player 等需配置显式加入）
+[1|string] 内置（扫描 tools/）+ 磁盘外挂 + 运行时 + disabled 残留.
+[1|string] Windows应用程序扫描器.
+
+专门用于Windows系统的应用程序扫描和管理
+[1|string] 4. 图片问答 ('图里有几个人', '这个是什么颜色', '上面有什么内容')
+[1|comment] 设置页允许留空=用默认；get_config 对 "" 不会回落 default
+[1|string] 【桌面截图/屏幕分析】当用户提到：截屏、截图、看看桌面、分析屏幕、桌面上有什么、
+[1|comment] emit 会 await 所有 handler，返回时 future 通常已完成
+[1|string] 懒创建 SettingsModel；打开设置时 reload + 通知 QML.
+[1|string] MCP 工具黑名单变更：请求会话层断开并重连以刷新服务端 tools/list.
+[1|comment] 当前 schema 版本；加载时 migrate_config() 会升到此版本
+[1|comment] AEC far：设备实际写出的最终 PCM（TTS+音乐混合，含静音保持连续）
+[1|comment] 反序释放会导致 spotter 析构时 double free stream。
+[1|string] 插件可执行的命令.
+
+    插件通过此接口执行操作，由核心服务实现具体逻辑。
+[1|string] 优先走 TaskManager；否则本地 create_task 并记录异常.
+[1|comment] 排除 .app 内部的子 .app（如 Framework/Helpers/）
+[1|comment] auto：先 OpenCV（USB/UVC），再 picamera2（CSI）
+[1|comment] 经 player 转发，测试可 monkeypatch player.stop
+[1|comment] MCP 工具侧默认 manual；TTS 暂停走 EventBus 不经此工具
+[1|string] 屏幕截图、查看当前界面、分析当前页面、读取屏幕内容、屏幕OCR 时调用本工具。
+[1|string] TTS 开始时暂停音乐（TTS/音乐分队列混音，互不丢帧；音乐余量自然淡出）.
+[1|comment] ListenOnly：不拦截事件流，Ctrl+C / 系统快捷键可正常到达终端
+[1|string] System Preferences → 安全性与隐私 → 隐私 → 辅助功能
+[1|string] 把回调丢回 Qt 主线程（spawn 的 done 可能在 loop 线程）.
+[1|comment] 第一期：System / Audio / Camera / Wake Word
+[1|comment] AEC 在位时 TTS 不暂停音乐，混音闪避并行播放（引擎旁路则自动回退暂停）
+[1|comment] （AudioCodec.write_pcm_direct 按缓冲水位放行）。
+[1|string] 关闭日志系统，清理资源.
+
+    在应用退出时调用，确保所有日志都被写入。
+[1|comment] music_player 等不可序列化对象：子进程侧拿不到（与隔离目标一致）
+[1|string] 应用程序管理通用工具.
+
+提供统一的应用程序匹配、查找、缓存和名称清理功能。
+[1|comment] 从配置中读取相机参数（采集细节由 capture_backend 统一读取）
+[1|string] Picamera2 默认常为 RGB/XRGB，转成 OpenCV BGR.
+[1|string] 2. 物体/场景识别 ('这是什么东西', '帮我认一下', '识别一下')
+[1|string] 音乐播放器事件数据类型定义.
+
+用于 EventBus 事件通信的数据结构。
+[1|comment] 交给 downloader.resolve 的模板 URL，不是最终 CDN
+[1|string] 暂停当前正在播放的音乐，保持播放位置，之后可用 resume Resume。
+[1|string] 与 pause 的区别：stop 是彻底关闭，pause 是临时暂停可恢复。
+[1|string] 注意：播放列表中的歌曲时，只需使用歌名调用 search_and_play，
+[1|string] CLI 界面（ViewPort：与 GUI/GPIO 同一套 set_*）.
+[1|string] GPIO 界面（ViewPort：与 CLI/GUI 同一套 set_*）.
+[1|comment] 浮点：保持原 dtype（比如 float32），避免默认为 float64
+[1|string] 通用工具函数集合模块.
+
+包含浏览器操作、剪贴板、验证码提取等通用工具函数。
+[1|comment] 可写目录覆盖（config 仍固定在用户数据/config；null=默认）
+[1|comment] MCP 工具暴露（黑名单：不出现在 tools/list，call 亦拒绝）
+[1|string] 初始化配置管理器（直接构造；应用请用 initialize_config）.
+[1|comment] KeywordSpotter 在 C++ 层拥有 stream 的所有权，
+[1|comment] 注意：INCOMING_AUDIO 走直连通道，不再通过 EventBus
+[1|comment] MCP 工具暴露变更后：断开并重连协议，使服务端重新 tools/list
+[1|string] 获取状态快照.
+
+        返回当前所有状态的字典，用于调试和日志。
+[1|comment] 方法4: 再次使用open -a（作为最终尝试，不使用osascript）
+[1|string] 尝试使用 PowerShell Start-Process 启动应用程序.
+[1|comment] macOS: 只保留 /Applications/ 下的 .app 主进程
+[1|comment] 1) Linux：/dev/video* 优先列出（便于 Pi 选对节点）
+[1|string] 提示: 跳转百分之N请调用 seek(percent=N)，不要用歌词推算
+[1|string] 向 McpServer 注册音乐工具（闭包持有容器注入的 player）.
+[1|string] 那些请用 music_player.seek（百分比用 percent）。
+[1|string] 适用场景：桌面截图、屏幕分析、界面问题诊断、应用状态查看、错误截图分析等。
+[1|comment] 原子写：临时文件 + replace，与 ConfigManager 一致
+[1|string] EventBus 桥接器 - Python 信号与 QML 信号双向转换.
+[1|comment] ========== Python → QML 信号 ==========
+[1|comment] 直到用户 q/Ctrl+C 或 close() 调用 app.exit()
+[1|comment] 3. 输入固定单声道（协议要求 + 避免阵列驱动延迟），输出保持设备声道数
+[1|comment] 音频帧长度(ms)：20(低延迟) / 40(平衡) / 60(低CPU)
+[1|comment] src/utils/resource_finder.py → 往上 3 级
+[1|comment] far 待处理队列上限（输出回调块数，约 20ms/块 → 0.5s）；
+[1|comment] 入站音频有界队列：满时丢弃最旧帧，防止 event loop 被任务淹没
+[1|comment] McpTool("a.b", ...) 或 McpTool('a.b',
+[1|comment] Electron/Chromium 子进程后缀，这些是主应用的内部子进程
+[1|string] Linux应用程序扫描器.
+
+专门用于Linux系统的应用程序扫描和管理
+[1|string] macOS应用程序扫描器.
+
+专门用于macOS系统的应用程序扫描和管理
+[1|string] 解析播放地址；可选后台 copy 整首到缓存（按网速，不跟播放进度走）.
+[1|string] 用于播放用户请求的特定歌曲，例如'播放周杰伦的稻香'、'听一下孤勇者'。
+[1|string] 当用户说'暂停音乐'、'先停一下音乐'、'音乐暂停'时，必须调用此工具。
+[1|string] 用于用户询问'我有哪些歌'、'本地歌曲列表'、'缓存了什么音乐'等场景。
+[1|comment] 优先使用注册时注入的拍照摄像头（共用 vision URL/token）
+[1|comment] 并行模式也发恢复：兜底「TTS 期间起播的歌被置为 tts Pause」
+[1|string] 执行摄像头扫描（OpenCV/V4L2 + 可选 picamera2）.
+[1|comment] 启动仅读配置；Audio/Camera/唤醒词预览延后到打开设置时再处理
+[1|string] 懒创建 SettingsModel（首次注入 QML / 打开设置时）.
+[1|comment] 延迟补偿（协议帧数），实际 delay_ms = 40 + N * 帧长
+[1|comment] 严格校验（默认关，避免示例包无 platforms/abi 时无法加载）
+[1|string] Opus 库加载器 - 确保 opuslib 能找到 opus 动态库.
+[1|string] 路径迁移 %s: %s -> %s (copied=%s, ok=%s)
+[1|string] 按运行模式创建激活 UI（与 create_viewport 对称）.
+[1|comment] 1.5 AEC：以播放回调抽取的 far 参考消回声（旁路时原样返回）
+[1|string] 导入 libs.webrtc_apm，源码运行与打包形态各有路径兜底.
+[1|comment] deque 操作在 GIL 下原子；超限丢最旧（采集线程停转时防堆积）
+[1|comment] 路径含非 ASCII 字符时 GBK 代码页会吞掉反斜杠导致打开失败。
+[1|comment] 自动对话还在持续听时，打断后回到 listening，别停在 idle
+[1|string] 处理工具列表请求（已按 MCP_TOOLS.DISABLED 过滤）.
+[1|string] 启动进程并 bootstrap，返回 tools schema 列表.
+[1|string] 用 FFmpeg -c copy 按网速拉整首，不解码、不跟播放限速.
+[1|string] Linux 音量后端（pactl / wpctl / amixer）.
+[1|string] 处理手动按键快捷键 - 使用 UI_MANUAL_TOGGLE 事件.
+[1|comment] 确保日志已被拦截（如果还没有调用 intercept_logging）
+[1|string] 主界面 ViewPort 写路径：状态 / 对话 / 音乐 / 表情.
+[1|comment] MCP 工具禁用列表相对打开/上次保存是否变化 → 保存后可能触发重连
+[1|comment] 使用 QTimer.singleShot 确保在 Qt 事件循环中执行
+[1|comment] 资源默认采样率（与 assets/sounds 中预置 WAV 对齐）
+[1|comment] 外挂 MCP 插件（用户目录 mcp_plugins，自带 lib/）
+[1|string] 内存采集，仅用于生成 SN/HMAC；不写入 efuse.json.
+[1|comment] TTS 存在时音乐的混音增益（闪避），及其保持时长（20ms 块数）
+[1|comment] 5.5 重建 AEC（far 采样率跟随新输出设备，滤波器状态清零）
+[1|string] 释放 soxr 重采样器，防止 nanobind C++ 对象泄漏.
+[1|string] 音频流管理器.
+
+职责：sounddevice 流创建、生命周期管理
+[1|comment] 将 tokens.txt 复制到 ASCII 安全路径的用户目录下。
+[1|comment] 打断进行中的听/说语义，避免重连后沿用 keep_listening
+[1|string] 对外暴露统一接口，内部组合 Transport + Gateway.
+[1|comment] 获取或创建配置（无 LoggingConfigManager 单例）
+[1|string] 装饰器：将函数注册为 McpTool（不写全局 registry）.
+[1|comment] 进程内可选共享（由 McpServer 持有更清晰；此处供简单场景）
+[1|string] 应用管理 MCP 工具：显式 register_app_tools.
+[1|comment] 初始化OpenAI客户端（设置超时防止 API 无响应时线程池挂起）
+[1|string] 拼 UI 上用的歌词行，例如 [00:12/03:45] 歌词内容.
+[1|string] 重要：回复用户之前先调用此工具，否则 TTS 结束后音乐会自动恢复。
+[1|comment] 使用 which 检测系统 screencapture 命令是否可用
+[1|string] 参数: city - 城市名称, days - 预报天数(1-7天)
+[1|string] 快捷键后端抽象基类.
+
+    定义了所有快捷键后端必须实现的接口。
+[1|comment] ============ 自动重连（公共） ============
+[1|string] 设置选中的摄像头（写入 backend/device/index）.
+[1|comment] 可选：用于「刷新音频设备」时协调 AudioPlugin 停流重枚举
+[1|string] 保存配置到文件，并让运行中的 ConfigManager 重新读盘.
+[1|comment] 音乐写入端水位背压目标（秒）：越小暂停/插话越跟手，越大抗抖动越强
+[1|comment] TTS 与音乐分流：各自 FIFO，输出回调里混音（互不排队阻塞）
+[1|comment] FRAME_DELAY 以协议帧为单位，换算毫秒后叠加基础输出延迟
+[1|comment] 1. 停止当前流（必须在 PortAudio reinit 之前）
+[1|string] 只负责把音源解成 PCM；缓存预取不走这里（避免和播放进度绑死）.
+[1|comment] 容器持有的跨插件共享服务（启动时 bind，关闭时 unbind）
+[1|comment] 启动失败时直接退出，避免 zombie wait_shutdown
+[1|comment] 设置音频直连通道（TTS 音频不经过 EventBus，减少延迟）
+[1|string] 接口协议定义.
+
+定义插件、窗口与核心服务之间的契约，实现松耦合。
+[1|string] Task Manager.
+
+统一管理异步任务的创建、追踪和清理。
+[1|string] 取消所有追踪的任务.
+
+        会等待所有任务完成或取消。
+[1|string] 从 server.tools 移除该插件注册的工具；返回移除数量.
+[1|string] 统一的应用程序扫描器入口.
+
+根据当前系统自动选择对应的扫描器实现
+[1|comment] 与实例字段对齐（外部若改过 index 仍以配置为准，配置是权威）
+[1|string] 音乐下载：解析直链；后台 FFmpeg copy 预取到本地缓存.
+[1|string] 注意：TTS 说话时音乐会自动暂停，说完自动恢复，无需调用此工具。
+[1|string] ⑤应用程序识别；⑥错误信息截图分析；⑦桌面状态检查；⑧多屏幕截图。
+[1|string] 音频编解码器完整清理：先通知订阅者清 codec，再 close.
+[1|comment] Opus 解码采样率：24000(官方) 或 16000(第三方)
+[1|comment] 运行时覆盖（config 加载后 apply；env 优先于这些）
+[1|comment] Windows ARM 常见为 ARM64；部分环境仅环境变量可靠
+[1|string] 降级：音频不可用（无麦/扬声器）。设置仍可用，修复设备后请重启。
+[1|string] 无音频调试可设 XIAOZHI_DISABLE_AUDIO=1；
+[1|comment] MCP 工具配置重连等：通道打开后保持 IDLE，不自动进入聆听
+[1|string] 分组 id：优先调用方传入的包名；否则用 name 前缀启发式.
+[1|comment] 2. 特殊映射匹配 (95-98分) - 优先匹配更具体的关键词
+[1|comment] 在线直链模板，TTS 结束后可重新 resolve 拿新 CDN
+[1|string] 参数: city - 城市名称（如：Beijing、上海、广州）
+[1|string] TTS 结束后恢复音乐（并行模式下仅兜底，多数时候无实际暂停）.
+[1|string] 插件是否已标记为失败（setup/start 失败或依赖失败）.
+[1|string] is_audio_channel_opened方法必须由子类实现
+[1|string] 纯流程对象：把展示回调接到 GuiActivation 控制器.
+[1|comment] 默认按钮文案；对话进行中会再被 Session 改成「停止对话」
+[1|comment] QWidget 路径：ShowWithoutActivating
+[1|string] 原子写入配置文件（临时文件 + rename 防写入中断损坏）.
+[1|string] 采样级 PCM 缓冲.
+
+输出回调混音使用的线程安全 FIFO
+[1|comment] 限流：回调内写日志（文件 IO）本身会加剧欠载，2 秒最多一条
+[1|string] 清空音乐播放队列（Stop/跳转时用；TTS 队列不受影响）.
+[1|string] 只清空输出缓冲区（用于 TTS 停止时防回声，不影响输入管线）
+[1|comment] 关键插件健康门闩：失败则退出，禁止 silent zombie
+[1|comment] 最先注册 = 最后释放：共享服务 unbind 在插件清理之后
+[1|string] 单消费者串行处理入站音频，避免 per-frame 任务爆炸.
+[1|string] manifest 缺少 python_abi（已开启强制校验）
+[1|comment] 延迟导入 tooling，路径已在 bootstrap 里设好
+[1|comment] 宿主工程根（含 src/）供 import src.mcp.*
+[1|comment] 有过滤词时放宽条件（用于 kill 匹配场景，需要匹配子进程）
+[1|string] 从 ConfigManager 读取 CAMERA 采集配置.
+[1|string] - question: 字符串类型，用户想了解的关于图片的问题
+[1|comment] 快速恢复（tts 闪避路径）：解码器与消费循环都在，仅继续消费
+[1|string] 请提供 position（秒）或 percent（0-100）
+[1|string] 请指定 percent（0-100）或 position（秒）
+[1|string] 禁止用于：进度跳转、跳到百分之几、快进/快退、计算播放位置——
+[1|string] Windows 音量后端（pycaw / comtypes）.
+[1|string] 配置变更时重新加载音频设备（含 PortAudio 重枚举）.
+[1|comment] 建立WebSocket连接 (兼容不同Python版本的写法)
+[1|string] GUI 激活窗口控制器（只继承 QObject；流程用组合）.
+[1|string] 配置留空时各目录的系统默认绝对路径（不含 PATHS 覆盖）.
+[1|string] 界面统一接口：gui / cli / gpio 都实现这一套.
+[1|string] 深拷贝默认配置，避免实例与类属性共享嵌套 dict/list.
+[1|comment] 顶层目录过滤：os.walk 可改 dirs in-place
+[1|comment] 协议输出采样率可能随配置热重载变化，FIFO/混音块随之重建
+[1|string] 清空 TTS 播放队列（打断/中止时用；音乐队列不受影响）.
+[1|comment] 2. 热插拔：重建 PortAudio 上下文后再按名称匹配
+[1|comment] far 两级缓冲：pending 由输出回调写入（仅拷贝），
+[1|comment] far 先于 near：排空输出回调攒下的参考数据，保持因果
+[1|comment] 程序标识名（ASCII，用于目录、配置、bundle_id）
+[1|string] 状态管理器.
+
+集中管理设备状态，通过事件总线广播状态变更。
+[1|string] 从配置读取 MCP_TOOLS.DISABLED（黑名单）.
+[1|string] manifest 缺少 platforms（已开启强制校验）
+[1|string] 统一的应用程序启动器.
+
+根据系统自动选择对应的启动器实现。
+[1|comment] Windows 进程创建标志（仅在 Windows 上可用）
+[1|comment] still 配置；尺寸尽量贴近配置，驱动会选最接近 mode
+[1|string] 可切换网络/IP，或在设置中更换 MUSIC.URL_API
+[1|comment] CDN 偶发 RemoteDisconnected，多试两次
+[1|string] 从任意线程安全调度协程到 event loop，并记录异常.
+[1|comment] 1000/1001/1005 视为正常关闭（服务端收回会话）
+[1|comment] 移除所有已注册 logger 的 StreamHandler
+[1|string] 展示激活验证码（CLI 打印 / GUI 写 Model）.
+[1|comment] bytes 输入: 转换 -> 处理 -> 转回 bytes
+[1|comment] 平台目录别名（mac/macos, win/windows）
+[1|string] 日志 + 剪贴板 + 播报；不负责 CLI/GUI 文案.
+[1|comment] 4. 按配置创建 AEC（Self far），失败自动旁路
+[1|string] AEC 引擎是否在位且工作中（音乐并行策略等依赖此判断）.
+[1|comment] 节拍完全由下游背压决定：queue 满则在 put 处等位
+[1|comment] 使用 encode_float（libopus 原生支持）
+[1|comment] 使用 decode_float（libopus 原生支持）
+[1|comment] near/far 均为 16kHz 单声道，共用一份流配置
+[1|comment] realtime 一般还在 listen 里，不用再发一遍
+[1|comment] 显示名称（用于窗口标题、Launchpad、安装器 UI）
+[1|comment] macOS 系统路径前缀，这些路径下的进程都是系统守护进程
+[1|string] 搜索并播放指定的歌曲。根据歌名在线搜索歌曲并自动开始播放。
+[1|string] 当用户说'继续播放'、'恢复音乐'、'把音乐打开'时调用。
+[1|string] 返回格式：'歌名 - 歌手'，例如'菊花台 - 周杰伦'。
+[1|string] 天气 MCP 工具注册（当前 mock，待接真 API）.
+[1|string] 插件管理器.
+
+管理插件生命周期，支持依赖声明和拓扑排序。
+[1|string] 停止所有插件（逆序；失败插件仍尝试 stop 以便清理）.
+[1|string] McpPlugin 需要容器注入的 MusicPlayer
+[1|string] MQTT/UDP 音频通道使用的 AES-CTR 加解密.
+[1|comment] 服务端正常收回会话（如 TTS 结束后关闭），不算网络错误
+[1|comment] ---- BaseActivation 展示方法 ----
+[1|comment] 彻底清屏：清除屏幕 + 清除滚动缓冲区 + 光标移到左上角
+[1|comment] ========== 摄像头设备列表 ==========
+[1|string] 执行摄像头测试（走统一 capture_backend）.
+[1|string] 只读：数据根与操作提示（默认路径已显示在各输入框占位符）.
+[1|string] 编辑后点「保存」写盘并热应用 | Esc Cancel |
+[1|string] 激活模块：身份、OTA、HTTP 客户端与 UI 工厂.
+[1|comment] tui / cli / gpio：激活阶段用简单终端交互
+[1|string] efuse 文件读写、序列号 / HMAC / MAC.
+[1|comment] 刷新协议配置（支持 Settings UI 修改后生效）
+[1|comment] PortAudio 复用 outdata 内存，必须拷贝
+[1|comment] 还要继续听的话，尽量先发 listen，再清队列、改状态
+[1|string] 扫描开始菜单中的主要应用程序（过滤系统组件和辅助工具）.
+[1|string] 用于「现在播到哪了」「这首歌多长」「快进前先看进度」等。
+[1|comment] 停流后才能安全 _terminate PortAudio
+[1|comment] 按当前配置重新打开流（名称匹配可能已指向新 index）
+[1|string] 标记插件失败，后续 start/notify 将被跳过.
+[1|comment] macOS: 优先使用 Quartz Event Tap
+[1|string] 无法创建 Event Tap。请确保已授予辅助功能权限：
+[1|string] close_audio_channel方法必须由子类实现
+[1|comment] 下次交互时按需重新 open_audio_channel
+[1|string] 处理命令 - 全部转发给 CliViewManager.
+[1|comment] 移除根 logger 的所有 StreamHandler
+[1|comment] ========== 音频设备设置 ==========
+[1|string] 打开系统文件夹选择对话框；取消返回空串（调用方勿覆盖）.
+[1|string] 只负责 QML 引擎生命周期与根对象访问，不碰业务逻辑.
+[1|string] 设置窗口：SettingsModel 懒加载与打开设置.
+[1|string] reload 配置/设备列表，再让 QML 显示设置窗.
+[1|string] 界面上记录的当前模式（比如 GPIO 按键分支会用到）.
+[1|string] 向 OTA activate 端点轮询直到成功或超时.
+[1|string] 拉取 OTA 配置并写回 ConfigManager.
+[1|comment] 连续处理失败达到该次数后自动旁路，避免坏库拖垮音频回调
+[1|comment] 用哨兵唤醒阻塞在 queue.get() 上的检测循环
+[1|comment] audio 失败但允许降级：打横幅/日志，继续跑 UI
+[1|string] 绑定共享服务、注册并初始化插件、挂资源清理与音频直连.
+[1|string] 订阅协议/状态相关事件（可重复调用，以最后一次为准）.
+[1|comment] 如果获取失败，返回默认值20ms（适合大多数现代设备）
+[1|comment] 系统级提示（降级模式横幅等，payload: str）
+[1|string] 注入 TaskManager（容器初始化后可再绑定）.
+[1|comment] 外挂插件 tool_name -> plugin_id
+[1|string] Remove tool by name，返回移除数量.
+[1|string] 设置页内置工具行（扫描 tools 包，非写死列表）.
+[1|comment] 如果有发布者信息，排除Microsoft发布的系统组件
+[1|comment] TTS 逐句闪避：保留解码器与队列（解码器会在满队列处
+[1|string] 由播放器按总时长自动换算秒数，不要查歌词、不要猜位置。
+[1|string] 与 get_lyrics 无关；百分比跳转不需要歌词。
+[1|string] 创建音量控制器；依赖不足或初始化失败时返回 None.
+[1|string] '现在音量多少?', '查看音量', '音量是多少'.
+[1|string] 注入依赖插件（由 PluginManager 调用）.
+[1|string] McpPlugin 需要容器注入的 McpServer
+[1|string] open_audio_channel方法必须由子类实现
+[1|string] 执行录音测试（异常由 _run_worker 兜底）.
+[1|string] 执行播放测试（异常由 _run_worker 兜底）.
+[1|string] 获取摄像头列表（不自动触发扫描；由设置页/刷新触发）.
+[1|comment] ========== 摄像头设置 ==========
+[1|comment] ========== 快捷键设置 ==========
+[1|comment] ========== 唤醒词设置 ==========
+[1|string] 按 mode 创建界面实现（返回 ViewPort）.
+[1|string] bytes 输入必须指定 in_channels 参数
+[1|comment] 将来：if ver < 2: ...; ver = 2
+[1|string] efuse 根节点须为 object，实际为 str
+[1|string] 设备激活门面（由 create() 构造，非单例）.
+[1|comment] ---------- 公共接口 ----------
+[1|string] 追加 float32 单声道数据；容量超限时丢最旧.
+[1|comment] Opus 库加载（必须在导入 opuslib 之前）
+[1|comment] 允许 stop() 后再 create（热重载路径）
+[1|comment] buffer 为采集线程重采样后的 16k 样本余量
+[1|comment] 复用的 ctypes 帧缓冲（10ms int16）
+[1|comment] 短暂暂停检测，让打断流程完成，避免旧音频触发重复检测
+[1|string] 将所有模块的清理函数注册到资源池（先注册的后释放）.
+[1|comment] ConfigManager → 只读 dict 快照
+[1|comment] 兼容旧调用：动态 group 标签表（外挂会往里写）
+[1|comment] 特殊应用名称映射 - 按长度排序，避免短名称优先匹配
+[1|comment] 如 /dev/video0；非空时优先于 index
+[1|string] 按配置采集一帧 JPEG 字节；失败返回 None.
+[1|comment] 若已通过 /dev/video{i} 列出则跳过重复
+[1|string] 直链 API 获取播放地址失败（曲库无源或解析失败）
+[1|comment] 手动暂停要立即静音：把 codec 侧音乐余量也清掉
+[1|string] 如果已有音乐在播放，会自动停止当前音乐并播放新歌曲。
+[1|comment] 无 codec（禁用音频）时仍尽量枚举，供设置页展示
+[1|string] 创建套接字并启动接收线程（会先 stop 旧资源）.
+[1|comment] ========== 状态更新 ==========
+[1|comment] ========== 屏幕渲染 ==========
+[1|comment] ========== 输入处理 ==========
+[1|comment] ========== 日志处理 ==========
+[1|comment] ========== 工具函数 ==========
+[1|comment] ========== 按键回调 ==========
+[1|comment] ========== 便捷方法 ==========
+[1|string] 系统选项：设备 ID、网络、MQTT、音乐、AEC.
+[1|comment] ========== 系统选项 ==========
+[1|comment] 打开设置时快照，保存时对比是否变更 MCP 工具暴露
+[1|comment] ========== 配置读写 ==========
+[1|string] 重新加载配置（打开设置窗口时调用；此时才枚举设备）.
+[1|string] 刷新自动/手动显示（真状态在 Session 里）.
+[1|string] 启动 TUI（await 直到用户退出或任务取消）.
+[1|comment] 空 = 按插件 enabled_by_default
+[1|comment] 键缺失、或值为 None/标量：建空对象以便继续下钻
+[1|comment] 2) 回退：按扩展名，优先「短名字 / 无多余后缀」
+[1|comment] TTS / 音乐 FIFO 容量（秒），超限丢最旧
+[1|comment] 不再用「墙钟-起播时刻」限速——暂停期间墙钟照走，
+[1|comment] 必须先释放 spotter，再释放 stream。
+[1|string] 网络错误：停止持续监听并复位设备状态到 IDLE.
+[1|comment] 双保险：若 OPENED 回调顺序异常，仍拉回空闲
+[1|comment] ARM设备（如树莓派）使用较大帧长以减少CPU负载
+[1|comment] 音乐控制命令（从外部控制 MusicPlayer）
+[1|comment] 方法1: 使用open -a命令（安全的列表形式）
+[1|comment] Windows 系统进程名（小写，不含 .exe）
+[1|comment] 1. 扫描开始菜单中的主要应用程序（最直接的方法）
+[1|comment] 2. 扫描注册表中的主要第三方应用（过滤系统组件）
+[1|comment] 再多读一帧有时更稳，但已有有效帧可提前结束预热尾部
+[1|string] 功能：拍照并分析图片内容，回答用户关于图片的问题。
+[1|string] 按 song_id 找已缓存的文件（试常见后缀）.
+[1|string] 在线搜歌（酷我搜索 → 直链 API 模板地址）.
+[1|comment] 自然等位），恢复零成本，不用逐句重启 ffmpeg
+[1|string] 不要用本工具代替 seek；跳转请调用 seek。
+[1|comment] 自动模式下是否已经开始对话（按钮显示「停止对话」）
+[1|string] 连接到 MQTT 服务器并建立 UDP 音频通道.
+[1|comment] 显式绑定，确保 macOS 网络栈正确路由 UDP
+[1|string] 检查音频通道是否打开的抽象方法，需要在子类中实现.
+[1|comment] 服务端正常关闭：会话结束不算故障，不重连也不报错，
+[1|comment] ----- Settings / 窗口 -----
+[1|string] 激活窗口数据模型 - 管理激活界面状态和数据绑定.
+[1|string] 尽力获取进程内已注册 MCP 工具名（可能为空）.
+[1|comment] AEC 在位时 TTS 与音乐并行播放（闪避混音）
+[1|string] 表情服务 - 处理表情文件的查找和 URL 转换.
+[1|string] 如 /dev/video0；非空优先于 index
+[1|string] 读取当前配置为字符串表（path -> 显示值）.
+[1|comment] 打开后丢弃的预热帧数（USB/Pi 前几帧常无效）
+[1|comment] null = {用户数据}/mcp_plugins
+[1|comment] 音乐 API（空字符串=运行时用内置默认 URL）
+[1|string] 加载配置文件；不存在则创建；损坏则备份后回退默认.
+[1|string] 取 n 个样本；无数据返回 None，不足补零.
+[1|comment] 3. 释放转换器（同步，含 soxr 重采样器）
+[1|comment] 以下为动态值，reload() 时从配置重新读取
+[1|comment] 无订阅者时仍提示未知事件名，避免拼写错误静默丢失
+[1|string] 确保入站音频 consumer 在运行（幂等）.
+[1|comment] 如果日志系统未初始化，添加一个基本的控制台处理器
+[1|comment] 外挂：用户目录插件包（自带 lib/），失败隔离
+[1|string] 外挂 MCP 插件运行时注册表：归属索引与卸载.
+[1|comment] 方法3: 使用xdg-open（适用于桌面环境）
+[1|string] Linux 优先 V4L2，其它平台用默认后端.
+[1|string] 识图、看图、图片、照片、帮我瞧瞧 时调用本工具。
+[1|string] 首次用缓存前调用：建目录，并清理一次 temp.
+[1|string] 直链 API 已封禁当前 IP（禁止批量下载）。
+[1|comment] 只清音乐播放队列；TTS 队列独立，不受跳转影响
+[1|string] 注意：该工具会截取桌面，请确保用户同意截图操作。
+[1|comment] 如果图片包含透明度通道(RGBA)，转换为RGB
+[1|string] macOS 音量后端（applescript）.
+[1|comment] 最高优先级，其他插件依赖 audio_codec
+[1|string] 检查插件声明的依赖是否都可用（已注册且未失败）.
+[1|comment] 从入度为0的节点中选择 priority 最小的
+[1|comment] Linux/Windows: 使用 pynput
+[1|comment] 检查修饰键是否匹配（只检查期望的修饰键是否按下）
+[1|string] 界面上的按键、发文本、模式切换等，转成协议调用.
+[1|comment] 手动录音中途被拉出 listening，复位按钮
+[1|comment] 空闲时直接 detect，服务端常会丢；先听再发
+[1|comment] 服务器可能使用自签名证书，暂时跳过客户端证书验证
+[1|comment] 在连接时创建 Event，确保在正确的事件循环中
+[1|string] GPIO UI 模块（Linux/树莓派按键）.
+[1|string] GUI 模块：PySide6/QML 图形界面.
+[1|string] QML 引擎宿主：加载、上下文注入、根窗口操作.
+[1|comment] ========== 构造 ==========
+[1|string] auto 先 OpenCV，失败再 Pi CSI
+[1|comment] 先转浮点求平均，再四舍五入回原整数类型，避免溢出
+[1|comment] 1. sounddevice 系统默认（最可靠）
+[1|string] 创建或返回已初始化的配置管理器（应用入口调用）.
+[1|comment] 一般 ok；仅当 music 路径显式独立时跳过
+[1|string] OTA URL 或 DEVICE_ID 未配置
+[1|comment] 恢复后会误判落后而全速灌数据，把播放队列冲爆。
+[1|comment] config → 模式 + 带宽 + 单帧时长
+[1|comment] 添加锁保护 sherpa-onnx 对象的访问
+[1|string] 事件总线协议.
+
+    用于组件间解耦通信。
+[1|comment] 日志级别对应的背景色（用于 CRITICAL）
+[1|string] 单文件插件须定义 register(host)
+[1|comment] 避免子进程继承 GUI/Qt 相关干扰（可选）
+[1|string] 运行时/残留工具：尽量归到已扫描到的内置包组.
+[1|string] 尝试使用os.startfile启动应用程序.
+[1|comment] 尝试读一帧判断是否为真正 capture 节点
+[1|comment] 2) OpenCV 数字 index（全平台）
+[1|comment] 各家 JSON 字段不太一样，尽量抠出 url
+[1|comment] ----- 生产常用状态（扁平访问）-----
+[1|comment] ----- 生命周期 / 播放委托 -----
+[1|string] 获取本地音乐歌单。显示所有已下载并缓存的歌曲。
+[1|comment] 检测 PIL 是否可用（避免未使用导入的告警）
+[1|string] 设置音量 0-100（调用方已 clamp）.
+[1|comment] ---- 兼容旧属性（诊断 / 测试）----
+[1|comment] 新的写法 (在Python 3.11+版本中)
+[1|comment] 启动消息处理循环（保存任务引用，关闭时可取消）
+[1|comment] 不显示日志行（日志仍被拦截，只是不在界面显示）
+[1|comment] 创建按钮实例（Active Low，内部上拉）
+[1|comment] 历史属性名还是 ttsText，实际是对话内容
+[1|comment] 延迟补偿帧数（40ms + N × 协议帧长）
+[1|comment] 音乐默认挂在「当前缓存」下：自定义了缓存则跟随
+[1|comment] 写入 keywords.txt 到用户数据目录
+[1|comment] 扩展名与优先文件名（避免目录里多个候选时捡错）
+[1|comment] 2. Opus 编码（float32 输入）
+[1|comment] 4. 刷新协议配置并重建 Opus 编解码器
+[1|string] 释放所有已注册的资源，按注册顺序的逆序执行.
+[1|comment] 直接从 record 获取上下文（如果存在）
+[1|string] bootstrap 返回 tools 非列表
+[1|string] 返回 tool_name 列表（去重保序）.
+[1|comment] 3. 添加常见的系统应用（只保留用户常用的）
+[1|string] 扫描注册表中的主要应用程序（过滤系统组件）.
+[1|comment] 没传 song_id 时从 url 路径里抠
+[1|string] 【进度/跳转专用】跳转到当前歌曲的指定位置。
+[1|string] 天气数据（当前 mock；待接真 API）.
+[1|comment] 优先级，数值越小越优先（范围: 1-100）
+[1|string] 处理 MQTT JSON 消息（线程回调）.
+[1|string] _is_connected方法必须由子类实现
+[1|comment] 以避免生产环境中非正规SSL证书导致连接失败
+[1|comment] 不要在这里调用网络错误回调，让连接处理器处理
+[1|string] ViewModel 基类 - 提供通用功能.
+[1|string] 用枚举结果填充输入/输出列表并通知 QML.
+[1|string] Textual App：仪表盘 + 设置屏.
+[1|string] [green]配置已保存，正在热应用…[/]
+[1|comment] 可选：屏蔽常见虚拟/聚合设备（默认不选它们）
+[1|comment] 如果用户目录没有配置文件，尝试从安装目录迁移
+[1|comment] 先校验 JSON，避免把损坏的安装配置拷进来
+[1|comment] 仅当 env 未设时应用 config 覆盖
+[1|comment] 3. 释放转换器（含 soxr 重采样器）
+[1|comment] 1. 下混（使用 audio_utils）
+[1|comment] 2. 上混（使用 audio_utils）
+[1|comment] 必须在 setup_opus() 之后导入
+[1|comment] 转换为 bytes（float32 格式）
+[1|string] 释放 APM 资源；须在音频流停止后调用.
+[1|comment] 声母列表（按长度降序排列以优先匹配长声母）
+[1|string] 关闭应用，统一通过资源池逆序释放所有资源.
+[1|comment] 检查是否是大小触发的轮转（同一天可能多次）
+[1|string] MCP 外挂插件：宿主 API 与加载器.
+[1|comment] 进程内会话表，供卸载时 terminate
+[1|comment] 方法3: 尝试Applications目录
+[1|string] 尝试使用where命令查找并启动应用程序.
+[1|comment] 脚本从环境变量读取查询字符串，不含用户输入
+[1|comment] 按进程组分组，尝试先终止子进程再终止父进程
+[1|string] 向 McpServer 注册应用管理工具.
+[1|comment] 尝试从/Applications/路径提取
+[1|comment] 图像的JPEG字节数据  # 字节数据长度
+[1|string] 设置视觉服务 token（子类按需覆写）.
+[1|string] 采集参数（来自 CAMERA.* 配置）.
+[1|string] 围着 MusicCache 转的本地列表.
+[1|string] MusicPlayer 提供给引擎的回调.
+[1|string] 当用户问「歌词是什么」「唱了什么」时调用。
+[1|comment] 与拍照共用 vision 配置（若已配置）
+[1|comment] 优先使用平台特定方法（更好的多显示器支持）
+[1|string] 通过依赖注入获取 AudioPlugin.
+[1|string] SettingsJSON消息接收回调函数.
+[1|string] 发送文本消息的抽象方法，需要在子类中实现.
+[1|string] 发送音频数据的抽象方法，需要在子类中实现.
+[1|string] 打开音频通道的抽象方法，需要在子类中实现.
+[1|string] 关闭音频通道的抽象方法，需要在子类中实现.
+[1|string] 1. 打开浏览器访问 xiaozhi.me
+[1|string] 打开设置窗口 - 直接发射信号到 QML.
+[1|string] 配置编辑弹层；返回 True 表示已保存.
+[1|string] choice 字段请填合法值（见占位提示）
+[1|string] 官方 24000 / 第三方常 16000
+[1|string] 释放共享服务引用（资源池最后阶段调用）.
+[1|string] Stop consumer 并清空队列.
+[1|comment] 监听模式：根据 AEC 配置决定默认模式
+[1|string] 重复日志过滤器，抑制短时间内的重复日志.
+[1|string] 管理一个插件子进程的生命周期与 RPC.
+[1|comment] 方法2: 使用which查找应用程序路径
+[1|comment] 默认包含其他应用程序（假设是用户安装的）
+[1|comment] 预热：很多 USB/Pi 设备前几帧无效
+[1|string] 枚举可用摄像头（设置页 / 扫描脚本）.
+[1|string] 普通摄像头实现，使用远程API进行分析.
+[1|string] 根据 song_id 生成缓存文件路径.
+[1|comment] lx-music-api 常见 code
+[1|string] 歌词拉取、解析，以及按播放进度取当前句.
+[1|comment] ----- 搜歌 / 本地库 -----
+[1|string] 恢复播放之前暂停的音乐，从暂停位置继续。
+[1|string] 只有用户主动暂停后要求恢复时才需要调用。
+[1|comment] 备用方法：使用PIL ImageGrab
+[1|string] 创建 Quartz Event Tap.
+[1|string] UI 插件：起界面、转展示、接用户操作.
+[1|string] 写界面：对话、音乐、状态、表情、按钮等.
+[1|string] UDP 音频传输（加密 Opus 帧）.
+[1|string] _do_cleanup方法必须由子类实现
+[1|comment] 旧的写法 (在较早的Python版本中)
+[1|string] 检查 WebSocket 连接是否存活.
+[1|string] 请访问 xiaozhi.me 输入验证码
+[1|comment] 移除 DisplayLogHandler
+[1|comment] 默认 GPIO 引脚配置（BCM 编号）
+[1|string] 手动模式录音切换（点击开始/Stop）.
+[1|string] 按名称匹配麦克风（热插拔后 ID 会变）
+[1|comment] 2. 如果按名称查找失败，自动选择新设备
+[1|string] 返回 ALSA 错误抑制器上下文管理器.
+[1|comment] bytes 输出不需要 keepdims
+[1|comment] --- 迁移步骤（按版本递增追加）---
+[1|string] 日志目录（用户数据目录下，打包后可写）.
+[1|comment] 若相对路径第一段在 skip 中（防御）
+[1|comment] 快速退出：正在停止时跳过延迟和队列清理
+[1|comment] 会话控制（听/说/打断/TTS 回环）
+[1|string] 应用将退出以避免空转（zombie）。
+[1|string] 发送检测到的文本（唤醒词或用户输入）.
+[1|string] 发送 MCP 消息（会自动包装格式）.
+[1|string] 事件总线.
+
+提供组件间解耦通信机制。
+[1|string] JSON 格式化器，用于日志聚合系统.
+[1|comment] 方法5: 尝试.desktop文件启动
+[1|comment] 扫描 /Applications 目录
+[1|comment] 排除无窗口标题的进程（通常是后台服务）
+[1|string] 设置视觉服务 URL（子类按需覆写）.
+[1|string] 树莓派 CSI (picamera2)
+[1|string] Camera MCP 工具注册与工厂.
+[1|string] 管理 music 缓存目录和临时文件.
+[1|string] 直链 API 请求过于频繁，请稍后再试
+[1|string] 向 McpServer 注册天气工具.
+[1|comment] TODO: 实际项目中应调用天气API
+[1|string] 插件启动（通常在协议连接建立后调用）.
+[1|string] 唤醒词插件.
+
+检测唤醒词并触发对话。
+[1|comment] 连接状态与自动重连（公共，从子类上移）
+[1|string] send_audio方法必须由子类实现
+[1|comment] 处理单个消息的错误，但继续处理其他消息
+[1|comment] Settings hello 接收事件
+[1|comment] 先移除所有 StreamHandler
+[1|comment] 注意：清屏已在 start() 中完成
+[1|comment] Windows 不支持 termios
+[1|comment] 添加简单的 StreamHandler
+[1|string] 获取输入设备列表（首次调用时再枚举）.
+[1|string] 获取输出设备列表（首次调用时再枚举）.
+[1|string] 唤醒词配置与 keywords 保存.
+[1|string] 设置窗口数据模型（组合 mixin）.
+[1|comment] 构建播放序列: 激活提示 + 各个数字
+[1|comment] 4. 保存设备名称（而非 ID）到配置
+[1|string] 输入验证码[：:]\s*(\d{6})
+[1|string] 清除运行时路径覆盖（测试或恢复默认）.
+[1|string] 激活验证码副作用：剪贴板与语音播报.
+[1|comment] 2. 刷新协议配置并初始化 Opus
+[1|comment] === 对外接口（保持兼容） ===
+[1|comment] 2.5 释放 AEC（须在流停止后）
+[1|string] PluginContext 适配器.
+[1|string] 有界入队：满则丢最旧帧再放入最新帧.
+[1|string] worker 未 bootstrap
+[1|comment] 外挂 / 通用 name="..."
+[1|comment] 优先 McpTool(...) 形式
+[1|comment] 使用tasklist命令获取进程信息
+[1|string] 完全停止并关闭音乐播放，重置到开头。
+[1|comment] 根据display_id决定截图策略
+[1|comment] 复制虚拟屏幕到位图（包括所有显示器）
+[1|comment] 只切自动/Manual，不自动开始听
+[1|comment] 订阅配置变更事件（轻量，不加载模型）
+[1|string] Stop UDP（断开回调等路径）.
+[1|string] send_text方法必须由子类实现
+[1|string] 连接监控检查间隔（秒），子类可覆盖.
+[1|string] 处理接收到的WebSocket消息.
+[1|comment] ---- 终端展示辅助方法 ----
+[1|comment] Settings GPIO 按键回调
+[1|string] 获取当前选中的摄像头在列表中的下标.
+[1|string] Device-Id（通常为 MAC）
+[1|comment] 当前有效路径（应用覆盖前）作为迁移源
+[1|string] OTA 配置拉取与本地配置初始化.
+[1|comment] 1. 格式转换（下混 + 重采样）
+[1|string] 加载动态库、应用配置、创建流配置.
+[1|comment] 等待检测循环自然退出（由哨兵触发）
+[1|comment] Manual：点一下开始/结束录音
+[1|string] 敏感数据过滤器，自动脱敏敏感信息.
+[1|string] 彩色日志格式化器，用于控制台输出.
+[1|comment] 后台读 stderr，避免管道堵死
+[1|string] 尝试通过注册表查找并启动应用程序.
+[1|string] 判断进程是否为用户可见的应用程序.
+[1|comment] 去重：避免重复添加开始菜单中的应用
+[1|string] 根据当前系统获取对应的扫描器模块.
+[1|string] 图中描绘的是什么景象？请详细描述。
+[1|comment] 免费歌能听；付费歌官方会直接说不行
+[1|string] 播放状态机；状态字段挂在本实例上.
+[1|comment] 获取虚拟屏幕尺寸（包括所有显示器）
+[1|string] 未找到可用的Linux音量控制工具
+[1|string] TTS 播放完成，发送音乐恢复请求
+[1|comment] 最低优先级，依赖 UIPlugin
+[1|string] goodbye 后清空会话侧字段.
+[1|comment] 消息处理任务引用，便于在关闭时取消
+[1|string] GPIO 按键界面（状态打日志）.
+[1|string] KEY3: 切自动/Manual.
+[1|string] 从配置还原当前选中的枚举 key.
+[1|string] 安全发射 EventBus 事件.
+[1|string] 20 低延迟 / 60 低 CPU
+[1|string] 播放音效序列（在工作线程中执行）.
+[1|comment] 2. 兜底：第一个可用的非虚拟设备
+[1|string] 验证码[：:]\s*(\d{6})
+[1|string] 激活码[：:]\s*(\d{6})
+[1|comment] 2. 兜底：System opus
+[1|comment] （此时音频流已停止，无并发读取）
+[1|string] 是否仍持有未关闭的输入/输出流.
+[1|comment] 采集线程停转时防堆积，超限丢最旧
+[1|comment] 4. 停止旧检测循环并释放旧模型
+[1|comment] 无配置时自动检测（保持向后兼容）
+[1|comment] 服务端协议固定值（不随配置变化）
+[1|string] 简单文本格式化器，用于文件输出.
+[1|string] 注册工具；记录名称供卸载/诊断.
+[1|comment] 方法4: 尝试常见的应用程序路径
+[1|comment] Windows 系统目录进程排除
+[1|comment] 尝试从命令路径中提取.app名称
+[1|comment] 使用进程名称（去掉.exe后缀）
+[1|comment] 计算匹配度：更具体的匹配得分更高
+[1|comment] 3. 标准化名称匹配 (90分)
+[1|comment] 4. 包含匹配 (70-80分)
+[1|comment] 分辨率：尽力设置，失败不视为致命
+[1|string] 直链 API 返回无法解析的数据
+[1|string] 缺少歌曲 ID，无法回退官方接口
+[1|string] 本地缓存曲库：扫描、列表、搜索.
+[1|string] 一首缓存文件的标题/艺人等信息.
+[1|string] 未知歌曲总时长，无法按百分比跳转
+[1|string] 音频编码回调（从音频线程调用）.
+[1|string] 插件是否失败（未注册视为失败）.
+[1|comment] 添加没有 name 的插件到末尾
+[1|comment] 连续失败超过此次数后降级日志频率
+[1|string] 连接到WebSocket服务器.
+[1|string] WSS 连接监控检查间隔（秒）.
+[1|comment] 服务端正常收回会话，不算网络错误
+[1|comment] 检查WebSocket的实际状态
+[1|string] 处理服务器的 hello 消息.
+[1|string] 获取激活码（供 QML 调用）.
+[1|string] 获取配置值，支持点号分隔的路径.
+[1|string] 设置配置值，支持点号分隔的路径.
+[1|string] 清空某项自定义路径（恢复默认）.
+[1|string] 对话内容（TTS / STT）.
+[1|string] 主按钮文案；没有按钮可以空实现.
+[1|string] Xiaozhi TUI 主应用.
+[1|string] 获取音效文件路径（仅 WAV）.
+[1|string] 音频设备管理器（无状态，纯逻辑）
+[1|comment] 如果无法操作文件描述符，静默失败
+[1|comment] ndarray 输入: 直接处理
+[1|string] 处理验证码：提取并复制到剪贴板.
+[1|comment] 如果已正确关闭或正在关闭，跳过
+[1|comment] 本地路径或 http(s) 流
+[1|comment] 关闭中：关闭未调度协程避免警告
+[1|comment] 检查是否正在关闭 - 静默拒绝
+[1|comment] Logger 名称（缩短显示）
+[1|comment] 保留最后一部分，缩写前面的部分
+[1|comment] 标准 LogRecord 字段
+[1|comment] 如果还没找到起始位置，继续搜索
+[1|string] 解析capabilities.
+[1|comment] 单次 call 默认超时（秒）
+[1|comment] 方法1: 直接使用应用程序名称
+[1|comment] 方法2: 直接使用应用程序名称
+[1|comment] Linux: 排除系统守护进程
+[1|comment] 进程分组映射（用于关闭时分组）
+[1|comment] 5. 窗口标题匹配 (60分)
+[1|comment] 移除所有非字母数字字符进行比较
+[1|string] SettingsJPEG数据.
+[1|comment] 先按配置音质试，再试 128k
+[1|comment] 直链 → 降音质 → 官方接口
+[1|string] 搜一首歌；失败返回 None.
+[1|string] 仅用于获取当前歌曲的歌词文本。
+[1|string] 截图 MCP 工具注册与工厂.
+[1|comment] 使用alpha通道作为mask
+[1|string] 获取当前音量 (0-100).
+[1|comment] 将 tap 添加到当前运行循环
+[1|comment] 主按钮：开始对话 / 停止对话
+[1|string] 配置变更时重新加载唤醒词模型.
+[1|comment] MQTT 配置（OTA 注入）
+[1|string] 执行渲染（在事件循环中调用）.
+[1|string] 原始模式读取输入（支持中文）.
+[1|string] 移除所有标准输出的日志处理器.
+[1|string] 激活窗口 ViewModel.
+[1|comment] 兼容旧逻辑：只配了 index
+[1|string] 摄像头参数与 VL 配置属性.
+[1|string] Python-QML 桥接层.
+[1|string] 表情名，具体资源各端自己解析.
+[1|comment] 检查文本是否包含激活相关关键词
+[1|string] 查找系统安装的 opus 库.
+[1|string] 模型目录（只读，安装目录内）.
+[1|string] 资源目录（只读，安装目录内）.
+[1|string] 服务器取消授权，需要重新激活
+[1|comment] 3. 通知监听器（线程安全）
+[1|comment] 4. 释放 Opus（同步）
+[1|comment] 输入编码器：16kHz单声道
+[1|comment] 输出解码器：24kHz单声道
+[1|comment] 事件总线最后释放（次先注册）
+[1|comment] 配置不可用时保留当前/默认值
+[1|comment] UI 操作（界面 → 插件）
+[1|comment] 队列满时强制腾一个位置放毒丸
+[1|comment] 常见敏感数据格式的正则表达式
+[1|string] 对文本中的敏感信息进行脱敏.
+[1|string] 格式化日志记录为 JSON.
+[1|comment] 如果同名文件已存在，添加序号
+[1|comment] 解析capabilities
+[1|comment] 无过滤词：严格只返回用户应用
+[1|comment] 扫描 .desktop 文件
+[1|comment] 添加常见的Linux系统应用
+[1|comment] 解析 .desktop 文件
+[1|comment] 尝试从命令路径中提取应用名称
+[1|comment] 检查是否包含明确包含的关键词
+[1|comment] 1. 精确匹配 (100分)
+[1|string] 初始化智普AICamera.
+[1|string] 下载过程中用的临时文件路径.
+[1|comment] 直链搞不定时，走酷我官方试听
+[1|comment] 酷我官方 playUrl 用
+[1|string] 按 id 找文件并读元数据.
+[1|comment] ----- 歌词 -----
+[1|comment] 截取所有屏幕（包括多显示器）
+[1|comment] 转换为JPEG格式的字节数据
+[1|comment] 尝试不同的Linux截图工具
+[1|string] 判断是否应该发送麦克风音频.
+[1|string] 为每个插件注入其声明的依赖.
+[1|string] 把状态/协议消息画到界面上.
+[1|comment] 根据配置决定是否尝试自动重连
+[1|string] 取消并等待连接监控任务完成.
+[1|comment] 处理服务器 hello 消息
+[1|comment] 取消连接监控任务（基类管理）
+[1|string] - 重新运行程序获取新验证码
+[1|string] 处理用户命令 - 统一入口.
+[1|string] KEY1: 开始/停止对话.
+[1|string] 主窗口 ViewModel.
+[1|string] 获取当前选中的输入设备索引.
+[1|string] 获取当前选中的输出设备索引.
+[1|string] 测试摄像头，捕获一帧并显示.
+[1|string] 表情服务 - 管理表情资源.
+[1|string] 设置保存后通知运行时热重载.
+[1|string] WebSocket 服务地址
+[1|comment] 仍写入用户值，由上层校验提示
+[1|comment] 8-bit PCM 为无符号
+[1|comment] 1. 精确匹配（忽略大小写）
+[1|string] 析构函数 - 执行同步清理
+[1|comment] 2. 清空队列（同步版本）
+[1|string] 停止音频流，幂等可重复调用
+[1|comment] 翘舌音（2字符，优先匹配）
+[1|comment] 协议要求：输入 16kHz
+[1|string] 安全调用处理器，捕获异常.
+[1|comment] 关闭时静默跳过，不打印警告
+[1|string] 缩短 logger 名称.
+[1|string] 清理超出保留数量的旧文件.
+[1|string] 日志队列已满，丢弃一条日志
+[1|comment] 不写死中文，组标题=目录名
+[1|comment] 按优先级尝试不同的启动方法
+[1|comment] 明确排除的系统组件和运行库
+[1|comment] Microsoft系统组件
+[1|comment] 6. 路径匹配 (50分)
+[1|comment] 7. 模糊匹配 (30分)
+[1|string] 可展示/可选的摄像头条目.
+[1|comment] 给 AE/AWB 一点时间
+[1|comment] 上次失败原因，给上层提示用
+[1|string] 有缓存直接用，没有再下载.
+[1|string] 直链 API 网络请求失败
+[1|comment] 过滤掉作词/作曲这类信息行
+[1|comment] 假设显示器按上下或左右排列
+[1|string] 无法访问macOS音量控制
+[1|string] 设置音量 (0-100).
+[1|string] 收到JSON消息时的通知.
+[1|string] 通知收到 JSON 消息.
+[1|comment] 检查是否在 macOS 上
+[1|comment] Carbon 虚拟键码映射
+[1|string] 检查是否匹配已注册的热键.
+[1|string] 停止接收线程并关闭套接字.
+[1|string] 设置音频数据接收回调函数.
+[1|string] 设置音频通道打开回调函数.
+[1|string] 设置音频通道关闭回调函数.
+[1|comment] 为每个描述符发送单独的消息
+[1|string] 启动连接健康监控后台任务.
+[1|comment] 关闭WebSocket连接
+[1|string] CLI 模块：命令行界面.
+[1|string] - 验证码输入错误或已过期
+[1|comment] 设置根 logger 级别
+[1|comment] 尝试导入 gpiozero
+[1|string] ViewModel 基类.
+[1|string] 音频设备枚举、选择与测试.
+[1|string] 刷新摄像头列表（非阻塞）.
+[1|string] 是否需要激活 UI 流程.
+[1|string] 自动模式：开始或停止对话.
+[1|string] 把输入框字符串转成配置值.
+[1|comment] 理论上不会发生,但保险起见
+[1|comment] 2. 模糊匹配（包含关系）
+[1|string] 验证码\s*(\d{6})
+[1|comment] 已是独立副本时原地合并即可
+[1|string] 配置目录（应用内置，只读）
+[1|string] 激活 HTTP 客户端.
+[1|string] efuse 路径未初始化
+[1|string] 仅播报（轮询重试时用）.
+[1|string] 清空，返回丢弃的样本数.
+[1|comment] 设备配置（初始化后填充）
+[1|comment] 1. 停止音频流（同步）
+[1|comment] 5. 清理监听器（同步）
+[1|comment] 快速质量（适合实时处理）
+[1|comment] 转换为 numpy 数组
+[1|comment] 排空队列中残留的旧音频帧
+[1|string] 第二阶段：配置管理初始化
+[1|string] 第三阶段：OTA获取配置
+[1|comment] Auto：开始/停止对话
+[1|comment] 配置已变更（需要热重载）
+[1|string] 负责协议创建与连接管理.
+[1|comment] Windows 终端检查
+[1|comment] 从参数创建McpTool
+[1|comment] 保证 JSON 可序列化
+[1|string] 尝试常见的应用程序路径.
+[1|string] 尝试启动UWP应用程序.
+[1|comment] 按分数排序，返回最佳匹配
+[1|string] 基础摄像头类，定义接口.
+[1|comment] 将图像转换为Base64
+[1|comment] IP 被封了换音质也没用
+[1|string] 取消后台预取（换歌时）.
+[1|string] 从酷我接口拉歌词并解析.
+[1|comment] 确保图片格式兼容JPEG
+[1|comment] 转换为PIL Image
+[1|string] 获取指定城市的当前天气。
+[1|string] 获取指定城市的天气预报。
+[1|string] 获取指定名称的依赖插件.
+[1|string] 根据插件名获取插件实例.
+[1|comment] 工具注册，需要较早初始化
+[1|string] 处理自动对话切换快捷键.
+[1|comment] 检查是否匹配已注册的热键
+[1|comment] 移除 event tap
+[1|string] 检查是否匹配快捷键配置.
+[1|string] endpoint不能为空
+[1|comment] 初始化回调函数为None
+[1|string] 发送检测到唤醒词的消息.
+[1|string] 发送物联网设备描述信息.
+[1|string] 发送物联网设备状态信息.
+[1|comment] 指数退避等待，最大30秒
+[1|comment] 初始化时先设为 None
+[1|comment] 判断是否应该使用 SSL
+[1|comment] 发送客户端hello消息
+[1|comment] 等待服务器hello响应
+[1|string] CLI模式设备激活流程.
+[1|comment] 用户主动切换：需要到前台
+[1|string] UI 相关事件的数据类.
+[1|string] OTA / 激活配置地址
+[1|comment] 1. 尝试按名称查找设备
+[1|string] 输入\s*(\d{6})
+[1|string] 丢弃进程配置（仅测试）.
+[1|comment] 1. 优先内置 opus
+[1|string] 请在控制面板输入验证码
+[1|comment] 3. 配置格式转换管线
+[1|comment] 3. 重新加载设备配置
+[1|comment] 1. 检查配置是否启用
+[1|string] 第一阶段：设备身份准备
+[1|comment] 请求暂停（如 TTS）
+[1|string] 检查事件是否有处理器.
+[1|string] 获取事件的处理器数量.
+[1|comment] 记录日志系统初始化完成
+[1|comment] 自动获取调用者的模块名
+[1|string] 检查终端是否支持颜色.
+[1|comment] 添加 Trace ID
+[1|comment] 添加 trace_id
+[1|comment] 检查JSONRPC版本
+[1|string] 无法创建模块 spec
+[1|comment] 过滤掉不需要的应用程序
+[1|comment] 检查是否包含排除关键词
+[1|comment] 明确包含的知名应用程序
+[1|comment] 只包含有意义的窗口标题
+[1|string] 统一的应用程序匹配器.
+[1|comment] 避免短名称误匹配长名称
+[1|comment] 获取正在运行的应用程序
+[1|string] 本地音乐缓存目录管理.
+[1|string] 创建缓存目录（幂等）.
+[1|string] 列出缓存里的音乐文件.
+[1|string] 清空 temp 目录.
+[1|string] 直链 API 内部错误
+[1|string] 直链 API 参数错误
+[1|comment] 保存为JPEG字节数据
+[1|comment] 转换为JPEG字节数据
+[1|string] 当前音量 0-100.
+[1|string] 检查并报告缺少的依赖.
+[1|string] 协议通道建立后的通知.
+[1|string] 收到音频数据时的通知.
+[1|string] 返回所有已失败插件名.
+[1|string] 启动所有未失败的插件.
+[1|comment] 没有事件循环，直接调用
+[1|comment] 约每分钟一次，避免刷屏
+[1|string] 检查是否触发了快捷键.
+[1|comment] 检查监听器是否仍在运行
+[1|comment] MQTT 连接活动监控
+[1|string] 设置网络错误回调函数.
+[1|comment] 二进制消息，可能是音频
+[1|string] - 确保正确输入验证码
+[1|string] CLI 终端显示界面.
+[1|comment] 再安装我们的日志处理器
+[1|comment] +14 补偿 ANSI
+[1|comment] 所有命令都转发，不拦截
+[1|string] 关闭 GPIO 资源.
+[1|string] 关闭 GPIO 视图.
+[1|string] KEY4: 退出程序.
+[1|comment] KEY1 分支会看这个
+[1|string] 测试输入设备（录音）.
+[1|string] 测试输出设备（播放）.
+[1|comment] 快捷键：窗口显示/隐藏
+[1|comment] 回退到 neutral
+[1|string] 展示错误（可选覆盖）.
+[1|string] r → 开始/停止对话
+[1|string] 按名称匹配扬声器/耳机
+[1|string] OpenCV 数字索引
+[1|comment] 分段等待，便于响应中断
+[1|comment] 更精确的验证码匹配模式
+[1|comment] 可选值: v1, v2
+[1|string] 生成 UUID v4.
+[1|comment] 从安装目录复制默认文件
+[1|string] 只保留平铺身份字段.
+[1|comment] 1. 加载/检测设备
+[1|comment] 数据不足，等待下一帧
+[1|comment] 5. 重建格式转换器
+[1|comment] 6. 重新创建音频流
+[1|comment] 4. 释放 Opus
+[1|comment] code → 帧数量
+[1|string] 音频通道是否已打开.
+[1|string] 调度命令（非阻塞）.
+[1|comment] 切自动/Manual
+[1|comment] 显隐主窗口（GUI）
+[1|string] 负责消息发送的网关.
+[1|comment] 在锁外广播，避免死锁
+[1|comment] 日志系统是否已初始化
+[1|comment] JSON 文件处理器
+[1|comment] 设置第三方库日志级别
+[1|string] 过滤并脱敏日志记录.
+[1|string] 过滤重复的日志消息.
+[1|comment] 配置未就绪时使用默认
+[1|comment] 重新计算下次轮转时间
+[1|string] 发送日志记录到队列.
+[1|comment] 同步读一行（带超时）
+[1|string] MCP工具属性定义.
+[1|comment] 其他已知系统进程路径
+[1|comment] 排除空名称或系统进程
+[1|comment] 扫描用户应用程序目录
+[1|comment] 排除空名称或系统路径
+[1|comment] 但排除明显的系统组件
+[1|comment] 移除常见的版本号模式
+[1|string] 标准化应用程序名称.
+[1|comment] 移除版本号和特殊字符
+[1|string] 获取进程所属的分组.
+[1|comment] 检查是否有匹配的别名
+[1|comment] 获取已安装的应用程序
+[1|comment] 计算所有应用的匹配度
+[1|comment] 3) 树莓派 CSI
+[1|string] 智普AI摄像头实现.
+[1|string] 下载并写入缓存目录.
+[1|string] 本地音频文件元数据.
+[1|string] 桌面截图摄像头实现.
+[1|comment] 截取所有显示器并合成
+[1|comment] 也计算左右排列的尺寸
+[1|comment] 选择更紧凑的排列方式
+[1|comment] 检测所有可用的显示器
+[1|string] 音量后端协议与工厂.
+[1|string] 设备状态变化时处理.
+[1|string] 处理 TTS 事件.
+[1|string] 接收并播放音频数据.
+[1|string] 获取依赖的插件实例.
+[1|comment] 回退到 pynput
+[1|string] 配置变更时重新加载.
+[1|string] 处理模式切换快捷键.
+[1|string] 处理窗口切换快捷键.
+[1|string] 快捷键后端抽象基类.
+[1|string] 唤醒词检测错误回调.
+[1|comment] 新增连接状态变化回调
+[1|string] 发送中止语音的消息.
+[1|string] 发送开始监听的消息.
+[1|string] 发送停止监听的消息.
+[1|comment] 调用子类协议特定清理
+[1|string] - 服务器暂时不可用
+[1|string] 打印带时间戳的日志.
+[1|comment] 日志处理器是否已安装
+[1|string] 启动 CLI 显示.
+[1|string] 关闭 CLI 显示.
+[1|string] 关闭 CLI 视图.
+[1|string] GPIO 是否可用.
+[1|string] 当前配置的引脚列表.
+[1|comment] 保持运行（事件驱动）
+[1|string] 设置选中的输入设备.
+[1|string] 设置选中的输出设备.
+[1|string] 写界面用的方法集合.
+[1|string] 文本 → 发送给助手
+[1|string] 保存失败（写盘错误）
+[1|comment] 复制单声道到所有声道
+[1|string] 从文本中提取验证码.
+[1|string] 将当前内存配置落盘.
+[1|string] 确保存在客户端ID.
+[1|string] 获取动态库所在目录.
+[1|string] v1协议初始化完成
+[1|string] 已自动修复激活状态
+[1|comment] 首块已消费的样本数
+[1|string] 初始化音频编解码器
+[1|comment] 监听器（线程安全）
+[1|comment] 2. 加载配置参数
+[1|comment] 3. 确定模型路径
+[1|comment] 各插件注册自身资源
+[1|string] 是否应该采集音频.
+[1|string] 应用级会话控制器.
+[1|string] 第四阶段：激活流程
+[1|comment] Manual：按下
+[1|comment] Manual：松开
+[1|comment] 并行执行所有处理器
+[1|string] 设置持续监听状态.
+[1|string] AEC 是否启用.
+[1|string] 获取当前任务数量.
+[1|string] 获取所有任务名称.
+[1|comment] 错误日志文件处理器
+[1|comment] 使用异步处理器包装
+[1|comment] ANSI 颜色代码
+[1|comment] 日志级别对应的颜色
+[1|comment] Unix 系统检查
+[1|string] 计算下次轮转时间.
+[1|string] 检查是否需要轮转.
+[1|string] 处理工具调用请求.
+[1|comment] 正则：扫描注册源码
+[1|comment] 排除的应用程序模式
+[1|comment] 移除.lnk扩展名
+[1|comment] 精确匹配特殊映射键
+[1|string] 清空应用程序缓存.
+[1|string] 初始化基础摄像头.
+[1|string] 获取JPEG数据.
+[1|string] 初始化普通摄像头.
+[1|string] 音乐相关配置读取.
+[1|comment] (时间秒, 文本)
+[1|string] 初始化截图摄像头.
+[1|string] 导入必要的依赖库.
+[1|comment] 尝试不同的截图方法
+[1|comment] 检测最多4个显示器
+[1|comment] 单显示器，直接返回
+[1|comment] 多显示器，需要合成
+[1|string] 跨平台音量控制器.
+[1|string] 异步发送音频数据.
+[1|comment] 依赖的插件名称列表
+[1|comment] 依赖注入的插件实例
+[1|string] 获取插件命令接口.
+[1|string] 设备状态变更通知.
+[1|string] 未失败的插件列表.
+[1|string] 通知收到音频数据.
+[1|string] 通知设备状态变更.
+[1|string] 快捷键命令适配器.
+[1|string] MQTT配置不完整
+[1|comment] 获取配置管理器实例
+[1|comment] 获取设备MAC地址
+[1|comment] 通知音频通道已打开
+[1|string] 2. 登录您的账户
+[1|string] 3. 选择添加设备
+[1|string] 5. 确认添加设备
+[1|string] - 网络连接不稳定
+[1|string] 正在关闭应用...
+[1|string] 更新自动模式状态.
+[1|string] 安全渲染（带锁）.
+[1|string] CLI 终端界面.
+[1|comment] 启动 CLI 显示
+[1|comment] 可根据实际接线修改
+[1|string] KEY2: 打断.
+[1|string] 设置为已激活状态.
+[1|string] 设置为未激活状态.
+[1|string] 设置为检查中状态.
+[1|string] 摄像头枚举与测试.
+[1|string] 手动模式按钮按下.
+[1|string] 手动模式按钮释放.
+[1|string] 一个可编辑配置项.
+[1|string] 激活验证码播报器.
+[1|comment] 回退到 zh-CN
+[1|string] 复制文本到剪贴板.
+[1|comment] 激活相关关键词列表
+[1|comment] 避免极端情况下重名
+[1|string] 保持本地激活状态
+[1|comment] 组件（依赖注入）
+[1|comment] 5. 创建音频流
+[1|comment] 6. 启动音频流
+[1|comment] 7. 启动音频流
+[1|string] 关闭音频编解码器
+[1|comment] 1. 停止音频流
+[1|comment] 5. 清理监听器
+[1|comment] 标记是否正在停止
+[1|comment] 5. 加载新模型
+[1|string] 获取配置管理器.
+[1|string] 事件处理器协议.
+[1|string] 注册事件处理器.
+[1|string] 移除事件处理器.
+[1|comment] 协议要求：单声道
+[1|string] 初始化阶段枚举.
+[1|string] 预定义事件常量.
+[1|comment] 检查是否正在关闭
+[1|comment] 等待所有任务完成
+[1|comment] 确保日志目录存在
+[1|comment] 获取根日志记录器
+[1|comment] 清除已有的处理器
+[1|comment] 默认敏感字段模式
+[1|comment] 构建字段匹配正则
+[1|string] 给文本添加颜色.
+[1|string] 格式化异常信息.
+[1|string] 格式化堆栈跟踪.
+[1|comment] 自定义上下文字段
+[1|string] 日志配置数据类.
+[1|comment] 计算到午夜的秒数
+[1|comment] 查找所有轮转文件
+[1|comment] 注册退出时的清理
+[1|comment] 备份原有工具列表
+[1|string] 解析MCP消息.
+[1|string] 处理初始化请求.
+[1|string] 初始化属性列表.
+[1|string] MCP工具定义.
+[1|comment] 获取可执行文件名
+[1|comment] 添加常用系统应用
+[1|comment] 优先使用窗口标题
+[1|comment] 移除.exe后缀
+[1|comment] 一般特殊映射匹配
+[1|comment] 检查缓存是否有效
+[1|comment] 重新扫描应用程序
+[1|comment] 计算合成后的尺寸
+[1|comment] 负值表示从上到下
+[1|string] 获取插件上下文.
+[1|string] 插件存在循环依赖
+[1|comment] 降级为优先级排序
+[1|string] 通知协议已连接.
+[1|comment] 订阅配置变更事件
+[1|string] 加载快捷键配置.
+[1|string] 注册所有快捷键.
+[1|string] 处理中断快捷键.
+[1|string] 从配置重新加载.
+[1|string] 注销所有快捷键.
+[1|comment] 获取键码和修饰键
+[1|comment] 规范化修饰键名称
+[1|string] 唤醒词检测回调.
+[1|comment] UDP 音频通道
+[1|comment] 默认禁用自动重连
+[1|string] 发送MCP消息.
+[1|comment] 取消连接监控任务
+[1|comment] 通知音频通道关闭
+[1|comment] 取消消息处理任务
+[1|string] - 检查网络连接
+[1|comment] 清屏并初始化界面
+[1|string] 安装日志处理器.
+[1|comment] 尽早拦截日志输出
+[1|comment] 使用闭包捕获索引
+[1|string] 设置状态不一致.
+[1|string] 主窗口数据模型.
+[1|string] 快捷键配置属性.
+[1|comment] 快捷键：手动模式
+[1|comment] 快捷键：自动模式
+[1|comment] 快捷键：模式切换
+[1|string] 更新唤醒词预览.
+[1|string] 从文件加载配置.
+[1|string] 激活服务未初始化
+[1|string] 未获取到激活数据
+[1|string] 音乐状态或歌词.
+[1|string] 状态: Idle
+[1|string] 设备 index
+[1|string] 停止验证码播报.
+[1|string] 尝试加载动态库.
+[1|comment] 1) 精确优先名
+[1|string] 激活结果类型.
+[1|string] 音频监听器协议
+[1|comment] 2. 清空队列
+[1|comment] 下混后的声道数
+[1|comment] 上混前的声道数
+[1|comment] 累积到目标大小
+[1|string] 编码器未初始化
+[1|string] 解码器未初始化
+[1|comment] 输出路径绝不抛
+[1|string] 获取事件总线.
+[1|string] 中止语音输出.
+[1|string] 连接协议通道.
+[1|string] 创建异步任务.
+[1|string] 请求关闭应用.
+[1|comment] 预定义事件名称
+[1|comment] 音乐播放器事件
+[1|comment] 毒丸：Quit
+[1|string] 设置监听模式.
+[1|string] 设置中止状态.
+[1|string] 获取事件循环.
+[1|string] 获取关闭事件.
+[1|string] 等待关闭信号.
+[1|comment] 导出的公共接口
+[1|comment] 创建处理器列表
+[1|comment] 字段名匹配脱敏
+[1|comment] 定期清理旧记录
+[1|comment] 构建基础日志行
+[1|comment] 添加上下文信息
+[1|string] 格式化时间戳.
+[1|string] 提取额外字段.
+[1|string] 运行环境枚举.
+[1|comment] 移动到文件末尾
+[1|comment] 生成轮转文件名
+[1|comment] 构建轮转文件名
+[1|comment] 按修改时间排序
+[1|comment] 删除超出的文件
+[1|comment] 处理不同的方法
+[1|comment] 返回服务器信息
+[1|string] 发送成功响应.
+[1|string] 发送错误响应.
+[1|string] where命令
+[1|comment] 按名称排序去重
+[1|comment] 优先使用中文名
+[1|comment] 内核和核心进程
+[1|comment] 解析CSV格式
+[1|comment] 系统工具和驱动
+[1|comment] 无用的快捷方式
+[1|comment] 移除多余的空格
+[1|comment] 长度相近的匹配
+[1|string] 获取缓存信息.
+[1|comment] 截取指定显示器
+[1|comment] 转换为JPEG
+[1|comment] 垂直排列更紧凑
+[1|comment] 水平排列更紧凑
+[1|comment] 创建设备上下文
+[1|string] 平台音量实现.
+[1|comment] Kahn 算法
+[1|comment] 注销所有快捷键
+[1|string] 事件回调函数.
+[1|comment] 更新修饰键状态
+[1|comment] 获取期望的键码
+[1|comment] tap 已失效
+[1|string] 按键按下回调.
+[1|string] 按键释放回调.
+[1|string] 获取按键名称.
+[1|comment] 检查修饰键状态
+[1|string] 健康检查循环.
+[1|comment] 停止旧的监听器
+[1|comment] 创建新的监听器
+[1|string] 会话相关操作.
+[1|comment] 解析描述符数据
+[1|comment] 检查是否为数组
+[1|string] 网络I/O错误
+[1|string] 关闭音频通道.
+[1|string] 打印设备信息.
+[1|string] 打印激活信息.
+[1|string] 设备激活成功!
+[1|comment] 显示区最少行数
+[1|comment] ANSI 样式
+[1|string] 设置命令回调.
+[1|comment] 先获取事件循环
+[1|comment] 初始化屏幕显示
+[1|string] 键盘输入循环.
+[1|string] 恢复标准日志.
+[1|string] 获取终端尺寸.
+[1|comment] 开始/停止对话
+[1|comment] 终端没有主按钮
+[1|string] 更新设备信息.
+[1|comment] MQTT 配置
+[1|string] UI 服务层.
+[1|comment] 转换为 URL
+[1|string] 查找表情文件.
+[1|string] 更新托盘提示.
+[1|string] 显示托盘通知.
+[1|string] 托盘是否可用.
+[1|string] 运行激活流程.
+[1|string] 展示激活结果.
+[1|string] 自动模式切换.
+[1|string] 关闭 TUI.
+[1|string] 处理用户命令.
+[1|comment] 停止之前的播报
+[1|string] 设备配置数据类
+[1|string] 打开网页链接.
+[1|string] 显示/隐藏窗口
+[1|string] 设备需要激活
+[1|comment] 可读样本总数
+[1|string] 初始化转换器
+[1|comment] 2. 重采样
+[1|comment] 1. 重采样
+[1|comment] 取出目标帧数
+[1|comment] 应用生命周期
+[1|comment] 播放状态变化
+[1|comment] 配置变更事件
+[1|comment] 音频回调类型
+[1|comment] AEC 配置
+[1|comment] 重置中止标志
+[1|string] 是否已中止.
+[1|comment] 复合状态查询
+[1|comment] 取消所有任务
+[1|comment] 应用参数覆盖
+[1|comment] 控制台处理器
+[1|comment] 正则模式脱敏
+[1|comment] 添加线程信息
+[1|comment] 添加进程信息
+[1|comment] 添加异常信息
+[1|comment] 添加额外字段
+[1|comment] 时间轮转计算
+[1|comment] 重新打开文件
+[1|string] 关闭处理器.
+[1|comment] 恢复原有工具
+[1|comment] 异步调用工具
+[1|comment] 调用回调函数
+[1|comment] 格式化返回值
+[1|comment] 先终止子进程
+[1|comment] 应用过滤条件
+[1|comment] 取第一个命令
+[1|comment] 检查排除模式
+[1|comment] 桌面环境服务
+[1|comment] 移除常见后缀
+[1|comment] 系统核心进程
+[1|comment] 开始菜单目录
+[1|comment] 全局应用缓存
+[1|comment] 检查直接映射
+[1|comment] 检查包含关系
+[1|comment] 准备文件数据
+[1|comment] 检查响应状态
+[1|comment] 平台特定导入
+[1|comment] 截取主显示器
+[1|comment] 截取副显示器
+[1|comment] 获取位图数据
+[1|comment] 获取像素数据
+[1|comment] 创建临时文件
+[1|comment] 构建完整命令
+[1|comment] 读取截图数据
+[1|string] 东北风 3级
+[1|string] 快捷键插件.
+[1|string] 快捷键配置.
+[1|comment] 创建事件监听
+[1|string] 重启监听器.
+[1|comment] 启动自动对话
+[1|string] (重连失败)
+[1|comment] 默认重连5次
+[1|string] 连接检测失败
+[1|comment] 通知开始重连
+[1|comment] 启动连接监控
+[1|comment] 重置重连计数
+[1|comment] 验证传输方式
+[1|comment] 协议特定清理
+[1|string] 设备激活失败
+[1|string] 可能的原因:
+[1|comment] 是否已初始化
+[1|comment] 标记已初始化
+[1|comment] 启动输入循环
+[1|comment] 恢复标准日志
+[1|string] 初始化屏幕.
+[1|string] 渲染仪表盘.
+[1|string] 渲染输入区.
+[1|string] 清空输入区.
+[1|string] 重绘输入行.
+[1|comment] 防止重复安装
+[1|comment] 设置命令回调
+[1|comment] 设置按下回调
+[1|comment] 属性变化信号
+[1|string] 更新激活码.
+[1|comment] 设备信息显示
+[1|comment] 快捷键：中断
+[1|comment] AEC 启用
+[1|string] 预加载表情.
+[1|comment] 创建托盘图标
+[1|comment] 使用应用图标
+[1|comment] 显示设置窗口
+[1|string] x → 打断
+[1|string] 客户端 ID
+[1|string] 帧时长 ms
+[1|string] 如：你好小智
+[1|comment] 音频资源目录
+[1|comment] 停止音频播放
+[1|comment] 等待线程结束
+[1|comment] 已经是单声道
+[1|comment] 通用模式匹配
+[1|comment] 跳过说明文件
+[1|string] 设备已激活
+[1|string] 清空缓冲区
+[1|comment] 重建输入流
+[1|comment] 重建输出流
+[1|comment] 零声母标记
+[1|comment] 适配器创建
+[1|string] 开始监听.
+[1|string] 停止监听.
+[1|string] 处理事件.
+[1|string] 触发事件.
+[1|comment] 事件处理器
+[1|string] 监听模式.
+[1|string] 中止原因.
+[1|string] 设备状态.
+[1|string] 事件类型.
+[1|string] 系统常量.
+[1|string] 请求关闭.
+[1|comment] 文件处理器
+[1|comment] 高亮前景色
+[1|comment] 添加线程名
+[1|comment] 初始化父类
+[1|string] 执行轮转.
+[1|comment] 清理旧文件
+[1|string] 压缩文件.
+[1|comment] 创建监听器
+[1|string] 添加工具.
+[1|string] 调用工具.
+[1|string] 注册表查找
+[1|string] UWP应用
+[1|comment] 终止主进程
+[1|comment] 驱动和扩展
+[1|string] 网易云音乐
+[1|comment] 缓存5分钟
+[1|string] 模糊匹配.
+[1|string] 捕获图像.
+[1|comment] 准备请求头
+[1|string] 使用场景：
+[1|string] 参数说明：
+[1|string] 未知艺术家
+[1|string] 歌词内容:
+[1|comment] 导入依赖库
+[1|comment] 分配缓冲区
+[1|string] 插件停止.
+[1|comment] 构建依赖图
+[1|string] 启动插件.
+[1|comment] 注册快捷键
+[1|string] 停止插件.
+[1|comment] 验证修饰键
+[1|comment] 停止监听器
+[1|string] 界面插件.
+[1|string] 设备信息:
+[1|string] 需重新激活
+[1|string] 激活步骤:
+[1|string] 解决方案:
+[1|comment] 仪表盘数据
+[1|comment] 输入区行数
+[1|string] 更新状态.
+[1|string] 更新表情.
+[1|string] 添加日志.
+[1|string] 调度渲染.
+[1|comment] 构建状态行
+[1|comment] 清空旧区域
+[1|string] 显示帮助.
+[1|string] 移动光标.
+[1|string] 重置状态.
+[1|comment] 音频帧长度
+[1|comment] 唤醒词文本
+[1|comment] 转换唤醒词
+[1|comment] 保存到文件
+[1|string] 清空缓存.
+[1|string] 隐藏托盘.
+[1|string] 中断请求.
+[1|string] 发送文本.
+[1|string] 退出请求.
+[1|string] 对话: —
+[1|string] 音乐: —
+[1|string] 设备 ID
+[1|string] 停止播报.
+[1|comment] 不抑制异常
+[1|comment] 多声道下混
+[1|comment] 丢弃最旧的
+[1|comment] 放入新数据
+[1|string] 输入验证码
+[1|comment] 环境变量名
+[1|comment] 不覆盖已有
+[1|comment] 解析结果
+[1|comment] 状态标记
+[1|comment] 取出一帧
+[1|comment] 生命周期
+[1|comment] 网络连接
+[1|comment] 异步任务
+[1|comment] 事件订阅
+[1|comment] 操作方法
+[1|comment] 协议相关
+[1|comment] 网络错误
+[1|comment] 音频通道
+[1|comment] 歌词更新
+[1|comment] 进度更新
+[1|comment] 请求恢复
+[1|comment] 打开设置
+[1|comment] 丢弃最旧
+[1|comment] 清空残留
+[1|comment] 中止标志
+[1|comment] 监听模式
+[1|comment] 中止状态
+[1|comment] 模块版本
+[1|comment] 主要函数
+[1|comment] 格式化器
+[1|comment] 处理消息
+[1|comment] 处理参数
+[1|comment] 日志级别
+[1|comment] 异常信息
+[1|comment] 检查时间
+[1|comment] 执行轮转
+[1|comment] 创建队列
+[1|comment] 忽略通知
+[1|comment] 查找工具
+[1|comment] 获取参数
+[1|comment] 类型检查
+[1|comment] 解析参数
+[1|string] 常见路径
+[1|comment] 系统组件
+[1|comment] 系统工具
+[1|comment] 办公软件
+[1|comment] 开发工具
+[1|comment] 通信软件
+[1|comment] 媒体软件
+[1|comment] 游戏平台
+[1|comment] 实用工具
+[1|comment] 降低分数
+[1|comment] 兼容旧名
+[1|comment] 准备消息
+[1|comment] 发送请求
+[1|comment] 收集响应
+[1|string] 未知标题
+[1|comment] 清理资源
+[1|comment] 执行命令
+[1|comment] 被谁依赖
+[1|comment] 拓扑排序
+[1|comment] 注入依赖
+[1|comment] 加载配置
+[1|comment] 创建后端
+[1|comment] 启动后端
+[1|comment] 重新注册
+[1|comment] 验证键码
+[1|comment] 检查主键
+[1|comment] 短暂等待
+[1|string] 正常断开
+[1|string] 重连成功
+[1|string] 激活信息
+[1|comment] 布局设置
+[1|comment] 回调函数
+[1|comment] 日志缓冲
+[1|comment] 命令队列
+[1|comment] 样式函数
+[1|comment] 保存光标
+[1|comment] 恢复光标
+[1|comment] 输入提示
+[1|comment] 显示帮助
+[1|comment] 发送文本
+[1|comment] 检查平台
+[1|comment] 保存回调
+[1|comment] 通用信号
+[1|comment] 音频测试
+[1|comment] 音乐配置
+[1|comment] 更新配置
+[1|comment] 检查缓存
+[1|comment] 查找文件
+[1|comment] 最终回退
+[1|comment] 加载图标
+[1|comment] 创建菜单
+[1|comment] 双击激活
+[1|comment] 窗口控制
+[1|string] 发文本.
+[1|string] 状态栏.
+[1|comment] 全局实例
+[1|string] 绑定设备
+[1|string] 添加设备
+[1|string] 你好小智
+[1|comment] 输入流
+[1|comment] 输出流
+[1|comment] 舌尖音
+[1|comment] 舌根音
+[1|comment] 舌面音
+[1|comment] 发文本
+[1|comment] 过滤器
+[1|comment] 处理器
+[1|comment] 前景色
+[1|comment] 背景色
+[1|comment] 时间戳
+[1|comment] 初始化
+[1|string] 已激活
+[1|comment] 内容区
+[1|comment] 分隔线
+[1|comment] 预留行
+[1|string] 启动.
+[1|string] 关闭.
+[1|string] 验证码
+[1|string] 激活码
+[1|string] 流式
+[1|string] 文件
+[1|string] 输出
+[1|comment] 唇音
+[1|comment] 其他
+[1|comment] 打断
+[1|string] 注册
+[1|string] 触发
+[1|comment] 配置
+[1|comment] 消息
+[1|string] 卸载
+[1|string] 文档
+[1|string] 驱动
+[1|string] 更新
+[1|string] 补丁
+[1|string] 网站
+[1|string] 在线
+[1|string] 报告
+[1|string] 反馈
+[1|string] 封禁
+[1|string] 付费
+[1|string] 作词
+[1|string] 作曲
+[1|string] 编曲
+[1|string] 制作
+[1|string] 演唱
+[1|string] 原唱
+[1|string] 翻唱
+[1|comment] 按键
+[1|comment] 清屏
+[1|comment] 框架
+[1|comment] 绘制
+[1|comment] 中断
+[1|comment] 信号
+[1|string] 保存
+[1|string] 登录
+[1|string] 激活
+[1|string] 面板
+[1|string] 是

@@ -1,7 +1,7 @@
-"""插件协议适配器.
+"""Plugin protocol adapters.
 
-将 ServiceContainer 上的状态与会话能力暴露为 PluginContext /
-PluginCommands，插件只依赖协议，不依赖容器类型。
+Exposes the state and session capabilities of the ServiceContainer as PluginContext /
+PluginCommands, so plugins depend only on the protocols and not on the container type.
 """
 
 from collections.abc import Awaitable, Callable
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class PluginContextAdapter:
-    """PluginContext 适配器."""
+    """PluginContext adapter."""
 
     def __init__(self, container: "ServiceContainer"):
         self._container = container
@@ -49,12 +49,12 @@ class PluginContextAdapter:
 
     @property
     def event_bus(self):
-        """获取事件总线."""
+        """Get the event bus."""
         return self._container.event_bus
 
 
 class PluginCommandsAdapter:
-    """PluginCommands 适配器：命令落到 ConversationSession / protocol / tasks."""
+    """PluginCommands adapter: commands land on ConversationSession / protocol / tasks."""
 
     def __init__(self, container: "ServiceContainer"):
         self._container = container

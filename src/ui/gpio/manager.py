@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GPIO 按键界面（状态打日志）."""
+"""GPIO key interface (logs state)."""
 
 import asyncio
 from typing import TYPE_CHECKING, Optional
@@ -16,7 +16,7 @@ logger = get_logger()
 
 
 class GpioViewManager:
-    """GPIO 界面（ViewPort：与 CLI/GUI 同一套 set_*）."""
+    """GPIO interface (ViewPort: the same set_* methods as CLI/GUI)."""
 
     def __init__(
         self,
@@ -29,24 +29,24 @@ class GpioViewManager:
         self._running = False
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
-        # 状态
+        # state
         self._auto_mode = False
-        self._status = "待命"
+        self._status = "Idle"
         self._connected = False
         self._chat_text = ""
         self._music_line = ""
 
     async def start(self, mode: str = "gpio"):
-        """启动 GPIO 视图.
+        """Start the GPIO view.
 
         Args:
-            mode: 运行模式（GPIO 模式下忽略此参数）
+            mode: the runtime mode (ignored in GPIO mode)
         """
-        logger.info("GpioViewManager: 启动 GPIO 界面...")
+        logger.info("GpioViewManager: starting GPIO interface...")
         self._running = True
         self._loop = asyncio.get_running_loop()
 
-        # 设置 GPIO 按键回调
+        # Settings GPIO key callback
         if self._gpio_input.available:
             self._gpio_input.setup(
                 on_key1_pressed=self._on_key1,
@@ -54,59 +54,59 @@ class GpioViewManager:
                 on_key3_pressed=self._on_key3,
                 on_key4_pressed=self._on_key4,
             )
-            logger.info("GPIO 按键已就绪")
-            logger.info("KEY1: 开始/停止对话")
-            logger.info("KEY2: 中断语音")
-            logger.info("KEY3: 切换模式")
-            logger.info("KEY4: 退出程序")
+            logger.info("GPIO buttons ready")
+            logger.info("KEY1: start/stop conversation")
+            logger.info("KEY2: interrupt speech")
+            logger.info("KEY3: switch mode")
+            logger.info("KEY4: quit application")
         else:
-            logger.warning("GPIO 不可用，按键功能已禁用")
+            logger.warning("GPIO unavailable; button feature disabled")
 
-        # 保持运行（事件驱动）
+        # Keep running (event-driven)
         try:
             while self._running:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
-            logger.info("GpioViewManager: 任务被取消")
+            logger.info("GpioViewManager: task cancelled")
 
     async def close(self):
-        """关闭 GPIO 视图."""
-        logger.info("GpioViewManager: 正在关闭...")
+        """Close the GPIO view."""
+        logger.info("GpioViewManager: shutting down...")
         self._running = False
         self._gpio_input.close()
-        logger.info("GpioViewManager: 已关闭")
+        logger.info("GpioViewManager: closed")
 
-    # ========== 按键回调 ==========
+    # ========== Key callbacks ============
 
     def _on_key1(self):
-        """KEY1: 开始/停止对话."""
+        """KEY1: start/stop conversation."""
         if self._auto_mode:
             self._safe_emit(Events.UI_AUTO_START)
-            logger.info("[KEY1] 自动模式：切换开始/停止对话")
+            logger.info("[KEY1] Auto mode: toggle start/stop conversation")
         else:
             self._safe_emit(Events.UI_MANUAL_TOGGLE)
-            logger.info("[KEY1] 手动模式：切换录音")
+            logger.info("[KEY1] Manual mode: toggle recording")
 
     def _on_key2(self):
-        """KEY2: 打断."""
+        """KEY2: interrupt."""
         self._safe_emit(Events.UI_ABORT_REQUEST)
-        logger.info("[KEY2] 中断语音")
+        logger.info("[KEY2] Interrupt speech")
 
     def _on_key3(self):
-        """KEY3: 切自动/手动."""
+        """KEY3: switch auto/manual."""
         self._safe_emit(Events.UI_AUTO_TOGGLE)
-        logger.info("[KEY3] 请求切换对话模式")
+        logger.info("[KEY3] Requesting conversation mode switch")
 
     def _on_key4(self):
-        """KEY4: 退出程序."""
+        """KEY4: exit the program."""
         self._safe_emit(Events.UI_QUIT_REQUEST)
-        logger.info("[KEY4] 退出程序")
+        logger.info("[KEY4] Quit application")
 
     def _safe_emit(self, event: str, data=None):
-        """安全地发送事件.
+        """Safely emit an event.
 
-        优先经 TaskManager.schedule_nowait（线程安全 + 可追踪）；
-        否则回退 run_coroutine_threadsafe。
+        Prefer TaskManager.schedule_nowait (thread-safe + traceable);
+        otherwise fall back to run_coroutine_threadsafe.
         """
         def _start_emit():
             if data is None:
@@ -119,7 +119,7 @@ class GpioViewManager:
                 return
             except Exception as e:
                 logger.error(
-                    f"GpioViewManager 经 TaskManager 调度事件 {event} 失败: {e}",
+                    f"GpioViewManager failed to dispatch event {event} via TaskManager: {e}",
                     exc_info=True,
                 )
 
@@ -136,45 +136,45 @@ class GpioViewManager:
                     return
                 if exc:
                     logger.error(
-                        f"GpioViewManager 发射事件 {event} 失败: {exc}",
+                        f"GpioViewManager failed to emit event {event}: {exc}",
                         exc_info=exc,
                     )
 
             fut.add_done_callback(_done)
         except Exception as e:
-            logger.error(f"GpioViewManager 调度事件 {event} 失败: {e}", exc_info=True)
+            logger.error(f"GpioViewManager failed to dispatch event {event} failed: {e}", exc_info=True)
             if asyncio.iscoroutine(coro):
                 coro.close()
 
-    # ========== 公共 API ==========
+    # ========== Public API ============
 
     @property
     def is_running(self) -> bool:
-        """是否正在运行."""
+        """Whether it is running."""
         return self._running
 
     def set_status(self, status: str, connected: bool = True):
-        """设置状态."""
+        """settingsstate."""
         self._status = status
         self._connected = connected
-        logger.info(f"[状态] {status}")
+        logger.info(f"[Status] {status}")
 
     def set_chat_text(self, text: str):
         self._chat_text = text
-        logger.info(f"[对话] {text}")
+        logger.info(f"[Chat] {text}")
 
     def set_music_line(self, text: str):
         self._music_line = text
-        logger.info(f"[音乐] {text}")
+        logger.info(f"[Music] {text}")
 
     def set_emotion(self, emotion: str):
-        logger.debug(f"[表情] {emotion}")
+        logger.debug(f"[Emotion] {emotion}")
 
     def set_auto_mode(self, auto_mode: bool):
-        # KEY1 分支会看这个
+        # The KEY1 branch checks this
         self._auto_mode = auto_mode
-        mode_text = "自动" if auto_mode else "手动"
-        logger.info(f"[模式] {mode_text}")
+        mode_text = "Auto" if auto_mode else "Manual"
+        logger.info(f"[Mode] {mode_text}")
 
     def set_button_text(self, text: str):
         logger.debug(f"GPIO set_button_text: {text}")

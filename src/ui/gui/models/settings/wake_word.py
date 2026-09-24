@@ -1,4 +1,4 @@
-"""唤醒词配置与 keywords 保存."""
+"""Wake word configuration and keywords saving."""
 
 from PySide6.QtCore import Slot
 
@@ -9,7 +9,7 @@ logger = get_logger()
 
 
 class SettingsWakeWordMixin:
-    # ========== 唤醒词设置 ==========
+    # ========== Wake word settings ==========
 
     def _get_wakeWordEnabled(self) -> bool:
         return self._get_value("WAKE_WORD_OPTIONS.USE_WAKE_WORD", False)
@@ -41,12 +41,12 @@ class SettingsWakeWordMixin:
     def _set_keywordsThreshold(self, value: float):
         self._set_value("WAKE_WORD_OPTIONS.KEYWORDS_THRESHOLD", value)
 
-    # 唤醒词文本
+    # Wake word text
     def _load_wake_word(self, update_preview: bool = True):
-        """从配置加载唤醒词.
+        """Load the wake word from the config.
 
         Args:
-            update_preview: 是否立即转换拼音预览（转换可能触发额外 import）
+            update_preview: whether to convert the pinyin preview immediately (the conversion may trigger extra imports)
         """
         self._wake_word = self._get_value("WAKE_WORD_OPTIONS.WAKE_WORD", "")
         self._wake_word_lang = self._get_value("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", "zh")
@@ -56,7 +56,7 @@ class SettingsWakeWordMixin:
             self._wake_word_preview = ""
 
     def _update_wake_word_preview(self):
-        """更新唤醒词预览."""
+        """Update the wake word preview."""
         if not self._wake_word:
             self._wake_word_preview = ""
             return
@@ -66,8 +66,8 @@ class SettingsWakeWordMixin:
             self._wake_word_preview = keyword_line
             self._wake_word_lang = lang
         except Exception as e:
-            logger.error(f"转换唤醒词失败: {e}", exc_info=True)
-            self._wake_word_preview = f"转换失败: {e}"
+            logger.error(f"Wake word conversion failed: {e}", exc_info=True)
+            self._wake_word_preview = f"Conversion failed: {e}"
 
     def _get_wakeWord(self) -> str:
         return self._wake_word
@@ -86,25 +86,25 @@ class SettingsWakeWordMixin:
 
     @Slot(result=bool)
     def saveWakeWord(self) -> bool:
-        """保存唤醒词并生成 keywords.txt.
+        """Save the wake word and generate keywords.txt.
 
         Returns:
-            是否保存成功
+            Whether the save succeeded
         """
         if not self._wake_word:
-            self.statusMessage.emit("请输入唤醒词")
+            self.statusMessage.emit("Please enter a wake word")
             return False
 
         try:
-            # 转换唤醒词
+            # Convert the wake word
             keyword_line, lang, model_path = convert_wake_word(self._wake_word)
 
-            # 更新配置
+            # Update the config
             self._set_value("WAKE_WORD_OPTIONS.WAKE_WORD", self._wake_word)
             self._set_value("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", lang)
             self._set_value("WAKE_WORD_OPTIONS.MODEL_PATH", model_path)
 
-            # 写入 keywords.txt 到用户数据目录
+            # Write keywords.txt to the user data directory
             from src.utils.resource_finder import get_keywords_dir, get_user_data_dir
 
             keywords_dir = get_keywords_dir()
@@ -114,15 +114,15 @@ class SettingsWakeWordMixin:
             with open(keywords_path, "w", encoding="utf-8") as f:
                 f.write(keyword_line + "\n")
 
-            logger.info(f"唤醒词已保存: {self._wake_word} -> {keywords_path}")
-            self.statusMessage.emit(f"唤醒词已保存 ({lang.upper()})")
+            logger.info(f"Wake word saved: {self._wake_word} -> {keywords_path}")
+            self.statusMessage.emit(f"Wake word saved ({lang.upper()})")
 
-            # 保存到文件
+            # Save to file
             self.save()
             return True
 
         except Exception as e:
-            logger.error(f"保存唤醒词失败: {e}", exc_info=True)
-            self.statusMessage.emit(f"保存失败: {e}")
+            logger.error(f"Failed to save wake word: {e}", exc_info=True)
+            self.statusMessage.emit(f"Failed to save: {e}")
             return False
 

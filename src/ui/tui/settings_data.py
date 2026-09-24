@@ -1,4 +1,4 @@
-"""TUI 设置：配置字段定义与读写（接 ConfigManager + CONFIG_CHANGED）."""
+"""TUI Settings: config field definitions and read/write (connects to ConfigManager + CONFIG_CHANGED)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ logger = get_logger()
 
 @dataclass(frozen=True)
 class SettingField:
-    """一个可编辑配置项."""
+    """An editable config item."""
 
     path: str
     label: str
@@ -22,111 +22,111 @@ class SettingField:
     help: str = ""
 
 
-# 第一期：系统 / 音频 / 摄像头 / 唤醒词
+# First release: System / Audio / Camera / Wake Word
 SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
     (
-        "系统",
+        "System",
         [
             SettingField(
                 "SYSTEM_OPTIONS.NETWORK.OTA_VERSION_URL",
                 "OTA URL",
-                help="OTA / 激活配置地址",
+                help="OTA / activation config address",
             ),
             SettingField(
                 "SYSTEM_OPTIONS.NETWORK.WEBSOCKET_URL",
                 "WebSocket URL",
-                help="WebSocket 服务地址",
+                help="WebSocket service address",
             ),
             SettingField(
                 "SYSTEM_OPTIONS.DEVICE_ID",
-                "设备 ID",
-                help="Device-Id（通常为 MAC）",
+                "Device ID",
+                help="Device-Id (usually MAC)",
             ),
             SettingField(
                 "SYSTEM_OPTIONS.CLIENT_ID",
-                "客户端 ID",
+                "Client ID",
                 help="Client-Id",
             ),
         ],
     ),
     (
-        "音频",
+        "Audio",
         [
             SettingField(
                 "AUDIO_DEVICES.input_device_name",
-                "输入设备名",
-                help="按名称匹配麦克风（热插拔后 ID 会变）",
+                "Input Device Name",
+                help="Match the microphone by name (the ID changes after hot-plugging)",
             ),
             SettingField(
                 "AUDIO_DEVICES.output_device_name",
-                "输出设备名",
-                help="按名称匹配扬声器/耳机",
+                "Output Device Name",
+                help="Match speakers/headphones by name",
             ),
             SettingField(
                 "AUDIO_DEVICES.opus_output_sample_rate",
-                "Opus 输出采样率",
+                "Opus output sample rate",
                 kind="choice",
                 choices=("24000", "16000"),
-                help="官方 24000 / 第三方常 16000",
+                help="Official 24000 / third-party often 16000",
             ),
             SettingField(
                 "AUDIO_DEVICES.frame_duration",
-                "帧时长 ms",
+                "Frame duration ms",
                 kind="choice",
                 choices=("20", "40", "60"),
-                help="20 低延迟 / 60 低 CPU",
+                help="20 low latency / 60 low CPU",
             ),
         ],
     ),
     (
-        "摄像头",
+        "Camera",
         [
             SettingField(
                 "CAMERA.backend",
-                "采集后端",
+                "Capture Backend",
                 kind="choice",
                 choices=("auto", "opencv", "picamera2"),
-                help="auto 先 OpenCV，失败再 Pi CSI",
+                help="auto tries OpenCV first, then Pi CSI on failure",
             ),
             SettingField(
                 "CAMERA.device",
-                "设备路径",
-                help="如 /dev/video0；非空优先于 index",
+                "Device Path",
+                help="e.g. /dev/video0; when non-empty it takes precedence over index",
             ),
             SettingField(
                 "CAMERA.camera_index",
-                "设备 index",
+                "device index",
                 kind="int",
-                help="OpenCV 数字索引",
+                help="OpenCV numeric index",
             ),
             SettingField(
                 "CAMERA.frame_width",
-                "宽度",
+                "Width",
                 kind="int",
             ),
             SettingField(
                 "CAMERA.frame_height",
-                "高度",
+                "Height",
                 kind="int",
             ),
         ],
     ),
     (
-        "唤醒词",
+        "Wake Word",
         [
             SettingField(
                 "WAKE_WORD_OPTIONS.USE_WAKE_WORD",
-                "启用唤醒词",
+                "Enable Wake Word",
                 kind="bool",
             ),
             SettingField(
                 "WAKE_WORD_OPTIONS.WAKE_WORD",
-                "唤醒词",
-                help="如：你好小智",
+                "Wake Word",
+                help="e.g.: Hello Xiaozhi",
             ),
             SettingField(
                 "WAKE_WORD_OPTIONS.WAKE_WORD_LANG",
-                "语言",
+                "Language",
                 kind="choice",
                 choices=("zh", "en"),
             ),
@@ -136,7 +136,7 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
 
 
 def load_setting_values() -> dict[str, str]:
-    """读取当前配置为字符串表（path -> 显示值）."""
+    """Read the current config into a string table (path -> display value)."""
     cfg = get_config()
     values: dict[str, str] = {}
     for _section, fields in SETTING_SECTIONS:
@@ -152,17 +152,17 @@ def load_setting_values() -> dict[str, str]:
 
 
 def parse_field_value(field: SettingField, text: str) -> Any:
-    """把输入框字符串转成配置值."""
+    """Convert the input box string to a config value."""
     s = (text or "").strip()
     if field.kind == "int":
         if s == "":
             return 0
         return int(s)
     if field.kind == "bool":
-        return s.lower() in ("1", "true", "yes", "on", "是")
+        return s.lower() in ("1", "true", "yes", "on", "yes")
     if field.kind == "choice":
         if field.choices and s not in field.choices:
-            # 仍写入用户值，由上层校验提示
+            # Still writes the user value; upper layers validate and show prompts
             return s
         if field.path.endswith("opus_output_sample_rate") or field.path.endswith(
             "frame_duration"
@@ -176,7 +176,7 @@ def parse_field_value(field: SettingField, text: str) -> Any:
 
 
 def save_settings(values: dict[str, str]) -> tuple[bool, str]:
-    """批量写配置并落盘.
+    """Write multiple config values and persist them to disk.
 
     Returns:
         (ok, message)
@@ -190,12 +190,12 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
                     continue
                 updates[f.path] = parse_field_value(f, values[f.path])
         if not updates:
-            return True, "无变更"
+            return True, "No changes"
         ok = cfg.update_configs(updates)
         if not ok:
-            return False, "保存失败（写盘错误）"
-        logger.info(f"TUI 已保存 {len(updates)} 项配置")
-        return True, f"已保存 {len(updates)} 项"
+            return False, "Save failed (write error)"
+        logger.info(f"TUI saved {len(updates)} config item(s)")
+        return True, f"Saved {len(updates)} item(s)"
     except Exception as e:
-        logger.error(f"TUI 保存配置失败: {e}", exc_info=True)
-        return False, f"保存失败: {e}"
+        logger.error(f"TUI Failed to save config: {e}", exc_info=True)
+        return False, f"Save failed: {e}"

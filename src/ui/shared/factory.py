@@ -1,4 +1,4 @@
-"""按 mode 创建界面实现（返回 ViewPort）."""
+"""Create the interface implementation by mode (returns a ViewPort)."""
 
 import sys
 from typing import TYPE_CHECKING, Optional
@@ -18,7 +18,7 @@ def create_viewport(
     event_bus: "EventBus",
     task_manager: Optional["TaskManager"] = None,
 ) -> "ViewPort":
-    """gui / cli / tui / gpio；gpio 仅 Linux，其它平台回退 cli."""
+    """gui / cli / tui / gpio; gpio is Linux only, other platforms fall back to cli."""
     normalized = (mode or "cli").lower()
 
     if normalized == "gui":
@@ -35,7 +35,7 @@ def create_viewport(
 
     if normalized == "gpio":
         if sys.platform != "linux":
-            logger.warning(f"GPIO 仅支持 Linux（当前 {sys.platform}），回退到 cli 界面")
+            logger.warning(f"GPIO is only supported on Linux (current: {sys.platform}); falling back to CLI interface")
         else:
             from src.ui.gpio import GpioViewManager
 
@@ -43,7 +43,7 @@ def create_viewport(
             return GpioViewManager(event_bus=event_bus, task_manager=task_manager)
 
     elif normalized != "cli":
-        logger.warning(f"未知 UI 模式 {mode!r}，回退 cli")
+        logger.warning(f"Unknown UI mode {mode!r}; falling back to CLI")
 
     from src.ui.cli import CliViewManager
 

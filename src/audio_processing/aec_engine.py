@@ -1,18 +1,19 @@
-"""AEC 引擎：libs/webrtc_apm 的实时封装（P0 Self far）.
+"""AEC engine: real-time wrapper around libs/webrtc_apm (P0 self far).
 
-数据流：
-- near：采集帧（16kHz 单声道 float32）→ ProcessStream → 消回声后上行
-- far：设备实际写出的最终 PCM（TTS + 音乐混合，设备采样率/声道）
-       → 下混 → 重采样到 16kHz → ProcessReverseStream
+data flow:
+- near: captured frame (16kHz mono float32) → ProcessStream → echo-removed upstream
+- far: the final PCM actually written to the device (TTS + music mixed, at device sample rate / channels)
+       → downmix → resample to 16kHz → ProcessReverseStream
 
-线程模型（关键）：
-- 输出回调线程只做「下混 + 拷贝入队」（feed_far，微秒级、无锁）；
-  重采样与 APM 调用全部在采集线程（process_near 开头先排空 far 队列）。
-  两个实时回调之间不共享锁，避免输入侧持锁被 GIL 卡住时拖垮输出回调。
+Thread model (key):
+- The output callback thread only does "downmix + copy into the queue" (feed_far, microsecond-level, lock-free);
+  resampling and the APM calls all happen on the capture thread (process_near drains the far queue first).
+  No lock is shared between the two real-time callbacks, so that a lock held on the input side being stalled by the
+  GIL does not drag down the output callback.
 
-设计约束：
-- 库加载/处理失败一律旁路（active=False），不影响通话主链路
-- WebRTC APM 按 10ms 帧处理；协议帧 20/40/60ms 均为其整数倍
+Design constraints:
+- Library loading / handle failures always bypass (active=False), never affecting the main call path
+- WebRTC APM processes 10ms frames; protocol frames of 20/40/60ms are all integer multiples of that
 """
 
 import ctypes
@@ -26,15 +27,15 @@ from src.logging import get_logger
 
 logger = get_logger()
 
-# 连续处理失败达到该次数后自动旁路，避免坏库拖垮音频回调
+# After this many consecutive handling failures, bypass automatically so a broken library does not drag down the audio callbacks
 _MAX_CONSECUTIVE_FAILURES = 5
-# far 待处理队列上限（输出回调块数，约 20ms/块 → 0.5s）；
-# 采集线程停转时防堆积，超限丢最旧
+# Upper bound of the pending far queue (in output callback blocks, ~20ms/block → 0.5s);
+# prevents buildup when the capture thread stalls; drops the oldest when exceeded
 _FAR_PENDING_MAX_BLOCKS = 25
 
 
 def _import_webrtc_apm():
-    """导入 libs.webrtc_apm，源码运行与打包形态各有路径兜底."""
+    """Import libs.webrtc_apm, with path fallbacks for both source and packaged runs."""
     try:
         from libs import webrtc_apm
 
@@ -51,7 +52,7 @@ def _import_webrtc_apm():
 
 
 class AecEngine:
-    """WebRTC APM 封装：AEC + 可选 NS/高通，near/far 双流."""
+    """WebRTC APM wrapper: AEC + optional high-pass / noise suppression, near/far dual streams."""
 
     def __init__(
         self,
@@ -60,13 +61,13 @@ class AecEngine:
         delay_ms: int = 60,
         enable_preprocess: bool = True,
     ):
-        """初始化并加载 APM；失败时 active=False（旁路）.
+        """Initialize and load APM; on failure active=False (bypassed).
 
         Args:
-            near_rate: 采集协议采样率（16kHz）
-            far_rate: 设备输出采样率（far 侧重采样源）
-            delay_ms: 播放到采集的估计延迟
-            enable_preprocess: 是否同时开高通+噪声抑制
+            near_rate: capture protocol sample rate (16kHz)
+            far_rate: device output sample rate (resample source for the far side)
+            delay_ms: estimated playback-to-capture delay
+            enable_preprocess: whether to also enable high-pass + noise suppression
         """
         self._near_rate = int(near_rate)
         self._far_rate = int(far_rate)
@@ -80,14 +81,14 @@ class AecEngine:
 
         self._apm = None
         self._stream_cfg = None
-        # far 两级缓冲：pending 由输出回调写入（仅拷贝），
-        # buffer 为采集线程重采样后的 16k 样本余量
+        # Two-level far buffer: pending is written by the output callback (copy only),
+        # buffer holds the leftover 16k samples after the capture thread resamples
         self._far_pending: deque = deque()
         self._far_buffer = np.empty(0, dtype=np.float32)
         self._far_resampler = None
         self._far_dropped = 0
 
-        # 复用的 ctypes 帧缓冲（10ms int16）
+        # Reused ctypes frame buffers (10ms int16)
         self._near_in = (ctypes.c_short * self._frame)()
         self._near_out = (ctypes.c_short * self._frame)()
         self._far_in = (ctypes.c_short * self._frame)()
@@ -107,16 +108,16 @@ class AecEngine:
                 )
             self._active = True
             logger.info(
-                f"AEC 引擎已启用 | near {self._near_rate}Hz, "
-                f"far {self._far_rate}Hz→{self._near_rate}Hz, "
+                f"AEC engine enabled | near {self._near_rate}Hz, "
+                f"far {self._far_rate}Hz -> {self._near_rate}Hz, "
                 f"delay {self._delay_ms}ms, preprocess={enable_preprocess}"
             )
         except Exception as e:
-            logger.warning(f"AEC 引擎初始化失败，已旁路: {e}")
+            logger.warning(f"AEC engine init failed; bypassed: {e}")
             self._release()
 
     def _init_apm(self, enable_preprocess: bool) -> None:
-        """加载动态库、应用配置、创建流配置."""
+        """Load dynamic libraries, app config, and create stream config."""
         apm_mod = _import_webrtc_apm()
 
         self._apm = apm_mod.WebRTCAudioProcessing()
@@ -131,9 +132,9 @@ class AecEngine:
 
         ret = self._apm.apply_config(config)
         if ret != 0:
-            raise RuntimeError(f"apply_config 返回 {ret}")
+            raise RuntimeError(f"apply_config returned {ret}")
 
-        # near/far 均为 16kHz 单声道，共用一份流配置
+        # near/far are both 16kHz mono, so they share one stream config
         self._stream_cfg = self._apm.create_stream_config(self._near_rate, 1)
         self._apm.set_stream_delay_ms(self._delay_ms)
 
@@ -142,9 +143,9 @@ class AecEngine:
         return self._active
 
     def process_near(self, block: np.ndarray) -> np.ndarray:
-        """处理采集帧（16kHz 单声道 float32），返回消回声后的同长数据.
+        """Handle the captured frame (16kHz mono float32) and return the echo-removed data of the same length.
 
-        任何失败都返回原始数据；连续失败自动旁路。
+        Any failure returns the original data; consecutive failures bypass automatically.
         """
         if not self._active:
             return block
@@ -153,7 +154,7 @@ class AecEngine:
         if n % self._frame != 0:
             if not self._near_misaligned_logged:
                 self._near_misaligned_logged = True
-                logger.warning(f"采集帧长 {n} 非 10ms 整数倍，AEC 旁路该路径")
+                logger.warning(f"Capture frame length {n} is not a multiple of 10ms; AEC bypassed for this path")
             return block
 
         try:
@@ -163,7 +164,7 @@ class AecEngine:
             with self._lock:
                 if not self._active:
                     return block
-                # far 先于 near：排空输出回调攒下的参考数据，保持因果
+                # far before near: drain the reference data accumulated by the output callback to preserve causality
                 self._drain_far_locked()
                 self._apm.set_stream_delay_ms(self._delay_ms)
                 for off in range(0, n, self._frame):
@@ -176,7 +177,7 @@ class AecEngine:
                         self._near_in, self._stream_cfg, self._stream_cfg, self._near_out
                     )
                     if ret != 0:
-                        raise RuntimeError(f"process_stream 返回 {ret}")
+                        raise RuntimeError(f"process_stream returned {ret}")
                     out[off : off + self._frame] = (
                         np.frombuffer(self._near_out, dtype=np.int16).astype(np.float32)
                         / 32768.0
@@ -189,9 +190,10 @@ class AecEngine:
             return block
 
     def feed_far(self, outdata: np.ndarray) -> None:
-        """输出回调线程调用：仅下混+拷贝入队，不做重采样/APM（微秒级返回）.
+        """Called from the output callback thread: only downmix + copy into the queue, no resampling / APM (returns in microseconds).
 
-        含静音帧也应喂入，保持 far 流连续；重活由采集线程 process_near 完成。
+        Silence frames should also be fed in to keep the far stream continuous; the heavy
+        lifting is done by the capture thread in process_near.
         """
         if not self._active:
             return
@@ -200,19 +202,19 @@ class AecEngine:
             if outdata.ndim > 1 and outdata.shape[1] > 1:
                 mono = outdata.mean(axis=1, dtype=np.float32)
             else:
-                # PortAudio 复用 outdata 内存，必须拷贝
+                # PortAudio reuses the outdata memory, so it must be copied
                 mono = np.array(outdata, dtype=np.float32).ravel()
 
             self._far_pending.append(mono)
-            # deque 操作在 GIL 下原子；超限丢最旧（采集线程停转时防堆积）
+            # deque operations are atomic under the GIL; drop the oldest when over the limit (guards against buildup if the capture thread stalls)
             while len(self._far_pending) > _FAR_PENDING_MAX_BLOCKS:
                 self._far_pending.popleft()
                 self._far_dropped += 1
         except Exception:
-            pass  # 输出路径绝不抛
+            pass  # Output path never throws
 
     def _drain_far_locked(self) -> None:
-        """采集线程（已持锁）：重采样 far 队列并喂给 ProcessReverseStream."""
+        """Capture thread (lock already held): resample the far queue and feed it to ProcessReverseStream."""
         while self._far_pending:
             mono = self._far_pending.popleft()
             if self._far_resampler is not None:
@@ -236,20 +238,20 @@ class AecEngine:
                 self._far_in, self._stream_cfg, self._stream_cfg, self._far_out
             )
             if ret != 0:
-                raise RuntimeError(f"process_reverse_stream 返回 {ret}")
+                raise RuntimeError(f"process_reverse_stream returned {ret}")
 
     def set_delay_ms(self, delay_ms: int) -> None:
         self._delay_ms = int(delay_ms)
 
     def close(self) -> None:
-        """释放 APM 资源；须在音频流停止后调用."""
+        """Release APM resources; must be called after the audio stream stops."""
         if self._closed:
             return
         self._closed = True
         with self._lock:
             self._active = False
             self._release()
-        logger.info("AEC 引擎已关闭")
+        logger.info("AEC engine closed")
 
     def _release(self) -> None:
         self._active = False
@@ -264,19 +266,19 @@ class AecEngine:
         self._far_pending.clear()
         self._far_buffer = np.empty(0, dtype=np.float32)
         if self._far_dropped:
-            logger.debug(f"AEC far 累计丢弃 {self._far_dropped} 块")
+            logger.debug(f"AEC far dropped {self._far_dropped} blocks in total")
 
     def _on_failure(self, side: str, err: Exception) -> None:
         self._fail_count += 1
         if self._fail_count >= _MAX_CONSECUTIVE_FAILURES:
             logger.error(
-                f"AEC {side} 连续失败 {self._fail_count} 次，自动旁路: {err}",
+                f"AEC {side} failed {self._fail_count} consecutive times; auto-bypassed: {err}",
                 exc_info=True,
             )
             with self._lock:
                 self._release()
         else:
-            logger.debug(f"AEC {side} 处理失败（{self._fail_count}）: {err}")
+            logger.debug(f"AEC {side} processing failed ({self._fail_count}）: {err}")
 
     @staticmethod
     def _float_to_i16(x: np.ndarray) -> np.ndarray:

@@ -1,9 +1,9 @@
-"""日志过滤器模块.
+"""Log filter module.
 
-提供各种日志过滤功能：
-- 敏感信息脱敏
-- 日志级别过滤
-- 模块过滤
+Provides various log filtering features:
+- Sensitive information redaction
+- Log level filtering
+- Module filtering
 """
 
 import logging
@@ -13,10 +13,10 @@ from typing import Optional
 
 class SensitiveDataFilter(logging.Filter):
     """
-    敏感数据过滤器，自动脱敏敏感信息.
+    Sensitive data filter; automatically redacts sensitive information.
     """
 
-    # 默认敏感字段模式
+    # Default sensitive field patterns
     DEFAULT_PATTERNS = [
         "password",
         "passwd",
@@ -37,7 +37,7 @@ class SensitiveDataFilter(logging.Filter):
         "secretkey",
     ]
 
-    # 常见敏感数据格式的正则表达式
+    # Regular expressions for common sensitive data formats
     REGEX_PATTERNS = [
         # JWT Token
         (re.compile(r"eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*"), "[JWT]"),
@@ -80,7 +80,7 @@ class SensitiveDataFilter(logging.Filter):
         self.patterns = patterns or self.DEFAULT_PATTERNS
         self.mask = mask
         self.enable_regex = enable_regex
-        # 构建字段匹配正则
+        # Build the field-matching regex
         pattern_str = "|".join(re.escape(p) for p in self.patterns)
         self._field_pattern = re.compile(
             rf'(["\']?)({pattern_str})(["\']?\s*[:=]\s*)(["\']?)([^"\'\s,}}]+)(["\']?)',
@@ -89,13 +89,13 @@ class SensitiveDataFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """
-        过滤并脱敏日志记录.
+        Filter and redact a log record.
         """
-        # 处理消息
+        # Process the message
         if record.msg:
             record.msg = self._mask_sensitive(str(record.msg))
 
-        # 处理参数
+        # Process the arguments
         if record.args:
             if isinstance(record.args, dict):
                 record.args = {
@@ -112,20 +112,20 @@ class SensitiveDataFilter(logging.Filter):
 
     def _mask_sensitive(self, text: str) -> str:
         """
-        对文本中的敏感信息进行脱敏.
+        Redact sensitive information in the given text.
         """
         if not text:
             return text
 
         result = text
 
-        # 字段名匹配脱敏
+        # Redact by field name
         result = self._field_pattern.sub(
             lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}{self.mask}{m.group(6)}",
             result,
         )
 
-        # 正则模式脱敏
+        # Redact with regex patterns
         if self.enable_regex:
             for pattern, replacement in self.REGEX_PATTERNS:
                 if callable(replacement):
@@ -138,7 +138,7 @@ class SensitiveDataFilter(logging.Filter):
 
 class DuplicateFilter(logging.Filter):
     """
-    重复日志过滤器，抑制短时间内的重复日志.
+    Duplicate log filter; suppresses repeated logs within a short window.
     """
 
     def __init__(
@@ -152,7 +152,7 @@ class DuplicateFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """
-        过滤重复的日志消息.
+        Filter duplicate log messages.
         """
         import time
 
@@ -165,7 +165,7 @@ class DuplicateFilter(logging.Filter):
 
         self._last_log[key] = now
 
-        # 定期清理旧记录
+        # Periodically clean up old records
         if len(self._last_log) > 10000:
             cutoff = now - self.suppress_seconds * 2
             self._last_log = {k: v for k, v in self._last_log.items() if v > cutoff}

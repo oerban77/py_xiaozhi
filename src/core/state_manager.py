@@ -1,6 +1,6 @@
-"""状态管理器.
+"""State manager.
 
-集中管理设备状态，通过事件总线广播状态变更。
+Centralizes device state management and broadcasts state changes through the event bus.
 """
 
 import asyncio
@@ -17,21 +17,21 @@ logger = get_logger()
 
 
 class StateManager:
-    """设备状态管理器.
+    """Device state manager.
 
-    职责:
-    - 管理设备状态 (IDLE, LISTENING, SPEAKING)
-    - 管理监听模式 (REALTIME, AUTO_STOP, MANUAL)
-    - 管理会话状态 (keep_listening, aec_enabled)
-    - 通过事件总线广播状态变更
+    Responsibilities:
+    - manage device state (IDLE, LISTENING, SPEAKING)
+    - manage listening mode (REALTIME, AUTO_STOP, MANUAL)
+    - manage session state (keep_listening, aec_enabled)
+    - broadcast state changes via the event bus
 
-    用法:
+    Usage:
         state = StateManager(event_bus)
 
-        # 设置状态（会自动广播）
+        # Set state (automatically broadcasts)
         await state.set_device_state(DeviceState.LISTENING)
 
-        # 读取状态
+        # Read state
         if state.is_listening():
             ...
     """
@@ -40,40 +40,40 @@ class StateManager:
         self._event_bus = event_bus
         self._lock = asyncio.Lock()
 
-        # 设备状态
+        # Device state
         self._device_state: DeviceState = DeviceState.IDLE
 
-        # AEC 配置
+        # AEC config
         self._aec_enabled: bool = aec_enabled
 
-        # 监听模式：根据 AEC 配置决定默认模式
+        # Listening mode: determine the default based on the AEC configuration
         self._listening_mode: ListeningMode = (
             ListeningMode.REALTIME if aec_enabled else ListeningMode.AUTO_STOP
         )
 
-        # 会话状态
+        # Session state
         self._keep_listening: bool = False
 
-        # 中止标志
+        # Abort flag
         self._aborted: bool = False
 
     # -------------------------
-    # 设备状态
+    # Device state
     # -------------------------
     @property
     def device_state(self) -> DeviceState:
         """
-        获取当前设备状态.
+        Get the current device state.
         """
         return self._device_state
 
     async def set_device_state(self, state: DeviceState) -> None:
-        """设置设备状态.
+        """Set the device state.
 
         Args:
-            state: 新的设备状态
+            state: the new device state
 
-        如果状态发生变化，会通过事件总线广播。
+        If the state changes, it is broadcast via the event bus.
         """
         async with self._lock:
             if self._device_state == state:
@@ -81,13 +81,13 @@ class StateManager:
 
             old_state = self._device_state
             self._device_state = state
-            logger.info(f"设备状态变更: {old_state} -> {state}")
+            logger.info(f"Device state changed: {old_state} -> {state}")
 
-            # 重置中止标志
+            # Reset the abort flag
             if state == DeviceState.LISTENING:
                 self._aborted = False
 
-        # 在锁外广播，避免死锁
+        # Broadcast outside the lock to avoid deadlock
         await self._event_bus.emit(
             Events.DEVICE_STATE_CHANGED,
             {"old_state": old_state, "new_state": state},
@@ -95,88 +95,88 @@ class StateManager:
 
     def is_idle(self) -> bool:
         """
-        是否处于空闲状态.
+        Whether the device is idle.
         """
         return self._device_state == DeviceState.IDLE
 
     def is_listening(self) -> bool:
         """
-        是否正在监听.
+        Whether the device is currently listening.
         """
         return self._device_state == DeviceState.LISTENING
 
     def is_speaking(self) -> bool:
         """
-        是否正在说话.
+        Whether the device is currently speaking.
         """
         return self._device_state == DeviceState.SPEAKING
 
     # -------------------------
-    # 监听模式
+    # Listening mode
     # -------------------------
     @property
     def listening_mode(self) -> ListeningMode:
         """
-        获取当前监听模式.
+        Get the current listening mode.
         """
         return self._listening_mode
 
     def set_listening_mode(self, mode: ListeningMode) -> None:
         """
-        设置监听模式.
+        Set the listening mode.
         """
         self._listening_mode = mode
-        logger.debug(f"监听模式设置为: {mode}")
+        logger.debug(f"Listen mode set to: {mode}")
 
     # -------------------------
-    # 会话状态
+    # Session state
     # -------------------------
     @property
     def keep_listening(self) -> bool:
         """
-        是否保持持续监听.
+        Whether continuous listening is enabled.
         """
         return self._keep_listening
 
     def set_keep_listening(self, value: bool) -> None:
         """
-        设置持续监听状态.
+        Set the continuous listening state.
         """
         self._keep_listening = value
-        logger.debug(f"持续监听: {value}")
+        logger.debug(f"Continuous listening: {value}")
 
     @property
     def aec_enabled(self) -> bool:
         """
-        AEC 是否启用.
+        Whether AEC is enabled.
         """
         return self._aec_enabled
 
     # -------------------------
-    # 中止状态
+    # Abort state
     # -------------------------
     @property
     def aborted(self) -> bool:
         """
-        是否已中止.
+        Whether the operation has been aborted.
         """
         return self._aborted
 
     def set_aborted(self, value: bool) -> None:
         """
-        设置中止状态.
+        Set the abort state.
         """
         self._aborted = value
 
     # -------------------------
-    # 复合状态查询
+    # Combined state queries
     # -------------------------
     def should_capture_audio(self) -> bool:
-        """是否应该采集音频.
+        """Whether audio should be captured.
 
-        在以下情况下需要采集:
-        1. 正在监听且未中止
-        2. 正在说话，但启用了 AEC 且在实时模式下保持监听
+        Audio should be captured when:
+        1. the device is listening and not aborted
+        2. the device is speaking, AEC is enabled, and continuous listening is active in realtime mode
         """
         if self._device_state == DeviceState.LISTENING and not self._aborted:
             return True
@@ -189,9 +189,9 @@ class StateManager:
         )
 
     def get_snapshot(self) -> dict:
-        """获取状态快照.
+        """Get the state snapshot.
 
-        返回当前所有状态的字典，用于调试和日志。
+        Returns a dictionary with all current states for debugging and logging.
         """
         return {
             "device_state": self._device_state,

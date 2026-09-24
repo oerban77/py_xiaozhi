@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""激活窗口 ViewModel."""
+"""Activation window ViewModel."""
 
 from PySide6.QtCore import Property, Signal, Slot
 
@@ -7,9 +7,9 @@ from src.ui.gui.models.base_model import BaseModel
 
 
 class ActivationModel(BaseModel):
-    """激活窗口数据模型 - 管理激活界面状态和数据绑定."""
+    """Activation window data model - manages the activation UI state and data binding."""
 
-    # 属性变化信号
+    # Property change signal
     serialNumberChanged = Signal()
     macAddressChanged = Signal()
     activationCodeChanged = Signal()
@@ -23,7 +23,7 @@ class ActivationModel(BaseModel):
         self._serial_number = "--"
         self._mac_address = "--"
         self._activation_code = "------"
-        self._activation_status = "未激活"
+        self._activation_status = "Not Activated"
         self._status_color = "#F53F3F"  # error color
         self._is_activated = False
         self._is_activating = False
@@ -93,53 +93,53 @@ class ActivationModel(BaseModel):
             self._is_activating = value
             self.isActivatingChanged.emit()
 
-    # ========== 便捷方法 ==========
+    # ========== Convenience methods ==========
 
     def update_device_info(self, serial_number: str = None, mac_address: str = None):
-        """更新设备信息."""
+        """Update device information."""
         if serial_number is not None:
             self.set_serial_number(serial_number)
         if mac_address is not None:
             self.set_mac_address(mac_address)
 
     def update_activation_code(self, code: str):
-        """更新激活码."""
+        """Update the activation code."""
         self.set_activation_code(code)
         if code and code != "------":
-            self.set_activation_status("激活中...", "#FF7D00")  # warning color
+            self.set_activation_status("Activating...", "#FF7D00")  # warning color
             self.set_activating(True)
 
     def set_status_activated(self):
-        """设置为已激活状态."""
-        self.set_activation_status("已激活", "#00B42A")  # success color
+        """Set to activated state."""
+        self.set_activation_status("Activated", "#00B42A")  # success color
         self.set_activated(True)
         self.set_activating(False)
         self.set_activation_code("------")
 
     def set_status_not_activated(self):
-        """设置为未激活状态."""
-        self.set_activation_status("未激活", "#F53F3F")  # error color
+        """Set to deactivated state."""
+        self.set_activation_status("Not Activated", "#F53F3F")  # error color
         self.set_activated(False)
         self.set_activating(False)
 
     def set_status_inconsistent(self, local_activated: bool = False, server_activated: bool = False):
-        """设置状态不一致."""
+        """State settings are inconsistent."""
         if local_activated and not server_activated:
-            self.set_activation_status("需重新激活", "#FF7D00")  # warning color
+            self.set_activation_status("Re-activation Required", "#FF7D00")  # warning color
         else:
-            self.set_activation_status("已自动修复", "#00B42A")  # success color
+            self.set_activation_status("Auto-Fixed", "#00B42A")  # success color
 
     def set_status_checking(self):
-        """设置为检查中状态."""
-        self.set_activation_status("检查中...", "#86909C")  # placeholder color
+        """Set to checking state."""
+        self.set_activation_status("Checking...", "#86909C")  # placeholder color
         self.set_activating(True)
 
     def reset(self):
-        """重置状态."""
+        """Reset state."""
         self._serial_number = "--"
         self._mac_address = "--"
         self._activation_code = "------"
-        self._activation_status = "未激活"
+        self._activation_status = "Not Activated"
         self._status_color = "#F53F3F"
         self._is_activated = False
         self._is_activating = False
@@ -155,5 +155,5 @@ class ActivationModel(BaseModel):
 
     @Slot(result=str)
     def getActivationCode(self) -> str:
-        """获取激活码（供 QML 调用）."""
+        """Get the activation code (called from QML)."""
         return self._activation_code if self._activation_code != "------" else ""

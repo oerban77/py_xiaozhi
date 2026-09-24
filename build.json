@@ -22,12 +22,12 @@
       "bundle_identifier": "com.py-xiaozhi.app",
       "minimum_system_version": "10.13",
       "category": "public.app-category.productivity",
-      "microphone_usage_description": "此应用需要访问麦克风以实现录音功能",
-      "speech_recognition_usage_description": "此应用需要使用语音识别功能以理解语音指令",
-      "camera_usage_description": "此应用需要访问摄像头以实现拍照或视频功能",
+      "microphone_usage_description": "This app needs access to the microphone for recording",
+      "speech_recognition_usage_description": "This app needs speech recognition to understand voice commands",
+      "camera_usage_description": "This app needs camera access for photo or video",
       "copyright": "© 2024 Company. All rights reserved.",
       "dmg": {
-        "volname": "小智 安装器",
+        "volname": "Xiaozhi Installer",
         "window_size": [
           600,
           450

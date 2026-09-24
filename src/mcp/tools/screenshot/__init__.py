@@ -1,6 +1,6 @@
 """Screenshot tools for MCP.
 
-截图实例由调用方创建/注入。
+The screenshot instance is created/injected by the caller.
 """
 
 from .register import create_screenshot_camera, register_screenshot_tools

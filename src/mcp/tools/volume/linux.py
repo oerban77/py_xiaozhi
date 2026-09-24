@@ -1,4 +1,4 @@
-"""Linux 音量后端（pactl / wpctl / amixer）."""
+"""Linux volume backend (pactl / wpctl / amixer)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _run_command(
     try:
         return subprocess.run(cmd, capture_output=True, text=True, check=check)
     except Exception as e:
-        logger.debug(f"执行命令失败 {' '.join(cmd)}: {e}")
+        logger.debug(f"Command execution failed {' '.join(cmd)}: {e}")
         return None
 
 
@@ -35,10 +35,10 @@ class LinuxVolumeBackend:
                 break
 
         if not self.linux_tool:
-            logger.error("未找到可用的Linux音量控制工具 (pactl/wpctl/amixer)")
-            raise Exception("未找到可用的Linux音量控制工具")
+            logger.error("No usable Linux volume control tool found (pactl/wpctl/amixer)")
+            raise Exception("No usable Linux volume control tool found")
 
-        logger.debug(f"Linux音量控制初始化成功，使用: {self.linux_tool}")
+        logger.debug(f"Linux volume control initialized, using: {self.linux_tool}")
 
     def get_volume(self) -> int:
         tool = self.linux_tool
@@ -68,15 +68,15 @@ class LinuxVolumeBackend:
                         match = re.search(r"(\d+)%", line)
                         if match:
                             volume = int(match.group(1))
-                            logger.debug(f"pactl获取音量成功: {volume}%")
+                            logger.debug(f"pactlgot volume: {volume}%")
                             return volume
-                logger.warning("pactl输出中未找到音量信息")
+                logger.warning("pactlNo volume info found in output")
             else:
                 logger.warning(
-                    f"pactl命令执行失败: {result.returncode if result else 'None'}"
+                    f"pactl command execution failed: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过pactl获取音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to get volume via pactl: {e}", exc_info=True)
         return DEFAULT_VOLUME
 
     def _set_pactl(self, volume: int) -> None:
@@ -85,13 +85,13 @@ class LinuxVolumeBackend:
                 ["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{volume}%"]
             )
             if result and result.returncode == 0:
-                logger.debug(f"pactl设置音量成功: {volume}%")
+                logger.debug(f"pactl set volume succeeded: {volume}%")
             else:
                 logger.warning(
-                    f"pactl设置音量失败: {result.returncode if result else 'None'}"
+                    f"pactl failed to set volume: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过pactl设置音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to set volume via pactl: {e}", exc_info=True)
 
     def _get_wpctl(self) -> int:
         try:
@@ -100,15 +100,15 @@ class LinuxVolumeBackend:
                 match = re.search(r"(\d+\.?\d*)", result.stdout)
                 if match:
                     volume = int(float(match.group(1)) * 100)
-                    logger.debug(f"wpctl获取音量成功: {volume}%")
+                    logger.debug(f"wpctlgot volume: {volume}%")
                     return volume
-                logger.warning(f"wpctl输出格式无法解析: {result.stdout}")
+                logger.warning(f"wpctlCould not parse output format: {result.stdout}")
             else:
                 logger.warning(
-                    f"wpctl命令执行失败: {result.returncode if result else 'None'}"
+                    f"wpctl command execution failed: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过wpctl获取音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to get volume via wpctl: {e}", exc_info=True)
         return DEFAULT_VOLUME
 
     def _set_wpctl(self, volume: int) -> None:
@@ -122,13 +122,13 @@ class LinuxVolumeBackend:
                 ]
             )
             if result and result.returncode == 0:
-                logger.debug(f"wpctl设置音量成功: {volume}%")
+                logger.debug(f"wpctl set volume succeeded: {volume}%")
             else:
                 logger.warning(
-                    f"wpctl设置音量失败: {result.returncode if result else 'None'}"
+                    f"wpctl failed to set volume: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过wpctl设置音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to set volume via wpctl: {e}", exc_info=True)
 
     def _get_amixer(self) -> int:
         try:
@@ -137,25 +137,25 @@ class LinuxVolumeBackend:
                 match = re.search(r"\[(\d+)%\]", result.stdout)
                 if match:
                     volume = int(match.group(1))
-                    logger.debug(f"amixer获取音量成功: {volume}%")
+                    logger.debug(f"amixergot volume: {volume}%")
                     return volume
-                logger.warning(f"amixer输出格式无法解析: {result.stdout}")
+                logger.warning(f"amixerCould not parse output format: {result.stdout}")
             else:
                 logger.warning(
-                    f"amixer命令执行失败: {result.returncode if result else 'None'}"
+                    f"amixer command execution failed: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过amixer获取音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to get volume via amixer: {e}", exc_info=True)
         return DEFAULT_VOLUME
 
     def _set_amixer(self, volume: int) -> None:
         try:
             result = _run_command(["amixer", "sset", "Master", f"{volume}%"])
             if result and result.returncode == 0:
-                logger.debug(f"amixer设置音量成功: {volume}%")
+                logger.debug(f"amixer set volume succeeded: {volume}%")
             else:
                 logger.warning(
-                    f"amixer设置音量失败: {result.returncode if result else 'None'}"
+                    f"amixer failed to set volume: {result.returncode if result else 'None'}"
                 )
         except Exception as e:
-            logger.warning(f"通过amixer设置音量失败: {e}", exc_info=True)
+            logger.warning(f"Failed to set volume via amixer: {e}", exc_info=True)

@@ -1,6 +1,6 @@
-"""UI 共用：ViewPort 契约、工厂、激活基类、跨端事件 DTO.
+"""Shared UI: the ViewPort contract, factory, activation base class, and cross-platform event DTOs.
 
-Qt ViewModel 在 src.ui.gui.models（仅 GUI 使用）。
+The Qt ViewModel lives in src.ui.gui.models (GUI only).
 """
 
 from src.ui.shared.activation import BaseActivation

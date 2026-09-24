@@ -14,20 +14,20 @@ logger = get_logger()
 
 class ALSAErrorSuppressor:
     """
-    ALSA 错误输出抑制器。
+    ALSA error output suppressor.
 
-    在 Linux 系统上，ALSA 库会输出大量警告和错误信息到 stderr，
-    这些信息会干扰终端输出。此上下文管理器可临时抑制这些输出。
+    On Linux systems the ALSA library outputs a large number of warnings and error messages to stderr,
+    which interfere with the terminal output. This context manager temporarily suppresses that output.
 
-    用法:
+    Usage:
         with ALSAErrorSuppressor():
-            # 执行 PyAudio 初始化等操作
+            # Execute PyAudio initialization and related setup
             audio = pyaudio.PyAudio()
 
-    注意:
-        - 仅在 Linux 系统上生效
-        - 在 Windows/macOS 上无操作
-        - 退出上下文时会恢复 stderr
+    Note:
+        - Only effective on Linux systems
+        - No-op on Windows/macOS
+        - restore stderr when leaving the context
     """
 
     def __init__(self):
@@ -44,7 +44,7 @@ class ALSAErrorSuppressor:
             self._devnull = os.open("/dev/null", os.O_WRONLY)
             os.dup2(self._devnull, 2)
         except OSError:
-            # 如果无法操作文件描述符，静默失败
+            # If the file descriptor cannot be manipulated, fail silently
             self._old_stderr = None
             self._devnull = None
 
@@ -67,15 +67,15 @@ class ALSAErrorSuppressor:
             except OSError:
                 pass
 
-        return False  # 不抑制异常
+        return False  # Do not suppress exceptions
 
 
 def suppress_alsa_errors():
-    """返回 ALSA 错误抑制器上下文管理器."""
+    """Return the ALSA error suppressor context manager."""
     return ALSAErrorSuppressor()
 
 
-# 可选：屏蔽常见虚拟/聚合设备（默认不选它们）
+# Optional: filter out common virtual/aggregate devices (they are not selected by default)
 _VIRTUAL_PATTERNS = [
     r"blackhole",
     r"aggregate",
@@ -101,55 +101,55 @@ def downmix_to_mono(
     dtype: np.dtype | str = np.int16,
     in_channels: int | None = None,
 ) -> np.ndarray | bytes:
-    """将任意格式的音频下混为单声道.
+    """Downmix any audio format to mono.
 
-    支持两种输入:
-    1. np.ndarray: 形状 (N,) 或 (N, C) 的 PCM 数组
-    2. bytes: PCM 字节流 (需指定 dtype 和 in_channels)
+    Supports two inputs:
+    1. np.ndarray: a PCM array of shape (N,) or (N, C)
+    2. bytes: a PCM byte stream (dtype and in_channels must be specified)
 
     Args:
-        pcm: 输入音频数据 (ndarray 或 bytes)
-        keepdims: True 返回 (N,1)，False 返回 (N,) (仅 ndarray 输入)
-        dtype: PCM 数据类型 (仅 bytes 输入时使用)
-        in_channels: 输入声道数 (仅 bytes 输入时必需)
+        pcm: the input audio data (ndarray or bytes)
+        keepdims: True returns (N,1), False returns (N,) (ndarray input only)
+        dtype: the PCM data type (used for bytes input only)
+        in_channels: the number of input channels (required for bytes input)
 
     Returns:
-        单声道音频数据 (与输入类型相同)
+        Mono audio data (same type as input)
 
     Examples:
-        >>> # ndarray 输入
+        >>> # ndarray input
         >>> stereo = np.random.randint(-32768, 32767, (1000, 2), dtype=np.int16)
         >>> mono = downmix_to_mono(stereo, keepdims=False)  # shape: (1000,)
 
-        >>> # bytes 输入
-        >>> stereo_bytes = b'...'  # 立体声 PCM 数据
+        >>> # bytes input
+        >>> stereo_bytes = b'...'  # stereo PCM data
         >>> mono_bytes = downmix_to_mono(stereo_bytes, dtype=np.int16, in_channels=2)
     """
-    # bytes 输入: 转换 -> 处理 -> 转回 bytes
+    # bytes input: convert -> handle -> convert back to bytes
     if isinstance(pcm, bytes):
         if in_channels is None:
-            raise ValueError("bytes 输入必须指定 in_channels 参数")
+            raise ValueError("bytes input requires the in_channels parameter")
         arr = np.frombuffer(pcm, dtype=dtype).reshape(-1, in_channels)
-        mono_arr = downmix_to_mono(arr, keepdims=False)  # bytes 输出不需要 keepdims
+        mono_arr = downmix_to_mono(arr, keepdims=False)  # bytes output does not need keepdims
         return mono_arr.tobytes()
 
-    # ndarray 输入: 直接处理
+    # ndarray input: handle directly
     x = np.asarray(pcm)
     if x.ndim == 1:
         return x[:, None] if keepdims else x
 
-    # 已经是单声道
+    # Already mono
     if x.shape[1] == 1:
         return x if keepdims else x[:, 0]
 
-    # 多声道下混
+    # Downmix multi-channel
     if np.issubdtype(x.dtype, np.integer):
-        # 先转浮点求平均，再四舍五入回原整数类型，避免溢出
+        # Convert to float first to average, then round back to the original integer type to avoid overflow
         y = np.rint(x.astype(np.float32).mean(axis=1))
         info = np.iinfo(x.dtype)
         y = np.clip(y, info.min, info.max).astype(x.dtype)
     else:
-        # 浮点：保持原 dtype（比如 float32），避免默认为 float64
+        # Floating point: keep the original dtype (e.g., float32) instead of defaulting to float64
         y = x.mean(axis=1, dtype=x.dtype)
 
     return y[:, None] if keepdims else y
@@ -158,15 +158,15 @@ def downmix_to_mono(
 def safe_queue_put(
     queue: asyncio.Queue, item: Any, replace_oldest: bool = True
 ) -> bool:
-    """安全地将项目放入队列，队列满时可选择丢弃最旧数据.
+    """Safely put an item into a queue; when the queue is full, optionally discard the oldest data.
 
     Args:
-        queue: asyncio.Queue 对象
-        item: 要入队的数据
-        replace_oldest: True=队列满时丢弃最旧数据并放入新数据, False=直接丢弃新数据
+        queue: asyncio.Queue object
+        item: data to enqueue
+        replace_oldest: True = when the queue is full, discard the oldest data and put in the new data; False = drop the new data directly
 
     Returns:
-        True=成功入队, False=队列满且未入队
+        True = enqueued successfully; False = the queue was full and the item was not enqueued
     """
     try:
         queue.put_nowait(item)
@@ -174,30 +174,30 @@ def safe_queue_put(
     except asyncio.QueueFull:
         if replace_oldest:
             try:
-                queue.get_nowait()  # 丢弃最旧的
-                queue.put_nowait(item)  # 放入新数据
+                queue.get_nowait()  # Discard the oldest
+                queue.put_nowait(item)  # Put in new data
                 return True
             except asyncio.QueueEmpty:
-                # 理论上不会发生,但保险起见
+                # This should not happen in theory, but to be safe
                 queue.put_nowait(item)
                 return True
         return False
 
 
 def upmix_mono_to_channels(mono_data: np.ndarray, num_channels: int) -> np.ndarray:
-    """将单声道音频上混到多声道（复制到所有声道）
+    """Upmix mono audio to multiple channels (copy it to all channels)
 
     Args:
-        mono_data: 单声道音频数据，形状 (N,)
-        num_channels: 目标声道数
+        mono_data: the mono audio data, shape (N,)
+        num_channels: target channel count
 
     Returns:
-        多声道音频数据，形状 (N, num_channels)
+        Multi-channel audio data, shape (N, num_channels)
     """
     if num_channels == 1:
         return mono_data.reshape(-1, 1)
 
-    # 复制单声道到所有声道
+    # Copy mono to all channels
     return np.tile(mono_data.reshape(-1, 1), (1, num_channels))
 
 
@@ -214,18 +214,18 @@ def _valid(devs: list[dict], idx: int, kind: str, include_virtual: bool) -> bool
 
 
 def refresh_portaudio_devices(*, reinitialize: bool = True) -> list[dict]:
-    """重新枚举 PortAudio 设备列表（热插拔友好）.
+    """Re-enumerate the PortAudio device list (hot-plug friendly).
 
-    调用方须先停掉本进程内所有 sounddevice 流，再调本函数；
-    有活跃流时 ``sd._terminate`` 不安全。
+    The caller must first stop all sounddevice streams in this process before calling this function;
+    ``sd._terminate`` is not safe while there are active streams.
 
     Args:
-        reinitialize: True 时尝试 ``_terminate`` + ``_initialize`` 强制
-            重建 PortAudio 上下文（有利于 macOS 后连蓝牙出现在列表中）。
-            失败则降级为普通 ``query_devices``。
+        reinitialize: when True, try ``_terminate`` + ``_initialize`` to forcibly
+            rebuild the PortAudio context (helps late-connected Bluetooth devices show up on macOS).
+            On failure it degrades to a plain ``query_devices``.
 
     Returns:
-        设备信息 dict 列表（与 ``list(sd.query_devices())`` 同形）
+        A list of device info dicts (same shape as ``list(sd.query_devices())``)
     """
     if reinitialize:
         terminate = getattr(sd, "_terminate", None)
@@ -234,40 +234,40 @@ def refresh_portaudio_devices(*, reinitialize: bool = True) -> list[dict]:
             try:
                 terminate()
                 initialize()
-                logger.info("PortAudio 已重新初始化，准备重新枚举设备")
+                logger.info("PortAudio reinitialized; ready to re-enumerate devices")
             except Exception as e:
                 logger.warning(
-                    f"PortAudio 重初始化失败，降级为普通枚举: {e}",
+                    f"PortAudio reinit failed; falling back to plain enumeration: {e}",
                     exc_info=True,
                 )
         else:
-            logger.debug("当前 sounddevice 无 _terminate/_initialize，跳过重初始化")
+            logger.debug("Current sounddevice has no _terminate/_initialize; skipping reinit")
 
     try:
         devices = list(sd.query_devices())
     except Exception as e:
-        logger.error(f"query_devices 失败: {e}", exc_info=True)
+        logger.error(f"query_devices failed: {e}", exc_info=True)
         return []
 
-    logger.info(f"音频设备枚举完成: {len(devices)} 个")
+    logger.info(f"Audio device enumeration complete: {len(devices)} found")
     return devices
 
 
 def list_audio_devices(
     *, include_virtual: bool = True
 ) -> dict[str, list[dict[str, Any]]]:
-    """列出输入/输出设备（设置页与调试用）.
+    """List input/output devices (for settings pages and debugging).
 
-    不主动重初始化 PortAudio；需要热插拔刷新时先
-    ``refresh_portaudio_devices()``，再调本函数。
+    It does not re-initialize PortAudio on its own; for a hot-plug refresh call
+    ``refresh_portaudio_devices()`` first, then this function.
 
     Returns:
-        ``{"input": [...], "output": [...]}``，每项含 index/name/sample_rate/channels
+        ``{"input": [...], "output": [...]}``; each entry contains index/name/sample_rate/channels
     """
     try:
         devices = list(sd.query_devices())
     except Exception as e:
-        logger.error(f"列出音频设备失败: {e}", exc_info=True)
+        logger.error(f"Failed to list audio devices: {e}", exc_info=True)
         return {"input": [], "output": []}
 
     default_input = None
@@ -294,7 +294,7 @@ def list_audio_devices(
         out_ch = int(d.get("max_output_channels", 0) or 0)
 
         if in_ch > 0:
-            mark = " (默认)" if idx == default_input else ""
+            mark = " (default)" if idx == default_input else ""
             inputs.append(
                 {
                     "index": idx,
@@ -305,7 +305,7 @@ def list_audio_devices(
                 }
             )
         if out_ch > 0:
-            mark = " (默认)" if idx == default_output else ""
+            mark = " (default)" if idx == default_output else ""
             outputs.append(
                 {
                     "index": idx,
@@ -322,15 +322,15 @@ def list_audio_devices(
 def find_device_by_name(
     kind: str, device_name: str, *, include_virtual: bool = False
 ) -> dict[str, Any] | None:
-    """按名称查找设备（模糊匹配）
+    """Find a device by name (fuzzy match)
 
     Args:
-        kind: "input" 或 "output"
-        device_name: 设备名称（支持部分匹配）
-        include_virtual: 是否包含虚拟设备
+        kind: "input" or "output"
+        device_name: the device name (partial matching is supported)
+        include_virtual: whether to include virtual devices
 
     Returns:
-        设备信息字典，或 None
+        Device info dict, or None
     """
     assert kind in ("input", "output")
 
@@ -342,7 +342,7 @@ def find_device_by_name(
     key_channels = "max_input_channels" if kind == "input" else "max_output_channels"
     search_name = device_name.casefold().strip()
 
-    # 1. 精确匹配（忽略大小写）
+    # 1. Exact match (case-insensitive)
     for i, d in enumerate(devices):
         if not _valid(devices, i, kind, include_virtual):
             continue
@@ -355,7 +355,7 @@ def find_device_by_name(
                 "channels": int(d.get(key_channels, 0)),
             }
 
-    # 2. 模糊匹配（包含关系）
+    # 2. Fuzzy match (contains relationship)
     for i, d in enumerate(devices):
         if not _valid(devices, i, kind, include_virtual):
             continue
@@ -375,18 +375,18 @@ def find_device_by_name(
 def select_audio_device(
     kind: str, *, include_virtual: bool = False
 ) -> dict[str, Any] | None:
-    """自动选择音频设备（简化版）
+    """Automatically select an audio device (simplified version)
 
-    策略：
-    1. 系统默认设备（sounddevice 推荐）
-    2. 第一个可用的非虚拟设备
+    Strategy:
+    1. System default device (recommended by sounddevice)
+    2. First available non-virtual device
 
     Args:
-        kind: "input" 或 "output"
-        include_virtual: 是否包含虚拟设备
+        kind: "input" or "output"
+        include_virtual: whether to include virtual devices
 
     Returns:
-        {index, name, sample_rate, channels} 或 None
+        {index, name, sample_rate, channels} or None
     """
     assert kind in ("input", "output")
 
@@ -414,16 +414,16 @@ def select_audio_device(
             "channels": int(d.get(key_channels, 0)),
         }
 
-    # 1. sounddevice 系统默认（最可靠）
+    # 1. sounddevice system default (most reliable)
     try:
         info = sd.query_devices(kind=kind)
         packed = pack(int(info.get("index")), base=info)
         if packed:
             return packed
     except Exception:
-        logger.debug(f"查询系统默认{kind}设备失败，尝试兜底策略")
+        logger.debug(f"Failed to query system default {kind} device; trying fallback strategy")
 
-    # 2. 兜底：第一个可用的非虚拟设备
+    # 2. Fallback: first available non-virtual device
     for i, _d in enumerate(devices):
         if _valid(devices, i, kind, include_virtual):
             return pack(i)
