@@ -53,6 +53,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.musicSearchUrl = text
                     placeholderText: "Leave empty to use the default Kuwo search API"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -74,6 +75,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApi = text
                     placeholderText: "Leave empty to use the default lx-music-api"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -95,6 +97,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApiKey = text
                     placeholderText: "Leave empty to use the default key"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary

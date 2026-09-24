@@ -112,6 +112,7 @@ ScrollView {
                     maximumLength: 1
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -168,6 +169,7 @@ ScrollView {
                     maximumLength: 1
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -224,6 +226,7 @@ ScrollView {
                     maximumLength: 1
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -280,6 +283,7 @@ ScrollView {
                     maximumLength: 1
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -336,6 +340,7 @@ ScrollView {
                     maximumLength: 1
                     horizontalAlignment: Text.AlignHCenter
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary

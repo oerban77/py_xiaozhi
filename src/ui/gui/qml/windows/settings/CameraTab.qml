@@ -266,6 +266,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.vlApiUrl = text
                     placeholderText: "https://..."
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -300,6 +301,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.vlModels = text
                     placeholderText: "glm-4v-plus"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary

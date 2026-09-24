@@ -54,6 +54,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.clientId = text
                     placeholderText: "Auto-generated"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -74,6 +75,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.deviceId = text
                     placeholderText: "Auto-generated"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -215,6 +217,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.websocketUrl = text
                     placeholderText: "wss://..."
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -248,6 +251,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.otaUrl : ""
                     onEditingFinished: if (settingsModel) settingsModel.otaUrl = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -267,6 +271,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.authorizationUrl : ""
                     onEditingFinished: if (settingsModel) settingsModel.authorizationUrl = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -331,6 +336,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.mqttEndpoint = text
                     placeholderText: "mqtt.example.com"
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -350,6 +356,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.mqttClientId : ""
                     onEditingFinished: if (settingsModel) settingsModel.mqttClientId = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -369,6 +376,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.mqttUsername : ""
                     onEditingFinished: if (settingsModel) settingsModel.mqttUsername = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -402,6 +410,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.mqttPublishTopic : ""
                     onEditingFinished: if (settingsModel) settingsModel.mqttPublishTopic = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -421,6 +430,7 @@ ScrollView {
                     text: settingsModel ? settingsModel.mqttSubscribeTopic : ""
                     onEditingFinished: if (settingsModel) settingsModel.mqttSubscribeTopic = text
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -475,6 +485,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.pathCacheDir = text
                     placeholderText: settingsModel ? settingsModel.pathDefaultCacheDir : ""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -549,6 +560,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.pathLogDir = text
                     placeholderText: settingsModel ? settingsModel.pathDefaultLogDir : ""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -623,6 +635,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.pathMusicCacheDir = text
                     placeholderText: settingsModel ? settingsModel.pathDefaultMusicCacheDir : ""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -697,6 +710,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.pathKeywordsDir = text
                     placeholderText: settingsModel ? settingsModel.pathDefaultKeywordsDir : ""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
@@ -771,6 +785,7 @@ ScrollView {
                     onEditingFinished: if (settingsModel) settingsModel.pathMcpPluginsDir = text
                     placeholderText: settingsModel ? settingsModel.pathDefaultMcpPluginsDir : ""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary

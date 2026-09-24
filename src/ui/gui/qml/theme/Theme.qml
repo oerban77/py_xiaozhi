@@ -51,6 +51,8 @@ QtObject {
     readonly property color textPrimary: "#1D2129"
     readonly property color textSecondary: "#4E5969"
     readonly property color textPlaceholder: "#86909C"
+    // 输入框文字色：显式声明，避免跟随系统深色主题导致浅底白字不可见
+    readonly property color inputText: "#1D2129"
 
     // 边框分割线
     readonly property color border: "#E5E6EB"

@@ -77,6 +77,7 @@ ScrollView {
                     onTextChanged: if (settingsModel && text !== settingsModel.wakeWord) settingsModel.wakeWord = text
                     placeholderText: "Enter a wake word, e.g. \"Xiaozhi\" or \"Hey Jarvis\""
                     font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
                     background: Rectangle {
                         radius: Theme.radiusSm
                         color: Theme.backgroundSecondary
