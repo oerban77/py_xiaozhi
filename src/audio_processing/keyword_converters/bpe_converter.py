@@ -91,12 +91,24 @@ class BpeConverter(KeywordConverter):
         normalized = text.strip().upper()
         words = normalized.split()
 
-        processed_words = [f"▁{word}" for word in words]
-
         all_tokens = []
-        for word in processed_words:
-            tokens = self._greedy_tokenize(word)
-            all_tokens.extend(tokens)
+        for word in words:
+            word_tokens = self._greedy_tokenize(f"▁{word}")
+            unknown = sorted({t for t in word_tokens if t == "<unk>"})
+            if unknown:
+                raise ValueError(
+                    f"The English wake word contains syllables that the model cannot "
+                    f"recognize: {word!r} (unknown tokens: {unknown}). "
+                    f"Please use common English words, e.g. \"Hello Xiaozhi\"."
+                )
+            all_tokens.extend(word_tokens)
 
         bpe_str = " ".join(all_tokens)
-        return f"{bpe_str} @{normalized}"
+
+        # sherpa-onnx splits each keyword line on whitespace, so the display name
+        # (the part after "@") must not contain spaces; otherwise the words after
+        # the space are parsed as BPE tokens and the process is aborted with
+        # std::exit() when they are missing from the vocabulary.
+        display_name = normalized.replace(" ", "-")
+
+        return f"{bpe_str} @{display_name}"

@@ -29,19 +29,32 @@ class WindowsVolumeBackend:
 
     def _init(self) -> None:
         try:
-            POINTER = self._lazy_import("ctypes", "POINTER")
-            cast = self._lazy_import("ctypes", "cast")
-            CLSCTX_ALL = self._lazy_import("comtypes", "CLSCTX_ALL")
             AudioUtilities = self._lazy_import("pycaw.pycaw", "AudioUtilities")
-            IAudioEndpointVolume = self._lazy_import(
-                "pycaw.pycaw", "IAudioEndpointVolume"
-            )
 
             devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(
-                IAudioEndpointVolume._iid_, CLSCTX_ALL, None
-            )
-            self.volume_control = cast(interface, POINTER(IAudioEndpointVolume))
+            if devices is None:
+                raise RuntimeError("No default audio output device found")
+
+            # pycaw >= 20260921 wraps the raw IMMDevice in an AudioDevice helper:
+            # AudioUtilities.GetSpeakers() no longer returns the COM object, so
+            # devices.Activate(...) raises AttributeError. The endpoint volume is
+            # exposed through the EndpointVolume property instead, which activates
+            # and QueryInterface()s the IAudioEndpointVolume interface internally.
+            if hasattr(devices, "EndpointVolume"):
+                self.volume_control = devices.EndpointVolume
+            else:
+                # Legacy pycaw (< 20260921): GetSpeakers() returns the raw IMMDevice.
+                POINTER = self._lazy_import("ctypes", "POINTER")
+                cast = self._lazy_import("ctypes", "cast")
+                CLSCTX_ALL = self._lazy_import("comtypes", "CLSCTX_ALL")
+                IAudioEndpointVolume = self._lazy_import(
+                    "pycaw.pycaw", "IAudioEndpointVolume"
+                )
+                interface = devices.Activate(
+                    IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+                )
+                self.volume_control = cast(interface, POINTER(IAudioEndpointVolume))
+
             logger.debug("Windows volume control initialized")
         except Exception as e:
             logger.error(f"Windows volume control init failed: {e}", exc_info=True)
