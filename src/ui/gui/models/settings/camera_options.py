@@ -46,3 +46,15 @@ class SettingsCameraOptionsMixin:
     def _set_vlModels(self, value: str):
         self._set_value("CAMERA.models", value)
 
+    def _get_explainUrl(self) -> str:
+        return self._get_value("CAMERA.explain_url", "")
+
+    def _set_explainUrl(self, value: str):
+        self._set_value("CAMERA.explain_url", value)
+
+    def _get_explainToken(self) -> str:
+        return self._get_value("CAMERA.explain_token", "")
+
+    def _set_explainToken(self, value: str):
+        self._set_value("CAMERA.explain_token", value)
+

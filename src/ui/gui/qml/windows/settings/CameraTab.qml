@@ -318,6 +318,76 @@ ScrollView {
             color: Theme.divider
         }
 
+        // 视觉识别服务配置（无 VL API key 时使用）
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingMd
+
+            Text {
+                text: "Vision Service (Image Q&A)"
+                font.pixelSize: Theme.fontSizeMd
+                font.weight: Font.Medium
+                color: Theme.textSecondary
+            }
+
+            Text {
+                text: "Used when no VL API key is configured. The server-provided address takes precedence."
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textPlaceholder
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                rowSpacing: Theme.spacingMd
+                columnSpacing: Theme.spacingLg
+
+                Text {
+                    text: "Explain URL"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 80
+                }
+                TextField {
+                    id: explainUrlField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.explainUrl : ""
+                    onEditingFinished: if (settingsModel) settingsModel.explainUrl = text
+                    placeholderText: "https://api.xiaozhi.me/vision/explain"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: explainUrlField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
+
+                Text {
+                    text: "Token"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 80
+                }
+                XTextField {
+                    id: explainTokenField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.explainToken : ""
+                    onEditingFinished: if (settingsModel) settingsModel.explainToken = text
+                    isPassword: true
+                }
+            }
+        }
+
+        // 分隔线
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.divider
+        }
+
         // 测试结果
         Rectangle {
             Layout.fillWidth: true

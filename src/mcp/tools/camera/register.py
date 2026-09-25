@@ -28,7 +28,17 @@ def create_camera():
         return VLCamera()
 
     logger.info("VL configuration not found, using normal Camera implementation")
-    return NormalCamera()
+    camera = NormalCamera()
+    # Fall back to the configured remote vision service (the server-provided
+    # capability still takes precedence, applied later via set_explain_url).
+    explain_url = config.get_config("CAMERA.explain_url", "") or ""
+    explain_token = config.get_config("CAMERA.explain_token", "") or ""
+    if explain_url:
+        camera.set_explain_url(explain_url)
+        if explain_token:
+            camera.set_explain_token(explain_token)
+        logger.info(f"Camera vision service configured from settings: {explain_url}")
+    return camera
 
 
 def register_camera_tools(add_tool: Callable[[McpTool], None], camera) -> None:

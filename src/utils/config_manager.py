@@ -102,6 +102,10 @@ class ConfigManager:
             "Local_VL_url": "https://open.bigmodel.cn/api/paas/v4/",
             "VLapi_key": "",
             "models": "glm-4v-plus",
+            # Remote vision service used by NormalCamera (image Q&A over HTTP).
+            # Used when no VL API key is configured; the server-provided capability takes precedence.
+            "explain_url": "",
+            "explain_token": "",
         },
         "SHORTCUTS": {
             "ENABLED": True,

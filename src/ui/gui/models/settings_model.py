@@ -422,6 +422,8 @@ class SettingsModel(
     vlApiUrl = Property(str, SettingsCameraOptionsMixin._get_vlApiUrl, SettingsCameraOptionsMixin._set_vlApiUrl, notify=settingsChanged)
     vlApiKey = Property(str, SettingsCameraOptionsMixin._get_vlApiKey, SettingsCameraOptionsMixin._set_vlApiKey, notify=settingsChanged)
     vlModels = Property(str, SettingsCameraOptionsMixin._get_vlModels, SettingsCameraOptionsMixin._set_vlModels, notify=settingsChanged)
+    explainUrl = Property(str, SettingsCameraOptionsMixin._get_explainUrl, SettingsCameraOptionsMixin._set_explainUrl, notify=settingsChanged)
+    explainToken = Property(str, SettingsCameraOptionsMixin._get_explainToken, SettingsCameraOptionsMixin._set_explainToken, notify=settingsChanged)
     selectedInputIndex = Property(
         int, SettingsAudioDevicesMixin._get_selectedInputIndex, SettingsAudioDevicesMixin._set_selectedInputIndex, notify=settingsChanged
     )
