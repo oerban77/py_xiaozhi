@@ -308,8 +308,31 @@ class ScreenshotCamera(BaseCamera):
             )
 
             # Get bitmap data
-            bmpinfo = ctypes.wintypes.BITMAPINFO()
-            bmpinfo.bmiHeader.biSize = ctypes.sizeof(ctypes.wintypes.BITMAPINFOHEADER)
+            # ctypes.wintypes does not define BITMAPINFO, so build the structure
+            # explicitly (BITMAPINFOHEADER + 3 DWORDS for the color table).
+            class _BITMAPINFOHEADER(ctypes.Structure):
+                _fields_ = [
+                    ("biSize", ctypes.wintypes.DWORD),
+                    ("biWidth", ctypes.wintypes.LONG),
+                    ("biHeight", ctypes.wintypes.LONG),
+                    ("biPlanes", ctypes.wintypes.WORD),
+                    ("biBitCount", ctypes.wintypes.WORD),
+                    ("biCompression", ctypes.wintypes.DWORD),
+                    ("biSizeImage", ctypes.wintypes.DWORD),
+                    ("biXPelsPerMeter", ctypes.wintypes.LONG),
+                    ("biYPelsPerMeter", ctypes.wintypes.LONG),
+                    ("biClrUsed", ctypes.wintypes.DWORD),
+                    ("biClrImportant", ctypes.wintypes.DWORD),
+                ]
+
+            class _BITMAPINFO(ctypes.Structure):
+                _fields_ = [
+                    ("bmiHeader", _BITMAPINFOHEADER),
+                    ("bmiColors", ctypes.wintypes.DWORD * 3),
+                ]
+
+            bmpinfo = _BITMAPINFO()
+            bmpinfo.bmiHeader.biSize = ctypes.sizeof(_BITMAPINFOHEADER)
             bmpinfo.bmiHeader.biWidth = screensize[0]
             bmpinfo.bmiHeader.biHeight = -screensize[1]  # Negative values mean top-to-bottom
             bmpinfo.bmiHeader.biPlanes = 1
