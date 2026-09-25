@@ -244,6 +244,12 @@ class SettingsModel(
     musicDefaultQuality = Property(
         str, SettingsSystemOptionsMixin._get_musicDefaultQuality, SettingsSystemOptionsMixin._set_musicDefaultQuality, notify=settingsChanged
     )
+    musicOpusCatalogUrl = Property(
+        str, SettingsSystemOptionsMixin._get_musicOpusCatalogUrl, SettingsSystemOptionsMixin._set_musicOpusCatalogUrl, notify=settingsChanged
+    )
+    musicOpusStreamBase = Property(
+        str, SettingsSystemOptionsMixin._get_musicOpusStreamBase, SettingsSystemOptionsMixin._set_musicOpusStreamBase, notify=settingsChanged
+    )
     mqttEndpoint = Property(
         str, SettingsSystemOptionsMixin._get_mqttEndpoint, SettingsSystemOptionsMixin._set_mqttEndpoint, notify=settingsChanged
     )

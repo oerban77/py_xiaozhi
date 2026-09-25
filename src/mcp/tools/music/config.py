@@ -8,6 +8,12 @@ DEFAULT_SEARCH_URL = "http://search.kuwo.cn/r.s"
 DEFAULT_URL_API = "https://lxmusicapi.onrender.com"
 DEFAULT_URL_API_KEY = "share-v3"
 DEFAULT_LYRICS_URL = "http://m.kuwo.cn/newh5/singles/songinfoandlrc"
+DEFAULT_OPUS_CATALOG_URL = (
+    "https://cdn.jsdelivr.net/gh/oerban77/music_opus@main/catalog.json"
+)
+DEFAULT_OPUS_STREAM_BASE = (
+    "https://cdn.jsdelivr.net/gh/oerban77/music_opus@main/music/"
+)
 
 
 def _cfg_str(cm, path: str, default: str) -> str:
@@ -32,6 +38,12 @@ def load_music_config() -> dict:
         "LYRICS_URL": pick(cm, "MUSIC.LYRICS_URL", DEFAULT_LYRICS_URL),
         "DEFAULT_SOURCE": pick(cm, "MUSIC.DEFAULT_PLATFORM", "kw") or "kw",
         "DEFAULT_BR": pick(cm, "MUSIC.DEFAULT_QUALITY", "320k") or "320k",
+        "OPUS_CATALOG_URL": pick(
+            cm, "MUSIC.OPUS_CATALOG_URL", DEFAULT_OPUS_CATALOG_URL
+        ),
+        "OPUS_STREAM_BASE": pick(
+            cm, "MUSIC.OPUS_STREAM_BASE", DEFAULT_OPUS_STREAM_BASE
+        ),
         "SEARCH_LIMIT": 20,
         "HEADERS": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",

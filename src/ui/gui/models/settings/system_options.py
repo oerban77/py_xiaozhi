@@ -91,6 +91,18 @@ class SettingsSystemOptionsMixin:
     def _set_musicDefaultQuality(self, value: str):
         self._set_value("MUSIC.DEFAULT_QUALITY", value)
 
+    def _get_musicOpusCatalogUrl(self) -> str:
+        return self._get_value("MUSIC.OPUS_CATALOG_URL", "")
+
+    def _set_musicOpusCatalogUrl(self, value: str):
+        self._set_value("MUSIC.OPUS_CATALOG_URL", value)
+
+    def _get_musicOpusStreamBase(self) -> str:
+        return self._get_value("MUSIC.OPUS_STREAM_BASE", "")
+
+    def _set_musicOpusStreamBase(self, value: str):
+        self._set_value("MUSIC.OPUS_STREAM_BASE", value)
+
     # MQTT configuration
     def _get_mqttEndpoint(self) -> str:
         return self._get_value("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.endpoint", "")

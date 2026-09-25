@@ -80,6 +80,8 @@ class PlaybackEngine:
         self._stream_headers: dict[str, str] | None = None
         # Online direct-link template; can be re-resolved after TTS to get a fresh CDN
         self.api_url: str | None = None
+        # True while the current source is a length-prefixed Opus catalog stream
+        self.is_opus_source = False
         self.current_lyric_index = -1
         self.last_lyric_tick = 0.0
 
@@ -135,6 +137,7 @@ class PlaybackEngine:
             self.current_position = 0
             self.current_lyric_index = -1
             self.api_url = None
+            self.is_opus_source = False
 
             await self._hooks.emit_state_change("stopped", current_song)
             logger.info(f"Stopped playback: {current_song}")
@@ -215,6 +218,33 @@ class PlaybackEngine:
                 await self._hooks.emit_state_change("playing", self.current_song)
                 return {"status": "success", "message": "Playback resumed"}
 
+            if self.is_opus_source:
+                # The Opus catalog stream cannot be decoded by FFmpeg and cannot be
+                # resumed mid-stream; restart it from the beginning.
+                logger.info(
+                    f"Opus stream resumed from the start: {self.current_song}"
+                )
+                self.paused = False
+                self.pause_source = None
+                self.current_position = 0.0
+                self.start_play_time = time.time()
+                self.current_lyric_index = -1
+                self.last_lyric_tick = 0.0
+                await self._cancel_playback_task()
+                if self.decoder:
+                    await self.decoder.stop()
+                    self.decoder = None
+                await self._clear_music_queue()
+                audio_codec = self._get_audio_codec()
+                if audio_codec:
+                    await audio_codec.clear_music_queue()
+                self._playback_task = asyncio.create_task(
+                    self._opus_playback_loop(str(self._current_source)),
+                    name="music:opus-playback",
+                )
+                await self._hooks.emit_state_change("playing", self.current_song)
+                return {"status": "success", "message": "Playback resumed"}
+
             if self.api_url:
                 if not await self._refresh_stream_source():
                     return {
@@ -284,6 +314,11 @@ class PlaybackEngine:
         try:
             if not self.is_playing:
                 return {"status": "error", "message": "No song is playing"}
+            if self.is_opus_source:
+                return {
+                    "status": "error",
+                    "message": "Seeking is not supported for Opus catalog streams",
+                }
             if not self._current_source:
                 return {"status": "error", "message": "No seekable source"}
             if not is_http_url(self._current_source) and not Path(
@@ -404,6 +439,7 @@ class PlaybackEngine:
 
             self._hooks.prepare_for_io()
             self.api_url = api_url
+            self.is_opus_source = False
 
             if self.song_id:
                 cached = self._cache.find_song_file(self.song_id)
@@ -458,6 +494,97 @@ class PlaybackEngine:
         except Exception as e:
             logger.error(f"Playback failed: {e}", exc_info=True)
             return False
+
+    async def play_opus_stream(self, url: str) -> bool:
+        """Play a length-prefixed Opus stream from the online catalog.
+
+        Unlike play_url (which resolves a Kuwo direct link and decodes with FFmpeg),
+        this reads the [2-byte BE length][opus packet] framing used by the reference
+        app and decodes with the project's OpusCodec.
+        """
+        try:
+            if not self._get_audio_codec():
+                logger.error("Could not get AudioCodec; playback failed")
+                return False
+
+            if self.is_playing:
+                await self.stop()
+
+            self._hooks.prepare_for_io()
+            self.api_url = None
+            self._current_source = url
+            self._stream_headers = None
+            self.is_opus_source = True
+
+            if self._hooks.is_speaking():
+                # Defer until TTS ends (the TTS handler re-triggers via the tts pause path)
+                logger.info(
+                    "TTS in progress; the Opus stream will start after speech ends"
+                )
+                self.is_playing = True
+                self.paused = True
+                self.pause_source = "tts"
+                self.current_position = 0.0
+                self.start_play_time = 0.0
+                self.current_lyric_index = -1
+                self.last_lyric_tick = 0.0
+                await self._cancel_playback_task()
+                if self.decoder:
+                    await self.decoder.stop()
+                    self.decoder = None
+                await self._clear_music_queue()
+                return True
+
+            await self._cancel_playback_task()
+            await self._clear_music_queue()
+            audio_codec = self._get_audio_codec()
+            if audio_codec:
+                await audio_codec.clear_music_queue()
+
+            self.is_playing = True
+            self.paused = False
+            self.pause_source = None
+            self.current_position = 0.0
+            self.start_play_time = time.time()
+            self.current_lyric_index = -1
+            self.last_lyric_tick = 0.0
+
+            self._playback_task = asyncio.create_task(
+                self._opus_playback_loop(url), name="music:opus-playback"
+            )
+            await self._hooks.emit_state_change("playing", self.current_song)
+            return True
+        except Exception as e:
+            logger.error(f"Opus playback failed: {e}", exc_info=True)
+            return False
+
+    async def _opus_playback_loop(self, url: str) -> None:
+        """Read the Opus stream, decoding and writing PCM; falls back to the mirror host."""
+        from .opus_catalog import stream_url_candidates
+        from .opus_stream import OpusStreamReader
+
+        audio_codec = self._get_audio_codec()
+        if audio_codec is None:
+            return
+
+        reader = OpusStreamReader(audio_codec)
+        try:
+            for candidate in stream_url_candidates(url):
+                if self._stopped_or_idle():
+                    return
+                ok = await reader.stream(candidate)
+                if ok:
+                    await self._handle_playback_finished()
+                    return
+                if self._stopped_or_idle():
+                    return
+                # transport failed → try the mirror host
+                logger.info(f"Trying the mirror host for the Opus stream")
+        finally:
+            reader.stop()
+
+    def _stopped_or_idle(self) -> bool:
+        return (not self.is_playing) or self.paused and self.pause_source == "manual"
 
     async def start_playback(
         self,
@@ -591,6 +718,7 @@ class PlaybackEngine:
         self.paused = False
         self.current_position = self.total_duration
         self.current_lyric_index = -1
+        self.is_opus_source = False
         await self._hooks.emit_state_change("completed", self.current_song)
 
     def cancel_prefetch(self) -> None:

@@ -104,10 +104,54 @@ ScrollView {
                         border.color: musicUrlApiKeyField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
+
+                Text {
+                    text: "Opus Catalog URL"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 120
+                }
+                TextField {
+                    id: musicOpusCatalogUrlField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.musicOpusCatalogUrl : ""
+                    onTextEdited: if (settingsModel) settingsModel.musicOpusCatalogUrl = text
+                    onEditingFinished: if (settingsModel) settingsModel.musicOpusCatalogUrl = text
+                    placeholderText: "Leave empty to use the default catalog"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: musicOpusCatalogUrlField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
+
+                Text {
+                    text: "Opus Stream Base"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 120
+                }
+                TextField {
+                    id: musicOpusStreamBaseField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.musicOpusStreamBase : ""
+                    onTextEdited: if (settingsModel) settingsModel.musicOpusStreamBase = text
+                    onEditingFinished: if (settingsModel) settingsModel.musicOpusStreamBase = text
+                    placeholderText: "Leave empty to use the default stream base"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: musicOpusStreamBaseField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
             }
 
             Text {
-                text: "The search API uses the official Kuwo endpoint; the direct link API fetches playback URLs (requires an API key)."
+                text: "The search API uses the official Kuwo endpoint; the direct link API fetches playback URLs (requires an API key). The Opus catalog provides the online song list used by the list/search/play tools."
                 font.pixelSize: Theme.fontSizeXs
                 color: Theme.textPlaceholder
                 wrapMode: Text.WordWrap

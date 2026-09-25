@@ -70,6 +70,21 @@ def register_music_tools(
             return "No music files in local cache"
         return result.get("message", "Failed to get local playlist")
 
+    async def list_opus_songs(args: dict[str, Any]) -> str:
+        cursor = int(args.get("cursor", 0) or 0)
+        result = await player.list_opus_songs(cursor)
+        return result.get("message", "Failed to get the song catalog")
+
+    async def search_opus_songs(args: dict[str, Any]) -> str:
+        query = (args or {}).get("query", "")
+        result = await player.search_opus_songs(query)
+        return result.get("message", "Search failed")
+
+    async def play_opus_song(args: dict[str, Any]) -> str:
+        url = (args or {}).get("url", "")
+        result = await player.play_opus_song(url)
+        return result.get("message", "Playback failed")
+
     tools: list[McpTool] = [
         McpTool(
             "music_player.search_and_play",
@@ -164,6 +179,39 @@ def register_music_tools(
                 [Property("force_refresh", PropertyType.BOOLEAN, default_value=False)]
             ),
             get_local_playlist,
+        ),
+        McpTool(
+            "music_player.list_opus_songs",
+            (
+                "List the online song catalog page by page (10 tracks per page). "
+                "Each entry shows the track number, title, artist, duration, and its playback url. "
+                "Call it again with cursor to get the next page. "
+                "Used when the user asks 'what songs are available', 'show me the song list', 'what can you play'."
+            ),
+            PropertyList([Property("cursor", PropertyType.INTEGER, default_value=0)]),
+            list_opus_songs,
+        ),
+        McpTool(
+            "music_player.search_opus_songs",
+            (
+                "Search the online song catalog by keyword (title or artist, fuzzy match, up to 5 hits). "
+                "Each result shows the title, artist, duration, and its playback url. "
+                "Used when the user asks 'do you have song X', 'search for song X', 'is Y in the catalog'. "
+                "To actually play a result, call music_player.play_opus_song with the url from the result."
+            ),
+            PropertyList([Property("query", PropertyType.STRING)]),
+            search_opus_songs,
+        ),
+        McpTool(
+            "music_player.play_opus_song",
+            (
+                "Play a track from the online song catalog by its playback url "
+                "(the url returned by list_opus_songs or search_opus_songs). "
+                "If music is already playing, it stops the current track first. "
+                "Note: this is for catalog urls only; to play a song by name use music_player.search_and_play."
+            ),
+            PropertyList([Property("url", PropertyType.STRING)]),
+            play_opus_song,
         ),
     ]
 

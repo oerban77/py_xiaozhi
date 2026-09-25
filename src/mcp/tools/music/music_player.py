@@ -23,6 +23,13 @@ from .local_library import LocalLibrary
 from .lyrics import fetch_kuwo_lyrics, format_lyric_display, lyric_at
 from .online_search import search_song
 from .playback import PlaybackDeps, PlaybackEngine
+from .opus_catalog import (
+    CatalogTrack,
+    fetch_catalog,
+    format_track_page,
+    page as catalog_page,
+    search_tracks,
+)
 
 logger = get_logger()
 
@@ -256,6 +263,109 @@ class MusicPlayer:
                 f"Tip: to jump to a percentage, call seek(percent=N); do not infer the position from the lyrics"
             ),
         }
+
+    # ----- Opus catalog (reference-app style streaming) -----
+
+    async def list_opus_songs(
+        self, cursor: int = 0, *, force_refresh: bool = False
+    ) -> dict:
+        """List the online Opus catalog page by page."""
+        try:
+            cfg = self.config
+            tracks = await fetch_catalog(
+                cfg.get("OPUS_CATALOG_URL", ""),
+                cfg.get("OPUS_STREAM_BASE", ""),
+                force=force_refresh,
+            )
+            if not tracks:
+                return {
+                    "status": "error",
+                    "message": "Failed to fetch the song catalog",
+                }
+            page_data = catalog_page(tracks, cursor)
+            return {
+                "status": "success",
+                "message": format_track_page(
+                    page_data,
+                    total_count=len(tracks),
+                    cursor=cursor,
+                    header="Song catalog",
+                ),
+                "next_cursor": page_data.next_cursor,
+                "total_count": len(tracks),
+            }
+        except Exception as e:
+            logger.error(f"Failed to list the catalog: {e}", exc_info=True)
+            return {"status": "error", "message": f"Failed to list the catalog: {e}"}
+
+    async def search_opus_songs(self, query: str) -> dict:
+        """Search the online Opus catalog (fuzzy)."""
+        try:
+            q = (query or "").strip()
+            if not q:
+                return {"status": "error", "message": "The search keyword cannot be empty"}
+            cfg = self.config
+            tracks = await fetch_catalog(
+                cfg.get("OPUS_CATALOG_URL", ""),
+                cfg.get("OPUS_STREAM_BASE", ""),
+            )
+            if not tracks:
+                return {"status": "error", "message": "Failed to fetch the song catalog"}
+            hits = search_tracks(q, tracks)
+            if not hits:
+                return {"status": "info", "message": f"No song found: {q}"}
+            page_data = catalog_page(hits, 0)
+            return {
+                "status": "success",
+                "message": format_track_page(
+                    page_data,
+                    total_count=len(hits),
+                    cursor=0,
+                    header=f"Search results for '{q}'",
+                ),
+            }
+        except Exception as e:
+            logger.error(f"Failed to search the catalog: {e}", exc_info=True)
+            return {"status": "error", "message": f"Search failed: {e}"}
+
+    async def play_opus_song(self, url: str, title: str = "") -> dict:
+        """Play a track from the Opus catalog by its stream URL."""
+        eng = self._engine
+        try:
+            u = (url or "").strip()
+            if not u:
+                return {"status": "error", "message": "The playback URL cannot be empty"}
+            self.prepare_for_io()
+
+            resolved = ""
+            for t in await fetch_catalog(
+                self.config.get("OPUS_CATALOG_URL", ""),
+                self.config.get("OPUS_STREAM_BASE", ""),
+            ):
+                if t.url == u:
+                    resolved = t.display_name()
+                    eng.total_duration = t.dur_s
+                    break
+
+            eng.current_song = resolved or title or u
+            eng.song_id = "opus"
+            eng.api_url = None
+            self.current_url = u
+            self.lyrics = []
+
+            success = await eng.play_opus_stream(u)
+            if success:
+                return {
+                    "status": "success",
+                    "message": f"Now playing: {eng.current_song}",
+                    "song": eng.current_song,
+                    "duration": self._format_time(eng.total_duration),
+                    "total_seconds": eng.total_duration,
+                }
+            return {"status": "error", "message": "Playback failed"}
+        except Exception as e:
+            logger.error(f"Failed to play the Opus stream: {e}", exc_info=True)
+            return {"status": "error", "message": f"Playback failed: {e}"}
 
     # ----- Lyrics -----
 
