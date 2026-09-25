@@ -22,14 +22,16 @@ from .download import MusicDownloader
 from .local_library import LocalLibrary
 from .lyrics import fetch_kuwo_lyrics, format_lyric_display, lyric_at
 from .online_search import search_song
-from .playback import PlaybackDeps, PlaybackEngine
 from .opus_catalog import (
     CatalogTrack,
     fetch_catalog,
     format_track_page,
-    page as catalog_page,
+)
+from .opus_catalog import page as catalog_page
+from .opus_catalog import (
     search_tracks,
 )
+from .playback import PlaybackDeps, PlaybackEngine
 
 logger = get_logger()
 
