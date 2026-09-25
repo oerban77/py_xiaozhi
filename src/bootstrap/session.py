@@ -131,12 +131,19 @@ class ConversationSession:
             else:
                 logger.warning("TTS finished but protocol channel is closed; skipping re-listen")
 
-        try:
-            audio_plugin = self.plugins.get_plugin("audio")
-            if audio_plugin and audio_plugin.codec:
-                await audio_plugin.codec.clear_audio_queue()
-        except Exception as e:
-            logger.warning(f"Failed to clear audio queue: {e}", exc_info=True)
+        # Only discard buffered TTS audio when the speech was aborted by the user
+        # (interrupt / wake word). A normal tts stop arrives as soon as the server has
+        # streamed every frame, which can be well before the playback buffer has drained,
+        # so clearing here would cut off the tail of the sentence.
+        if self._aborted:
+            try:
+                audio_plugin = self.plugins.get_plugin("audio")
+                if audio_plugin and audio_plugin.codec:
+                    await audio_plugin.codec.clear_audio_queue()
+            except Exception as e:
+                logger.warning(f"Failed to clear audio queue: {e}", exc_info=True)
+        else:
+            logger.debug("TTS finished normally; leaving the playback buffer to drain")
 
         await self.state.set_device_state(DeviceState.LISTENING)
 
