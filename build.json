@@ -14,6 +14,11 @@
       "libs:libs",
       "assets:assets"
     ],
+    "add_binary": [
+      ".venv/Lib/site-packages/sherpa_onnx/lib/onnxruntime.dll;sherpa_onnx/lib",
+      ".venv/Lib/site-packages/sherpa_onnx/lib/sherpa-onnx-c-api.dll;sherpa_onnx/lib",
+      ".venv/Lib/site-packages/sherpa_onnx/lib/sherpa-onnx-cxx-api.dll;sherpa_onnx/lib"
+    ],
     "hidden_import": [
       "numpy",
       "sounddevice",

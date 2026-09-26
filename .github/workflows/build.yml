@@ -183,6 +183,21 @@ jobs:
           # pyinstaller must be discoverable on PATH (unifypy environment_check looks for the executable)
           uv pip install --upgrade unifypy pyinstaller
 
+      # unifypy's _find_iss_template() always prefers the template bundled inside its own
+      # package (site-packages/unifypy/templates/setup.iss.template); the project-level
+      # templates/setup.iss.template is never reached. Overwrite the bundled copy so our
+      # 64-bit directives reach the generated ISS and {autopf} expands to "Program Files".
+      - name: Patch unifypy ISS template (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEMPLATE="$(uv run --no-sync python -c "import unifypy, os; print(os.path.join(os.path.dirname(unifypy.__file__), 'templates', 'setup.iss.template'))")"
+          echo "Bundled template: $TEMPLATE"
+          cp templates/setup.iss.template "$TEMPLATE"
+          echo "Patched directives:"
+          grep -n "ArchitecturesAllowed\|ArchitecturesInstallIn64BitMode" "$TEMPLATE"
+
       - name: Extract version
         id: version
         shell: bash
