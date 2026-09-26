@@ -3,6 +3,22 @@ name: Build & Upload Release Assets
 on:
   push:
     tags: ["v*.*.*"]
+  # 手动构建：Actions -> "Build & Upload Release Assets" -> Run workflow
+  # 不用打 tag 也能构建；产物传到 build-<run_number> 的预发布 Release
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platform to build'
+        required: true
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - windows-x64
+          - macos-arm64
+          - macos-x64
+          - linux-x64
+          - linux-arm64
 
 permissions:
   contents: write
@@ -37,6 +53,11 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.platform }})
+    # 手动构建时按 inputs.platforms 过滤矩阵；tag push 时构建全部平台
+    if: |
+      github.event_name == 'push' ||
+      github.event.inputs.platforms == 'all' ||
+      github.event.inputs.platforms == matrix.platform
 
     steps:
       - name: Checkout
@@ -141,11 +162,22 @@ jobs:
           # pyinstaller 必须在 PATH 可发现（unifypy environment_check 查可执行文件）
           uv pip install --upgrade unifypy pyinstaller
 
-      - name: Extract version from tag
+      - name: Extract version
         id: version
         shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # tag push：v2.1.2 -> 2.1.2
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # 手动构建：从 src/constants/system.py 读 APP_VERSION
+            VERSION="$(grep -oE 'APP_VERSION[[:space:]]*=[[:space:]]*"[^"]+"' src/constants/system.py \
+              | head -1 | sed -E 's/.*="([^"]+)"/\1/')"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::无法确定版本号（tag 或 APP_VERSION 缺失）"
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Verify Inno Setup (Windows)
@@ -294,6 +326,15 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # tag push：用触发构建的 tag；手动构建：单独的 build-<run_number> 预发布
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('build-{0}', github.run_number) }}
+          name: ${{ github.event_name == 'push' && github.ref_name || format('Build #{0} (v{1})', github.run_number, steps.version.outputs.version) }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          body: |
+            **Platform:** ${{ matrix.platform }}
+            **Version:** ${{ steps.version.outputs.version }}
+            **Commit:** ${{ github.sha }}
+            **Trigger:** ${{ github.event_name }}
           files: dist/release/*
           fail_on_unmatched_files: true
         env:
