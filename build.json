@@ -1,7 +1,7 @@
 {
   "entry": "main.py",
   "name": "py-xiaozhi",
-  "display_name": "小智",
+  "display_name": "Xiaozhi",
   "version": "2.1.2",
   "icon": "assets/icon.png",
   "pyinstaller": {
