@@ -20,7 +20,11 @@ from src.utils.config_manager import get_config
 
 logger = get_logger()
 
-_CAPTURE_TIMEOUT_S = 12.0
+_CAPTURE_TIMEOUT_S = 20.0
+# Windows: opening a camera via DirectShow takes 1-4s the first time (the driver enumerates
+# media types), and the device needs a short cooldown after release before it can be reopened.
+# Without this, a capture right after the settings scan fails or times out.
+_WIN_OPEN_COOLDOWN_S = 0.6
 
 
 @dataclass
@@ -131,6 +135,21 @@ def _open_capture(source: Any):
         except Exception:
             pass
     return cv2.VideoCapture(source)
+
+
+def _release_capture(cap) -> None:
+    """Release a VideoCapture and give Windows drivers a short cooldown before reuse.
+
+    DirectShow holds the device for a moment after release; reopening immediately can make
+    the next open block for seconds or fail outright (this is what made take_photo time out
+    right after the settings camera scan).
+    """
+    try:
+        cap.release()
+    except Exception:
+        pass
+    if sys.platform.startswith("win"):
+        time.sleep(_WIN_OPEN_COOLDOWN_S)
 
 
 def _encode_bgr_jpeg(frame, max_side: int = 320) -> bytes | None:
