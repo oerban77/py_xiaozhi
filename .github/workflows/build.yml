@@ -24,40 +24,60 @@ permissions:
   contents: write
 
 jobs:
+  # 与 xiaozhi-esp32/build-manual.yml 同构：prepare 先算出要构建的平台列表。
+  # 注意：job 级 if 不能引用 matrix 上下文（GitHub 会报 "Unrecognized named-value: 'matrix'"），
+  # 所以平台过滤放在 prepare 里，build 只需 fromJson(needs.prepare.outputs.matrix)。
+  prepare:
+    name: Prepare build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build_count: ${{ steps.set-matrix.outputs.build_count }}
+    steps:
+      - name: Select platforms to build
+        id: set-matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          # tag push：全平台；手动构建：按 inputs.platforms 过滤
+          if [ "${{ github.event_name }}" = "push" ]; then
+            SELECTED="all"
+          else
+            SELECTED="${{ github.event.inputs.platforms }}"
+          fi
+          echo "Selected platforms: $SELECTED"
+
+          # 完整矩阵；mac x64 是在 arm runner 上经 Rosetta 打 Intel 包
+          ALL='[
+            {"os":"macos-latest","platform":"macos-arm64","artifact":"installer/*.dmg","mac_arch":"arm64"},
+            {"os":"macos-latest","platform":"macos-x64","artifact":"installer/*.dmg","mac_arch":"x64"},
+            {"os":"windows-latest","platform":"windows-x64","artifact":"installer/*.exe","mac_arch":""},
+            {"os":"ubuntu-24.04","platform":"linux-x64","artifact":"installer/*.deb","mac_arch":""},
+            {"os":"ubuntu-24.04-arm","platform":"linux-arm64","artifact":"installer/*.deb","mac_arch":""}
+          ]'
+
+          if [ "$SELECTED" = "all" ]; then
+            MATRIX="$ALL"
+          else
+            MATRIX="$(echo "$ALL" | jq -c --arg p "$SELECTED" '[.[] | select(.platform == $p)]')"
+          fi
+
+          COUNT="$(echo "$MATRIX" | jq 'length')"
+          echo "Will build $COUNT platform(s):"
+          echo "$MATRIX" | jq -r '.[] | "  - \(.platform) (\(.os))"'
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "build_count=$COUNT" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.build_count > 0 }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-latest
-            platform: macos-arm64
-            artifact: "installer/*.dmg"
-            mac_arch: arm64
-          # 在 arm runner 上经 Rosetta 打 Intel 包，避免 macos-13 排队
-          - os: macos-latest
-            platform: macos-x64
-            artifact: "installer/*.dmg"
-            mac_arch: x64
-          - os: windows-latest
-            platform: windows-x64
-            artifact: "installer/*.exe"
-            mac_arch: ""
-          - os: ubuntu-24.04
-            platform: linux-x64
-            artifact: "installer/*.deb"
-            mac_arch: ""
-          - os: ubuntu-24.04-arm
-            platform: linux-arm64
-            artifact: "installer/*.deb"
-            mac_arch: ""
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.platform }})
-    # 手动构建时按 inputs.platforms 过滤矩阵；tag push 时构建全部平台
-    if: |
-      github.event_name == 'push' ||
-      github.event.inputs.platforms == 'all' ||
-      github.event.inputs.platforms == matrix.platform
 
     steps:
       - name: Checkout
