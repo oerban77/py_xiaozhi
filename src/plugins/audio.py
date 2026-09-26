@@ -18,6 +18,10 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 MAX_CONCURRENT_AUDIO_SENDS = 4
+# Upper bound for the post-TTS silence period. The real condition is "the playback buffers
+# are empty"; this cap only exists so a stalled/never-draining stream cannot mute the
+# microphone forever.
+_SILENCE_PERIOD_MAX_S = 3.0
 
 
 class AudioPlugin(Plugin):
@@ -124,9 +128,20 @@ class AudioPlugin(Plugin):
         from src.constants.constants import DeviceState
 
         if state == DeviceState.LISTENING:
+            # Keep the microphone output suppressed while the speaker is still playing the
+            # tail of the TTS audio. The server's tts "stop" arrives as soon as the last
+            # frame has been streamed, which can be seconds before the local playback
+            # buffer has actually drained; un-suppressing the mic at that moment makes the
+            # assistant hear its own voice and answer itself. A fixed 0.2s hold is far too
+            # short, so poll the codec until its buffers are empty (capped for safety).
             self._in_silence_period = True
             try:
-                await asyncio.sleep(0.2)
+                deadline = asyncio.get_event_loop().time() + _SILENCE_PERIOD_MAX_S
+                while self.codec.is_tts_playing():
+                    if asyncio.get_event_loop().time() >= deadline:
+                        logger.debug("Silence period reached its safety cap; un-suppressing the mic")
+                        break
+                    await asyncio.sleep(0.02)
             finally:
                 self._in_silence_period = False
 

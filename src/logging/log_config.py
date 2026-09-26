@@ -66,6 +66,12 @@ class LoggingConfig:
             "paho": "WARNING",
             "PIL": "WARNING",
             "matplotlib": "WARNING",
+            # qasync and the internal event bus emit DEBUG on every event loop iteration
+            # with large repr() payloads. They are written synchronously from the thread
+            # that needs the GIL, so this flood starves the real-time audio callback and
+            # causes TTS underruns. Keep them quiet regardless of the root log level.
+            "qasync": "WARNING",
+            "src.core.event_bus": "WARNING",
         }
     )
 
@@ -153,7 +159,12 @@ def load_logging_config(app_config: Any | None = None) -> LoggingConfig:
     env = _get_environment()
     if not env_level:
         if env == Environment.DEVELOPMENT:
-            config.level = "DEBUG"
+            # Only fall back to DEBUG when the user has not configured a level at all.
+            # A level set in config.json is an explicit choice and must win over the
+            # environment default; forcing DEBUG here flooded the log with qasync /
+            # event-bus records written synchronously, starving the audio thread.
+            if not config.level:
+                config.level = "DEBUG"
         elif env == Environment.PRODUCTION:
             config.level = "INFO"
 

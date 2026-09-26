@@ -451,6 +451,16 @@ class AudioCodec:
                 break
             await asyncio.sleep(0.02)
 
+    def is_tts_playing(self) -> bool:
+        """Whether TTS audio is still waiting to be played out of the device.
+
+        The server sends the tts "stop" message as soon as it has streamed every frame,
+        which can be well before the local playback buffer has drained. Callers that must
+        not react to the microphone while the speaker is still producing sound (echo
+        self-triggering) should poll this instead of trusting the tts stop event.
+        """
+        return self._tts_fifo.size > 0 or len(self.converter._output_buffer) > 0
+
     async def clear_audio_queue(self):
         """Clear the TTS playback queue (used on interrupt / abort; the music queue is unaffected)."""
         self._server_opus_logged = False

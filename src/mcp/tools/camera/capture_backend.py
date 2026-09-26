@@ -130,10 +130,7 @@ def _open_capture(source: Any):
         cap = cv2.VideoCapture(source, kwargs["apiPreference"])
         if cap is not None and cap.isOpened():
             return cap
-        try:
-            cap.release()
-        except Exception:
-            pass
+        _release_capture(cap)
     return cv2.VideoCapture(source)
 
 
@@ -240,10 +237,7 @@ def _capture_opencv(cfg: CaptureConfig) -> bytes | None:
         )
         return jpeg
     finally:
-        try:
-            cap.release()
-        except Exception:
-            pass
+        _release_capture(cap)
 
 
 def _picamera2_available() -> bool:
@@ -382,7 +376,7 @@ def list_camera_devices(
                             break
                 except Exception:
                     ok = False
-                cap.release()
+                _release_capture(cap)
                 if ok:
                     key = path
                     if key not in seen:
@@ -396,10 +390,7 @@ def list_camera_devices(
                         )
                         seen.add(key)
             else:
-                try:
-                    cap.release()
-                except Exception:
-                    pass
+                _release_capture(cap)
         except Exception as e:
             logger.debug(f"Probe {path} failed: {e}")
 
@@ -423,17 +414,11 @@ def list_camera_devices(
                         )
                     )
                     seen.add(key)
-                try:
-                    cap.release()
-                except Exception:
-                    pass
+                _release_capture(cap)
                 consecutive_fail = 0
             else:
                 consecutive_fail += 1
-                try:
-                    cap.release()
-                except Exception:
-                    pass
+                _release_capture(cap)
                 if consecutive_fail >= consecutive_fail_limit:
                     break
         except Exception as e:
