@@ -1,50 +1,50 @@
-# workflow 名称，可以自定义
+# Workflow name (can be customized)
 name: Deploy GitHub Pages
 
-# 触发条件：在代码 push 到 master 分支后，自动执行该 workflow
+# Trigger: runs automatically when code is pushed to the main branch
 on:
   push:
     branches:
       - main
 
-# ghaction-github-pages 需要 contents:write 才能推 gh-pages 分支
+# ghaction-github-pages needs contents:write to push the gh-pages branch
 permissions:
   contents: write
 
-# 任务
+# Jobs
 jobs:
   build-and-deploy:
-    # 服务器环境：最新版 Ubuntu，也可以自定义版本
+    # Runner environment: latest Ubuntu (version can be customized)
     runs-on: ubuntu-latest
     steps:
-      # 拉取代码
+      # Check out the source code
       - name: Checkout
         uses: actions/checkout@v4
         with: 
           fetch-depth: 0
 
-      # 设置 Node.js 版本
+      # Set up the Node.js version
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # 安装yarn
+      # Install yarn
       - name: Install yarn
         run: npm i yarn -g
 
-      # 如果缓存没有命中，安装依赖
+      # Install dependencies if the cache misses
       - name: Install dependencies
         run: cd documents && yarn install
 
-      # 生成静态文件
+      # Build the static site
       - name: Build
         run: cd documents && yarn docs:build
 
-      # 部署到 GitHub Pages
+      # Deploy to GitHub Pages
       - name: Deploy
         uses: crazy-max/ghaction-github-pages@v2
         env:
-         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 仓库内置 token；如需跨仓库部署可改用自定义 PAT secret
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in repository token; use a custom PAT secret for cross-repo deploys
         with:
-          target_branch: gh-pages # 部署到 gh-pages 分支，master 分支存放的是项目源码，而 gh-pages 分支则用来存放生成的静态文件
-          build_dir: documents/docs/.vitepress/dist # vuepress 生成的静态文件存放的地方
+          target_branch: gh-pages # Deploy to the gh-pages branch: main holds the source, gh-pages holds the generated static files
+          build_dir: documents/docs/.vitepress/dist # Directory where VitePress writes the generated static files
