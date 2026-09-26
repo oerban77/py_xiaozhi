@@ -25,6 +25,10 @@ _MUSIC_BACKLOG_TARGET_S = 0.30
 # TTS / music FIFO capacity (seconds); drop the oldest when exceeded
 _TTS_FIFO_MAX_S = 10.0
 _MUSIC_FIFO_MAX_S = 2.0
+# TTS pre-buffer (seconds): hold playback silent until this much decoded audio is queued,
+# so the output callback (real-time thread) does not starve on the first syllables.
+# The network/decode jitter is what causes the "choppy TTS" underflow warnings.
+_TTS_PREBUFFER_S = 0.12
 
 
 class AudioListener(Protocol):
@@ -73,6 +77,13 @@ class AudioCodec:
         )
         self._mix_chunk = int(AudioConfig.OUTPUT_SAMPLE_RATE * 0.02)  # 20ms
         self._duck_hold = 0
+        # Pre-buffer threshold and state: "armed" once TTS data starts arriving, "started"
+        # once the threshold is reached; disarmed when the queue is cleared / rebuilt.
+        self._tts_prebuffer_samples = int(
+            AudioConfig.OUTPUT_SAMPLE_RATE * _TTS_PREBUFFER_S
+        )
+        self._tts_armed = False
+        self._tts_started = False
 
         # listeners (thread-safe)
         self._encoded_callback: Callable | None = None
@@ -269,6 +280,11 @@ class AudioCodec:
         )
         self._mix_chunk = int(AudioConfig.OUTPUT_SAMPLE_RATE * 0.02)
         self._duck_hold = 0
+        self._tts_prebuffer_samples = int(
+            AudioConfig.OUTPUT_SAMPLE_RATE * _TTS_PREBUFFER_S
+        )
+        self._tts_armed = False
+        self._tts_started = False
 
     def _pull_mixed(self, n: int) -> np.ndarray | None:
         """Output callback thread: fetches n samples from each TTS/music FIFO and mixes them.
@@ -277,7 +293,18 @@ class AudioCodec:
         - Both streams empty → None (the caller enters the silence / underrun path)
         - When TTS is present, music is ducked by _MUSIC_DUCK_GAIN, and the ducking is held for a few extra frames after TTS ends
           Keep a few blocks of frame gap (to avoid gain flutter in ducking)
+        - While TTS is armed but playback has not started yet, return None (silence) until
+          _tts_prebuffer_samples are queued, so the buffer leads the real-time output
+          callback; this removes the startup underrun that makes the first syllables choppy.
+          The hold is one-shot per utterance (once started, it never re-engages), so normal
+          mid-utterance jitter does not cause dropouts. Music-only periods are unaffected
+          (music has its own write-side backpressure).
         """
+        if self._tts_armed and not self._tts_started:
+            if 0 < self._tts_fifo.size < self._tts_prebuffer_samples:
+                return None
+            self._tts_started = True
+
         tts = self._tts_fifo.pull(n)
         music = self._music_fifo.pull(n)
 
@@ -400,6 +427,9 @@ class AudioCodec:
             audio_float32 = self.opus_codec.decode(opus_data, frame_size)
 
             self._tts_fifo.push(audio_float32)
+            # Arm the one-shot pre-buffer hold only after data is actually queued; the output
+            # callback then waits until _tts_prebuffer_samples are available before playing.
+            self._tts_armed = True
 
         except Exception as e:
             logger.warning(f"Audio write failed: {e}", exc_info=True)
@@ -424,6 +454,8 @@ class AudioCodec:
     async def clear_audio_queue(self):
         """Clear the TTS playback queue (used on interrupt / abort; the music queue is unaffected)."""
         self._server_opus_logged = False
+        self._tts_armed = False
+        self._tts_started = False
         self.converter.clear_output_buffer()
         count = self._tts_fifo.clear()
         if count > 0:

@@ -1,9 +1,76 @@
 import argparse
 import asyncio
+import faulthandler
 import locale
 import os
 import signal
 import sys
+import time
+import traceback
+from pathlib import Path
+
+# --- Crash diagnostics -------------------------------------------------------
+# A windowed (console-less) build dies silently on a fatal error, so install the
+# faulthandler and an excepthook that always leaves a traceback on disk. The log
+# directory resolution mirrors src.utils.resource_finder but degrades gracefully
+# (this runs before the config/logging stack is available).
+_CRASH_FILE_NAME = "crash.log"
+
+
+def _fallback_log_dir() -> Path:
+    env = os.environ.get("XIAOZHI_LOG_DIR", "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    try:
+        import platformdirs
+
+        return Path(platformdirs.user_data_dir("py-xiaozhi")) / "logs"
+    except Exception:
+        try:
+            import tempfile
+
+            return Path(tempfile.gettempdir())
+        except Exception:
+            return Path(".")
+
+
+def _write_crash_log(exc_type, exc_value, exc_tb) -> None:
+    try:
+        log_dir = _fallback_log_dir()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        crash_path = log_dir / _CRASH_FILE_NAME
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        tb_text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        with open(crash_path, "a", encoding="utf-8") as f:
+            f.write(f"\n===== {stamp} uncaught exception =====\n{tb_text}\n")
+    except Exception:
+        # Never let the crash handler itself raise
+        pass
+
+
+def _install_crash_handlers() -> None:
+    # faulthandler catches native segfaults / deadlocks and prints the C-level
+    # traceback to stderr (visible in a console build, and captured by PyInstaller
+    # in a windowed build when disable_windowed_traceback is False).
+    try:
+        faulthandler.enable()
+    except Exception:
+        pass
+
+    _previous_excepthook = sys.excepthook
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        _write_crash_log(exc_type, exc_value, exc_tb)
+        if _previous_excepthook is not None:
+            try:
+                _previous_excepthook(exc_type, exc_value, exc_tb)
+            except Exception:
+                pass
+
+    sys.excepthook = _excepthook
+
+
+_install_crash_handlers()
 
 # Windows: force the C/C++ runtime to use UTF-8 so sherpa-onnx can read tone-pinyin files without garbled characters
 if sys.platform == "win32":
@@ -259,6 +326,8 @@ if __name__ == "__main__":
         exit_code = 0
     except Exception as e:
         logger.error(f"The application exited with an error: {e}", exc_info=True)
+        # A windowed build can hide this; make sure the traceback reaches the crash log
+        _write_crash_log(type(e), e, e.__traceback__)
         exit_code = 1
     finally:
         sys.exit(exit_code)
