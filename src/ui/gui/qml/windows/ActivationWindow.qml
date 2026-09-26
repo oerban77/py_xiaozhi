@@ -183,7 +183,7 @@ AppWindow {
             XButton {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
-                text: "Open Activation Page"
+                text: "Open Page"
                 enabled: activationModel ? !activationModel.isActivated : true
                 onClicked: {
                     if (typeof activationController !== 'undefined') {

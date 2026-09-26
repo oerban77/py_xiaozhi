@@ -143,7 +143,7 @@ ScrollView {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Save Wake Word"
+                    text: "Save"
                     implicitHeight: 36
                     implicitWidth: 120
 
@@ -209,7 +209,7 @@ ScrollView {
                 }
 
                 Text {
-                    text: "Recommended: number of CPU cores"
+                    text: "Match CPU cores"
                     font.pixelSize: Theme.fontSizeXs
                     color: Theme.textPlaceholder
                 }

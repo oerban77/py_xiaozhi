@@ -41,7 +41,7 @@ Rectangle {
             // 手动/自动模式切换
             XButton {
                 Layout.fillWidth: true
-                text: mainModel.autoMode ? "Switch to Manual" : "Switch to Auto"
+                text: mainModel.autoMode ? "Manual" : "Auto"
                 variant: "secondary"
                 onClicked: eventBridge.onAutoToggle()
             }

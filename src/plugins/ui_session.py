@@ -27,7 +27,7 @@ class SessionActions:
         self._ui = presenter
         self._manual_recording = False
         self._auto_mode = False
-        # Whether a conversation has already started in auto mode (the button shows "Stop Conversation")
+        # Whether a conversation has already started in auto mode (the button shows "Stop Chat")
         self._auto_session_active = False
 
     @property
@@ -62,11 +62,11 @@ class SessionActions:
 
         if self._auto_mode and state == DeviceState.IDLE and self._auto_session_active:
             self._auto_session_active = False
-            self._ui.set_button_text("Start Conversation")
+            self._ui.set_button_text("Start Chat")
         elif self._auto_mode and state in (DeviceState.LISTENING, DeviceState.SPEAKING):
             if not self._auto_session_active:
                 self._auto_session_active = True
-            self._ui.set_button_text("Stop Conversation")
+            self._ui.set_button_text("Stop Chat")
 
     async def request_shutdown(self, _data=None) -> None:
         self._cmd.request_shutdown()
@@ -88,7 +88,7 @@ class SessionActions:
         await self._cmd.start_listening(mode)
         if self._auto_mode:
             self._auto_session_active = True
-            self._ui.set_button_text("Stop Conversation")
+            self._ui.set_button_text("Stop Chat")
         logger.debug(f"Listen session started: mode={mode}")
         return True
 
@@ -150,7 +150,7 @@ class SessionActions:
         logger.debug(f"Mode switch: {'auto' if self._auto_mode else 'manual'}")
 
     async def auto_session_toggle(self, _data=None) -> None:
-        # Main button: start conversation / stop conversation
+        # Main button: start / stop chat
         if self._auto_session_active or self._ctx.is_listening() or self._ctx.is_speaking():
             await self._stop_auto_session()
             return
@@ -169,7 +169,7 @@ class SessionActions:
                 await self._cmd.stop_listening()
         finally:
             self._auto_session_active = False
-            self._ui.set_button_text("Start Conversation")
+            self._ui.set_button_text("Start Chat")
             logger.debug("Auto mode: stopping conversation")
 
     async def abort(self, _data=None) -> None:

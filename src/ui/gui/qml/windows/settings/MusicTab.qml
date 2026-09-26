@@ -42,7 +42,7 @@ ScrollView {
                     text: "Search API"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 120
+                    Layout.preferredWidth: 130
                 }
                 TextField {
                     id: musicSearchUrlField
@@ -65,7 +65,7 @@ ScrollView {
                     text: "Direct Link API"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 120
+                    Layout.preferredWidth: 130
                 }
                 TextField {
                     id: musicUrlApiField
@@ -109,7 +109,7 @@ ScrollView {
                     text: "Opus Catalog URL"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 120
+                    Layout.preferredWidth: 130
                 }
                 TextField {
                     id: musicOpusCatalogUrlField
@@ -131,7 +131,7 @@ ScrollView {
                     text: "Opus Stream Base"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 120
+                    Layout.preferredWidth: 130
                 }
                 TextField {
                     id: musicOpusStreamBaseField

@@ -89,7 +89,7 @@ ScrollView {
                 }
 
                 Button {
-                    text: root.cameraTesting ? "Testing..." : "Test"
+                    text: root.cameraTesting ? "Testing" : "Test"
                     enabled: !root.cameraTesting
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
@@ -241,7 +241,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Vision-Language Model (VL API)"
+                text: "Vision Model (VL API)"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -324,7 +324,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Vision Service (Image Q&A)"
+                text: "Vision Service (Q&A)"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary

@@ -79,7 +79,7 @@ ScrollView {
             Item { Layout.fillWidth: true }
 
             Button {
-                text: "Refresh Devices"
+                text: "Refresh"
                 Layout.preferredHeight: 32
 
                 background: Rectangle {
@@ -105,7 +105,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Input Device (Microphone)"
+                text: "Input Device (Mic)"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -126,7 +126,7 @@ ScrollView {
                 }
 
                 Button {
-                    text: root.inputTesting ? "Testing..." : "Test"
+                    text: root.inputTesting ? "Testing" : "Test"
                     enabled: !root.inputTesting
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 32
@@ -182,7 +182,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Output Device (Speaker)"
+                text: "Output Device"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -203,7 +203,7 @@ ScrollView {
                 }
 
                 Button {
-                    text: root.outputTesting ? "Testing..." : "Test"
+                    text: root.outputTesting ? "Testing" : "Test"
                     enabled: !root.outputTesting
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 32
@@ -259,7 +259,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Opus Output Sample Rate"
+                text: "Opus Sample Rate"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -272,7 +272,7 @@ ScrollView {
                 XComboBox {
                     id: sampleRateCombo
                     Layout.fillWidth: true
-                    model: ["24000 Hz (official server)", "16000 Hz (third-party server)"]
+                    model: ["24000 Hz (official)", "16000 Hz (third-party)"]
                     currentIndex: settingsModel ? (settingsModel.opusOutputSampleRate === 24000 ? 0 : 1) : 0
                     onActivated: function(index) {
                         if (settingsModel) {
@@ -295,7 +295,7 @@ ScrollView {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingMd
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Official servers use 24kHz; third-party servers usually use 16kHz"
+                    text: "Official: 24kHz; third-party: 16kHz"
                     font.pixelSize: Theme.fontSizeXs
                     color: Theme.textPlaceholder
                 }

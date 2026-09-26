@@ -122,7 +122,7 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Press and hold to record"
+                    text: "Hold to record"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPlaceholder
                 }
@@ -179,7 +179,7 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Toggle auto conversation"
+                    text: "Toggle auto chat"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPlaceholder
                 }
@@ -236,7 +236,7 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Stop the current conversation immediately"
+                    text: "Stop current chat"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPlaceholder
                 }
@@ -293,7 +293,7 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Toggle manual/auto mode"
+                    text: "Switch mode"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPlaceholder
                 }
@@ -350,7 +350,7 @@ ScrollView {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Toggle main window visibility"
+                    text: "Show/hide window"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPlaceholder
                 }

@@ -124,10 +124,10 @@ ScrollView {
                 }
 
                 Text {
-                    text: "Parallel Music Playback"
+                    text: "Parallel Music"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                     opacity: aecEnabledSwitch.checked ? 1 : 0.45
                 }
                 XSwitch {
@@ -138,10 +138,10 @@ ScrollView {
                 }
 
                 Text {
-                    text: "Delay Compensation Frames"
+                    text: "Delay Frames"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                     opacity: aecEnabledSwitch.checked ? 1 : 0.45
                 }
                 XSpinBox {
@@ -156,10 +156,10 @@ ScrollView {
                 }
 
                 Text {
-                    text: "Noise Suppression Preprocessing"
+                    text: "Noise Suppression"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                     opacity: aecEnabledSwitch.checked ? 1 : 0.45
                 }
                 XSwitch {
@@ -208,7 +208,7 @@ ScrollView {
                     text: "WebSocket URL"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: wsUrlField
@@ -243,7 +243,7 @@ ScrollView {
                     text: "OTA Version URL"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: otaUrlField
@@ -263,7 +263,7 @@ ScrollView {
                     text: "Authorization URL"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: authUrlField
@@ -283,7 +283,7 @@ ScrollView {
                     text: "Activation Version"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 XComboBox {
                     id: activationCombo
@@ -402,7 +402,7 @@ ScrollView {
                     text: "Publish Topic"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: mqttPubField
@@ -422,7 +422,7 @@ ScrollView {
                     text: "Subscribe Topic"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: mqttSubField
@@ -475,7 +475,7 @@ ScrollView {
                     text: "Cache Directory"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: pathCacheField
@@ -550,7 +550,7 @@ ScrollView {
                     text: "Log Directory"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: pathLogField
@@ -625,7 +625,7 @@ ScrollView {
                     text: "Music Cache"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: pathMusicField
@@ -697,10 +697,10 @@ ScrollView {
                 Layout.fillWidth: true
                 spacing: Theme.spacingSm
                 Text {
-                    text: "Wake Word Directory"
+                    text: "Wake Word Dir"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: pathKeywordsField
@@ -772,10 +772,10 @@ ScrollView {
                 Layout.fillWidth: true
                 spacing: Theme.spacingSm
                 Text {
-                    text: "MCP Plugin Directory"
+                    text: "MCP Plugin Dir"
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 120
                 }
                 TextField {
                     id: pathMcpField

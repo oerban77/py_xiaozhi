@@ -176,7 +176,7 @@ AppWindow {
                         Layout.fillWidth: true
                         Layout.maximumWidth: 140
                         Layout.preferredHeight: 38
-                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Start Conversation"
+                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Start Chat"
                         visible: mainModel && mainModel.autoMode
 
                         background: Rectangle {

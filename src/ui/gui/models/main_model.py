@@ -94,11 +94,11 @@ class MainModel(BaseModel):
             self.connectedChanged.emit()
 
     def set_auto_mode(self, auto: bool):
-        # Default button label; during a conversation Session changes it to "Stop conversation"
+        # Default button label; during a conversation Session changes it to "Stop Chat"
         if self._auto_mode != auto:
             self._auto_mode = auto
             self._mode_text = "Auto" if auto else "Manual"
-            self._button_text = "Start Conversation" if auto else "Hold to Talk"
+            self._button_text = "Start Chat" if auto else "Hold to Talk"
             self.autoModeChanged.emit()
             self.modeTextChanged.emit()
             self.buttonTextChanged.emit()
