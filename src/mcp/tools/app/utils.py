@@ -53,6 +53,7 @@ class AppMatcher:
         "qq music": ["qqmusic", "qqmusic", "qq music"],
         "tencent meeting": ["tencent meeting", "腾讯会议", "voovmeeting"],
         "腾讯会议": ["tencent meeting", "腾讯会议", "voovmeeting"],
+        "voovmeeting": ["tencent meeting", "腾讯会议", "voovmeeting"],
         "google chrome": ["chrome", "googlechrome", "google chrome"],
         "microsoft edge": ["msedge", "edge", "microsoft edge"],
         "microsoft office": [
@@ -69,6 +70,8 @@ class AppMatcher:
         "wps office": ["wps", "wps office"],
         "qq": ["qq", "qqnt", "tencentqq"],
         "wechat": ["wechat", "weixin", "微信"],
+        "weixin": ["wechat", "weixin", "微信"],
+        "微信": ["wechat", "weixin", "微信"],
         "dingtalk": ["dingtalk", "钉钉", "ding"],
         "钉钉": ["dingtalk", "钉钉", "ding"],
         "chrome": ["chrome", "googlechrome", "google chrome"],
@@ -79,6 +82,8 @@ class AppMatcher:
         "calculator": ["calc", "calculator", "calculatorapp"],
         "calc": ["calc", "calculator", "calculatorapp"],
         "feishu": ["feishu", "飞书", "lark"],
+        "飞书": ["feishu", "飞书", "lark"],
+        "lark": ["feishu", "飞书", "lark"],
         "vscode": ["code", "vscode", "visual studio code"],
         "pycharm": ["pycharm", "pycharm64"],
         "cursor": ["cursor"],
@@ -111,8 +116,10 @@ class AppMatcher:
         "weixin": "wechat",
         "dingtalk": "dingtalk",
         "钉钉": "dingtalk",
+        "ding": "dingtalk",
         "feishu": "feishu",
         "飞书": "feishu",
+        "lark": "feishu",
         "lark": "feishu",
         "vscode": "vscode",
         "code": "vscode",
@@ -125,6 +132,7 @@ class AppMatcher:
         "calculator": "calculator",
         "tencent meeting": "tencent_meeting",
         "腾讯会议": "tencent_meeting",
+        "voovmeeting": "tencent_meeting",
         "voovmeeting": "tencent_meeting",
         "wps": "wps",
         "word": "word",
@@ -266,6 +274,7 @@ class AppMatcher:
             return False
 
         # Remove all non-alphanumeric characters for comparison
+        # (the CJK range 一-鿿 is kept so Chinese app names still compare correctly)
         target_clean = re.sub(r"[^a-zA-Z0-9一-鿿]", "", target)
         candidate_clean = re.sub(r"[^a-zA-Z0-9一-鿿]", "", candidate)
 

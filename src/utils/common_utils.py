@@ -46,19 +46,29 @@ def copy_to_clipboard(text: str) -> bool:
 def extract_verification_code(text: str) -> Optional[str]:
     """Extract a verification code from text."""
     try:
-        # Activation-related keyword list (matches Chinese activation emails/messages)
+        # Activation-related keyword list (matches Chinese and English activation emails/messages)
         activation_keywords = [
             "登录",
+            "login",
             "控制面板",
+            "control panel",
             "激活",
+            "activate",
             "验证码",
+            "verification code",
             "绑定设备",
+            "bind device",
             "添加设备",
+            "add device",
             "输入验证码",
+            "enter verification code",
             "输入",
+            "enter",
             "面板",
+            "panel",
             "xiaozhi.me",
             "激活码",
+            "activation code",
         ]
 
         # Check whether the text contains an activation-related keyword
@@ -69,12 +79,18 @@ def extract_verification_code(text: str) -> Optional[str]:
             return None
 
         # More precise verification code matching patterns
+        # (Chinese patterns kept for zh activation emails, English patterns added)
         patterns = [
             r"验证码[：:]\s*(\d{6})",
+            r"激活码[：:]\s*(\d{6})",
             r"输入验证码[：:]\s*(\d{6})",
             r"输入\s*(\d{6})",
             r"验证码\s*(\d{6})",
-            r"激活码[：:]\s*(\d{6})",
+            r"[Cc]ode[：:]\s*(\d{6})",
+            r"[Vv]erification [Cc]ode[：:]\s*(\d{6})",
+            r"[Aa]ctivation [Cc]ode[：:]\s*(\d{6})",
+            r"[Ee]nter (?:the )?(?:verification|activation) [Cc]ode[：:]\s*(\d{6})",
+            r"输入\s*(\d{6})",
             r"(\d{6})[，,。.]",
             r"[，,。.]\s*(\d{6})",
         ]

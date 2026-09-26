@@ -94,7 +94,7 @@ class MusicDownloader:
         msg = str(data.get("msg") or data.get("message") or "").strip()
 
         # Common lx-music-api codes
-        if code == 1 or "禁止批量下载" in msg or "block ip" in msg.lower():
+        if code == 1 or "bulk downloads are blocked" in msg or "block ip" in msg.lower():
             return (
                 "The direct-link API has banned the current IP (bulk downloads are blocked). "
                 "Switch network/IP, or change MUSIC.URL_API in the settings"
@@ -209,7 +209,7 @@ class MusicDownloader:
             logger.warning(f"Direct-link API returned no URL: {data}")
 
             # If the IP is blocked, changing quality won't help
-            if "ban" in (last_reason or "") or "禁止批量下载" in str(data):
+            if "ban" in (last_reason or "") or "bulk downloads are blocked" in str(data):
                 break
 
         return None, last_reason

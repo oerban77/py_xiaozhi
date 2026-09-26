@@ -14,15 +14,15 @@ logger = get_logger()
 # (time in seconds, text)
 LyricLine = tuple[float, str]
 
-# Filter out metadata lines such as lyricist/composer (Chinese LRC tags)
+# Filter out metadata lines such as lyricist/composer (LRC ID tags)
 _METADATA_PREFIXES = (
-    "作词",
-    "作曲",
-    "编曲",
-    "制作",
-    "演唱",
-    "原唱",
-    "翻唱",
+    "by:",   # lyricist
+    "ar:",   # artist
+    "al:",   # album
+    "ti:",   # title
+    "offset:",  # time offset
+    "id:",   # song id
+    "hash:", # song hash
 )
 
 
