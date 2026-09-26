@@ -121,7 +121,7 @@ class WakeWordDetector:
             joiner_path = self._model_dir / "joiner.onnx"
             tokens_path = self._model_dir / "tokens.txt"
 
-            lang = get_config().get_config("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", "zh")
+            lang = get_config().get_config("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", "en")
             keywords_path = get_user_keywords_path(lang)
 
             required_files = [encoder_path, decoder_path, joiner_path, tokens_path, keywords_path]

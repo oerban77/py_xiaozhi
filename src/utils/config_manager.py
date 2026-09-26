@@ -58,11 +58,11 @@ class ConfigManager:
     """
 
     # Current schema version; migrate_config() upgrades it during load
-    CONFIG_VERSION = 1
+    CONFIG_VERSION = 2
 
     # Default config (complete product schema; deep-copied on load; do not share nested objects with the instance)
     DEFAULT_CONFIG = {
-        "CONFIG_VERSION": 1,
+        "CONFIG_VERSION": 2,
         "SYSTEM_OPTIONS": {
             "CLIENT_ID": None,
             "DEVICE_ID": None,
@@ -78,7 +78,7 @@ class ConfigManager:
         },
         "WAKE_WORD_OPTIONS": {
             "USE_WAKE_WORD": True,
-            "MODEL_PATH": "models/zh",
+            "MODEL_PATH": "models/en",
             "NUM_THREADS": 5,
             "PROVIDER": "cpu",
             "MAX_ACTIVE_PATHS": 2,
@@ -86,7 +86,7 @@ class ConfigManager:
             "KEYWORDS_THRESHOLD": 0.2,
             "NUM_TRAILING_BLANKS": 1,
             "WAKE_WORD": "Hello Xiaozhi",
-            "WAKE_WORD_LANG": "zh",
+            "WAKE_WORD_LANG": "en",
         },
         "CAMERA": {
             "camera_index": 0,
@@ -333,7 +333,22 @@ class ConfigManager:
                 pass
             ver = 1
 
-        # Future: if ver < 2: ...; ver = 2
+        # v2: the default wake word is now English ("Hello Xiaozhi"). Earlier defaults paired that
+        # English phrase with the Chinese model (WAKE_WORD_LANG="zh", MODEL_PATH="models/zh"), so
+        # detection never fired. Only configs that still carry that broken default are repaired;
+        # user-customized wake words are left untouched.
+        if ver < 2:
+            try:
+                ww = config.get("WAKE_WORD_OPTIONS")
+                if not isinstance(ww, dict):
+                    ww = {}
+                    config["WAKE_WORD_OPTIONS"] = ww
+                if ww.get("WAKE_WORD") == "Hello Xiaozhi" and ww.get("WAKE_WORD_LANG") == "zh":
+                    ww["WAKE_WORD_LANG"] = "en"
+                    ww["MODEL_PATH"] = "models/en"
+            except Exception:
+                pass
+            ver = 2
 
         if ver != original or config.get("CONFIG_VERSION") != self.CONFIG_VERSION:
             config["CONFIG_VERSION"] = self.CONFIG_VERSION

@@ -69,7 +69,7 @@ class SettingsModel(
         self._testing_output = False
 
         self._wake_word: str = ""
-        self._wake_word_lang: str = "zh"
+        self._wake_word_lang: str = "en"
         self._wake_word_preview: str = ""
         # Snapshot taken when the settings are opened; compared at save time to see whether the exposed MCP tools changed
         self._mcp_disabled_snapshot: list[str] = []

@@ -49,7 +49,7 @@ class SettingsWakeWordMixin:
             update_preview: whether to convert the pinyin preview immediately (the conversion may trigger extra imports)
         """
         self._wake_word = self._get_value("WAKE_WORD_OPTIONS.WAKE_WORD", "")
-        self._wake_word_lang = self._get_value("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", "zh")
+        self._wake_word_lang = self._get_value("WAKE_WORD_OPTIONS.WAKE_WORD_LANG", "en")
         if update_preview:
             self._update_wake_word_preview()
         else:
