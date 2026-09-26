@@ -87,7 +87,6 @@
         "create_start_menu_icon": true,
         "allow_run_after_install": true,
         "languages": [
-          "chinesesimplified",
           "english"
         ]
       },
