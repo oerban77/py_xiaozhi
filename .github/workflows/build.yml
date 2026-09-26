@@ -191,8 +191,10 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/v}"
           else
             # 手动构建：从 src/constants/system.py 读 APP_VERSION
-            VERSION="$(grep -oE 'APP_VERSION[[:space:]]*=[[:space:]]*"[^"]+"' src/constants/system.py \
-              | head -1 | sed -E 's/.*="([^"]+)"/\1/')"
+            # 只取引号内的内容，避免 " = " 空格导致 sed 不匹配（unifypy 会把
+            # 'APP_VERSION = "2.1.2"' 整串当成额外参数 → unrecognized arguments）
+            LINE="$(grep -E '^[[:space:]]*APP_VERSION[[:space:]]*=' src/constants/system.py | head -1)"
+            VERSION="$(printf '%s' "$LINE" | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
           fi
           if [ -z "$VERSION" ]; then
             echo "::error::无法确定版本号（tag 或 APP_VERSION 缺失）"
