@@ -3,8 +3,8 @@ name: Build & Upload Release Assets
 on:
   push:
     tags: ["v*.*.*"]
-  # 手动构建：Actions -> "Build & Upload Release Assets" -> Run workflow
-  # 不用打 tag 也能构建；产物传到 build-<run_number> 的预发布 Release
+  # Manual build: Actions -> "Build & Upload Release Assets" -> Run workflow
+  # Builds without pushing a tag; artifacts are uploaded to a build-<run_number> prerelease
   workflow_dispatch:
     inputs:
       platforms:
@@ -24,9 +24,10 @@ permissions:
   contents: write
 
 jobs:
-  # 与 xiaozhi-esp32/build-manual.yml 同构：prepare 先算出要构建的平台列表。
-  # 注意：job 级 if 不能引用 matrix 上下文（GitHub 会报 "Unrecognized named-value: 'matrix'"），
-  # 所以平台过滤放在 prepare 里，build 只需 fromJson(needs.prepare.outputs.matrix)。
+  # Same structure as xiaozhi-esp32/build-manual.yml: prepare computes the platform list first.
+  # Note: a job-level if cannot reference the matrix context (GitHub rejects it with
+  # "Unrecognized named-value: 'matrix'"), so platform filtering happens in prepare and
+  # build only needs fromJson(needs.prepare.outputs.matrix).
   prepare:
     name: Prepare build matrix
     runs-on: ubuntu-latest
@@ -39,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # tag push：全平台；手动构建：按 inputs.platforms 过滤
+          # Tag push: build all platforms; manual build: filter by inputs.platforms
           if [ "${{ github.event_name }}" = "push" ]; then
             SELECTED="all"
           else
@@ -47,7 +48,7 @@ jobs:
           fi
           echo "Selected platforms: $SELECTED"
 
-          # 完整矩阵；mac x64 是在 arm runner 上经 Rosetta 打 Intel 包
+          # Full matrix; mac x64 builds the Intel package on the arm runner via Rosetta
           ALL='[
             {"os":"macos-latest","platform":"macos-arm64","artifact":"installer/*.dmg","mac_arch":"arm64"},
             {"os":"macos-latest","platform":"macos-x64","artifact":"installer/*.dmg","mac_arch":"x64"},
@@ -83,8 +84,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # mac x64：Rosetta + 自包含 x86_64 Python
-      # 不用 actions/setup-python 的 darwin-x64（依赖 /usr/local/opt/gettext 的 Intel Homebrew）
+      # mac x64: Rosetta + a self-contained x86_64 Python
+      # Avoids actions/setup-python's darwin-x64 (depends on Intel Homebrew at /usr/local/opt/gettext)
       - name: Install Rosetta (macOS x64 cross-build)
         if: runner.os == 'macOS' && matrix.mac_arch == 'x64'
         run: |
@@ -99,8 +100,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # python-build-standalone：自带 lib，不依赖 Intel Homebrew
-          # 版本与 tag 对齐时可随 upstream 升级；安装后用 file/platform 校验架构
+          # python-build-standalone: ships its own libs, no Intel Homebrew dependency
+          # Bump together with upstream when the tag changes; verify the arch with file/platform after install
           RELEASE_TAG="20260718"
           PY_VER="3.10.20"
           ASSET="cpython-${PY_VER}+${RELEASE_TAG}-x86_64-apple-darwin-install_only.tar.gz"
@@ -110,7 +111,7 @@ jobs:
           echo "Downloading $URL"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/py-x64.tgz" "$URL"
           tar -xzf "$RUNNER_TEMP/py-x64.tgz" -C "$DEST"
-          # install_only 解压后为 python/ 目录
+          # The install_only archive extracts to a python/ directory
           if [ -x "$DEST/python/bin/python3" ]; then
             PY="$DEST/python/bin/python3"
           elif [ -x "$DEST/bin/python3" ]; then
@@ -123,7 +124,7 @@ jobs:
           echo "$DEST/python/bin" >> "$GITHUB_PATH"
           echo "$DEST/bin" >> "$GITHUB_PATH"
           file "$PY"
-          # 在 Rosetta 下跑 x86_64 解释器
+          # Run the x86_64 interpreter under Rosetta
           arch -x86_64 "$PY" -c "import platform; print(platform.machine(), platform.platform(), platform.python_version())"
 
       - name: Install uv
@@ -131,7 +132,7 @@ jobs:
         with:
           enable-cache: true
 
-      # arm64 构建需要系统 portaudio/opus；x64 走 wheel + 项目内 libs，避免 arm Homebrew 混链
+      # arm64 builds need system portaudio/opus; x64 uses wheels + in-repo libs to avoid mixing arm Homebrew
       - name: Install system dependencies (macOS arm64)
         if: runner.os == 'macOS' && matrix.mac_arch == 'arm64'
         run: brew install portaudio opus
@@ -169,7 +170,7 @@ jobs:
             echo "Using x86_64 Python: $PY_X64"
             file "$PY_X64"
             arch -x86_64 "$PY_X64" -c "import platform; print(platform.machine(), platform.platform())"
-            # uv 用该解释器解析/安装 x86_64 wheel
+            # uv uses this interpreter to resolve/install x86_64 wheels
             uv sync --python "$PY_X64" --extra gui --group dev
           else
             uv sync --extra gui --group dev
@@ -178,8 +179,8 @@ jobs:
       - name: Install unifypy
         shell: bash
         run: |
-          # 与 uv sync 同一项目 venv（x64 job 的 venv 已基于 x86_64 Python）
-          # pyinstaller 必须在 PATH 可发现（unifypy environment_check 查可执行文件）
+          # Same project venv as uv sync (the x64 job's venv is already x86_64 Python)
+          # pyinstaller must be discoverable on PATH (unifypy environment_check looks for the executable)
           uv pip install --upgrade unifypy pyinstaller
 
       - name: Extract version
@@ -187,17 +188,17 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            # tag push：v2.1.2 -> 2.1.2
+            # Tag push: v2.1.2 -> 2.1.2
             VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            # 手动构建：从 src/constants/system.py 读 APP_VERSION
-            # 只取引号内的内容，避免 " = " 空格导致 sed 不匹配（unifypy 会把
-            # 'APP_VERSION = "2.1.2"' 整串当成额外参数 → unrecognized arguments）
+            # Manual build: read APP_VERSION from src/constants/system.py
+            # Extract only the quoted value: the spaces around " = " break sed matching
+            # (unifypy would treat 'APP_VERSION = "2.1.2"' as extra args -> unrecognized arguments)
             LINE="$(grep -E '^[[:space:]]*APP_VERSION[[:space:]]*=' src/constants/system.py | head -1)"
             VERSION="$(printf '%s' "$LINE" | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
           fi
           if [ -z "$VERSION" ]; then
-            echo "::error::无法确定版本号（tag 或 APP_VERSION 缺失）"
+            echo "::error::Could not determine the version (missing tag or APP_VERSION)"
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -207,24 +208,24 @@ jobs:
         shell: bash
         run: where.exe ISCC.exe && echo "Inno Setup found"
 
-      # 注入可移植 ffmpeg/ffprobe（禁止 brew/apt/choco 动态链接副本）
-      # libs/ffmpeg/ 已 gitignore，仅 CI / 本地打包前注入
+      # Inject portable ffmpeg/ffprobe (no brew/apt/choco dynamically linked copies)
+      # libs/ffmpeg/ is gitignored; injected only in CI or before a local build
       - name: Bundle portable FFmpeg into libs/
         shell: bash
         run: |
           chmod +x scripts/bundle_ffmpeg.sh
           if [ "$RUNNER_OS" = "macOS" ]; then
-            # mac 无官方多架构 static CDN；从 static-ffmpeg 提取，禁止 Homebrew
-            # 装进项目 venv（x64 job 的 venv 已是 x86_64）
+            # No official multi-arch static CDN for mac; extract from static-ffmpeg, no Homebrew
+            # Installed into the project venv (the x64 job's venv is already x86_64)
             uv pip install static-ffmpeg
             if [ "${{ matrix.mac_arch }}" = "x64" ]; then
-              # PYTHON 指向 venv，确保 static_ffmpeg 可 import；arch -x86_64 让 platform.machine=x86_64
+              # PYTHON points at the venv so static_ffmpeg is importable; arch -x86_64 makes platform.machine=x86_64
               VENV_PY="${PWD}/.venv/bin/python"
               file "$VENV_PY" || true
               arch -x86_64 env PYTHON="$VENV_PY" ./scripts/bundle_ffmpeg.sh mac x64
               file libs/ffmpeg/mac/x64/ffmpeg libs/ffmpeg/mac/x64/ffprobe
               if ! file libs/ffmpeg/mac/x64/ffmpeg | grep -Eq 'x86_64|i386'; then
-                echo "::error::ffmpeg 不是 x86_64: $(file libs/ffmpeg/mac/x64/ffmpeg)"
+                echo "::error::ffmpeg is not x86_64: $(file libs/ffmpeg/mac/x64/ffmpeg)"
                 exit 1
               fi
             else
@@ -244,12 +245,12 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # unifypy 透传 pyinstaller.target_architecture
+          # unifypy passes pyinstaller.target_architecture through
           TARGET="arm64"
           if [ "${{ matrix.mac_arch }}" = "x64" ]; then
             TARGET="x86_64"
           fi
-          # 用任意可用 Python 改 JSON 即可
+          # Any available Python can edit the JSON
           if [ -n "${PY_X64:-}" ] && [ -x "${PY_X64:-}" ]; then
             PY="$PY_X64"
           else
@@ -271,11 +272,11 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           rm -f *.spec
-          # unifypy>=2.0.18: --version 仅打印工具版本并退出；应用版本用 --app-version
+          # unifypy>=2.0.18: --version only prints the tool version and exits; use --app-version for the app
           #
-          # 不要 arch -x86_64 uv（uv 本体 arm64 → Bad CPU type）。
-          # mac x64：把 .venv/bin 放进 PATH，让 unifypy 能找到 x86_64 的 pyinstaller；
-          # 用 venv 的 x86_64 python -m unifypy，内核自动走 Rosetta。
+          # Do not run uv with arch -x86_64 (the uv binary is arm64 -> Bad CPU type).
+          # mac x64: put .venv/bin on PATH so unifypy finds the x86_64 pyinstaller;
+          # run the venv's x86_64 python -m unifypy and the core goes through Rosetta automatically.
           export PATH="${PWD}/.venv/bin:${PATH}"
           if [ "${{ runner.os }}" = "macOS" ] && [ "${{ matrix.mac_arch }}" = "x64" ]; then
             VENV_PY="${PWD}/.venv/bin/python"
@@ -301,10 +302,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # 找到 .app 内主可执行文件，确认架构符合 matrix
+          # Find the main executable inside the .app and verify it matches the matrix arch
           app="$(find dist -name '*.app' -type d | head -1 || true)"
           if [ -z "$app" ]; then
-            echo "::warning::未找到 .app，跳过架构校验（仍依赖 installer 产物检查）"
+            echo "::warning::No .app found; skipping arch check (still relies on the installer artifact check)"
             exit 0
           fi
           bin="$app/Contents/MacOS/$(basename "$app" .app)"
@@ -320,7 +321,7 @@ jobs:
           fi
           if ! lipo -info "$bin" 2>/dev/null | grep -q "$EXPECT"; then
             if ! file "$bin" | grep -q "$EXPECT"; then
-              echo "::error::期望架构 $EXPECT，实际: $(file "$bin")"
+              echo "::error::Expected arch $EXPECT, got: $(file "$bin")"
               exit 1
             fi
           fi
@@ -333,7 +334,7 @@ jobs:
           shopt -s nullglob
           files=(${{ matrix.artifact }})
           if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::未找到安装包产物: ${{ matrix.artifact }}（unifypy 可能空跑成功）"
+            echo "::error::No installer artifact found: ${{ matrix.artifact }} (unifypy may have succeeded without building)"
             ls -la installer 2>/dev/null || true
             exit 1
           fi
@@ -345,10 +346,10 @@ jobs:
           done
           ls -lh dist/release
 
-      # tag push：用触发构建的 tag；手动构建：单独的 build-<run_number> 预发布
-      # 注意：不能在 ${{ }} 里写带 { } 的 format() 模板（如 'Build #{0} (v{1})'），
-      # GitHub workflow 解析器会报 "The expression is not closed"，
-      # 所以 tag/name/prerelease 统一在 shell 里算好再引用
+      # Tag push: use the triggering tag; manual build: a separate build-<run_number> prerelease
+      # Note: do not put a format() template containing { } inside ${{ }}
+      # (e.g. 'Build #{0} (v{1})'); the GitHub workflow parser fails with
+      # "The expression is not closed", so tag/name/prerelease are computed in the shell instead
       - name: Compute release metadata
         id: release
         shell: bash
