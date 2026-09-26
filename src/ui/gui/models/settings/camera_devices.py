@@ -1,10 +1,28 @@
 """Camera enumeration and testing."""
 
+import sys
+
 from PySide6.QtCore import Slot
 
 from src.logging import get_logger
 
 logger = get_logger()
+
+
+def _camera_failure_message() -> str:
+    """Platform-specific hint shown when a camera capture fails in the settings test."""
+    if sys.platform.startswith("win"):
+        return (
+            "[FAIL] Could not capture image. Check Windows privacy settings "
+            "(Settings > Privacy > Camera, allow desktop apps) and that no other "
+            "app is using the camera."
+        )
+    if sys.platform.startswith("linux"):
+        return (
+            "[FAIL] Could not capture image. For Pi CSI install python3-picamera2; "
+            "for USB try another index or /dev/video node."
+        )
+    return "[FAIL] Could not capture image. Check the camera connection and permissions."
 
 
 class SettingsCameraDevicesMixin:
@@ -166,9 +184,7 @@ class SettingsCameraDevicesMixin:
         )
         jpeg = capture_jpeg(cfg)
         if not jpeg:
-            self.statusMessage.emit(
-                "[FAIL] Could not capture image (Pi CSI: install python3-picamera2 or use USB)"
-            )
+            self.statusMessage.emit(_camera_failure_message())
             self.testComplete.emit("camera", False)
             return
 

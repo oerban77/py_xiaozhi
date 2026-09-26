@@ -99,12 +99,19 @@ def _silence_opencv_logs() -> None:
 
 
 def _opencv_open_kwargs():
-    """Prefer V4L2 on Linux; use the default backend on other platforms."""
+    """Prefer the platform's native capture backend.
+
+    Linux: V4L2. Windows: DirectShow (MSMF is absent from opencv-python-headless, and the
+    default backend order tries FFMPEG first, which warns about libavdevice and can block).
+    Other platforms: let OpenCV pick the default.
+    """
     try:
         import cv2
 
         if sys.platform.startswith("linux") and hasattr(cv2, "CAP_V4L2"):
             return {"apiPreference": cv2.CAP_V4L2}
+        if sys.platform.startswith("win") and hasattr(cv2, "CAP_DSHOW"):
+            return {"apiPreference": cv2.CAP_DSHOW}
     except Exception:
         pass
     return {}
