@@ -323,13 +323,33 @@ jobs:
           done
           ls -lh dist/release
 
+      # tag push：用触发构建的 tag；手动构建：单独的 build-<run_number> 预发布
+      # 注意：不能在 ${{ }} 里写带 { } 的 format() 模板（如 'Build #{0} (v{1})'），
+      # GitHub workflow 解析器会报 "The expression is not closed"，
+      # 所以 tag/name/prerelease 统一在 shell 里算好再引用
+      - name: Compute release metadata
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            NAME="$TAG"
+            PRE="false"
+          else
+            TAG="build-${GITHUB_RUN_NUMBER}"
+            NAME="Build #${GITHUB_RUN_NUMBER} (v${{ steps.version.outputs.version }})"
+            PRE="true"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # tag push：用触发构建的 tag；手动构建：单独的 build-<run_number> 预发布
-          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('build-{0}', github.run_number) }}
-          name: ${{ github.event_name == 'push' && github.ref_name || format('Build #{0} (v{1})', github.run_number, steps.version.outputs.version) }}
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.name }}
+          prerelease: ${{ steps.release.outputs.prerelease == 'true' }}
           body: |
             **Platform:** ${{ matrix.platform }}
             **Version:** ${{ steps.version.outputs.version }}
