@@ -186,6 +186,13 @@ def _google_news_search(query: str, count: int, lang: str) -> list[dict[str, str
         snippet = (item.findtext("description") or "").strip()
         date = (item.findtext("pubDate") or "").strip()
         source = (item.findtext("source") or "").strip()
+        # <source url="..."> holds the publisher's root domain (not the article
+        # URL). It is the only direct pointer to the original site, because the
+        # <link> is a news.google.com redirector that needs JavaScript.
+        publisher_url = ""
+        source_el = item.find("source")
+        if source_el is not None:
+            publisher_url = (source_el.get("url") or "").strip()
         if not title or not link:
             continue
         if snippet:
@@ -195,6 +202,7 @@ def _google_news_search(query: str, count: int, lang: str) -> list[dict[str, str
                 "title": title,
                 "snippet": snippet,
                 "url": link,
+                "publisher_url": publisher_url,
                 "date": date,
                 "source": source or "Google News",
             }
@@ -204,14 +212,48 @@ def _google_news_search(query: str, count: int, lang: str) -> list[dict[str, str
     return out
 
 
+def _is_google_news_url(url: str) -> bool:
+    """True for news.google.com article redirectors.
+
+    These pages render the article with client-side JavaScript, so a plain HTTP
+    fetch only ever returns an empty application shell. Detecting them lets
+    read_article explain the situation instead of reporting a confusing
+    "no readable content" error.
+    """
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    return host.endswith("news.google.com") and "/articles/" in url
+
+
+def _meta_fallback(raw: str) -> str:
+    """Last-resort description from meta tags / title for JS-heavy pages."""
+    for prop in ("og:description", "twitter:description", "description"):
+        m = re.search(
+            r'<meta[^>]*(?:property|name)=["\']' + re.escape(prop) + r'["\'][^>]*content=["\']([^"\']+)',
+            raw,
+            re.I,
+        )
+        if m:
+            text = html.unescape(m.group(1)).strip()
+            if len(text) >= 40:
+                return text
+    m = re.search(r"<title[^>]*>(.*?)</title>", raw, re.S | re.I)
+    if m:
+        text = html.unescape(re.sub(r"\s+", " ", m.group(1))).strip()
+        if text:
+            return f"(title only) {text}"
+    return ""
+
+
 def _format_results(results: list[dict[str, str]]) -> str:
     lines: list[str] = []
     for i, r in enumerate(results, 1):
+        publisher = r.get("publisher_url") or ""
         lines.append(
             f"{i}. {r.get('title', '')}\n"
             f"   Source: {r.get('source', '')} | {r.get('date', '')}\n"
             f"   {r.get('snippet', '')}\n"
             f"   Link: {r.get('url', '')}"
+            + (f"\n   Publisher: {publisher}" if publisher else "")
         )
     return "\n\n".join(lines)
 
@@ -249,6 +291,16 @@ async def read_article(args: dict[str, Any]) -> str:
     max_chars = max(200, min(20000, max_chars))
 
     deadline = time.monotonic() + _READ_DEADLINE_S
+
+    if _is_google_news_url(url):
+        return (
+            "This is a Google News link, which renders the article with "
+            "JavaScript in the browser. The raw page contains no readable "
+            "text, so the article body cannot be fetched this way.\n"
+            "Use the search result's 'Publisher' site (the original news "
+            "source) or pass a direct article URL from that site instead."
+        )
+
     try:
         resp = _http_get(url, timeout=_remaining_timeout(deadline))
         if resp.status_code != 200:
@@ -260,5 +312,12 @@ async def read_article(args: dict[str, Any]) -> str:
 
     text = _clean_article(raw)
     if not text:
-        return "Could not extract any readable content from that page."
+        # JS-heavy or paywalled pages may still expose a meta description.
+        text = _meta_fallback(raw)
+        if text:
+            return text[:max_chars]
+        return (
+            "Could not extract any readable content from that page. "
+            "The site may require JavaScript or block automated requests."
+        )
     return text[:max_chars]
