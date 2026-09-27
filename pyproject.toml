@@ -22,7 +22,11 @@ dependencies = [
     # AI/ML
     "openai>=1.0.0",
     "sherpa-onnx>=1.12.26",
-    "sherpa-onnx-core>=1.12.26; sys_platform != 'win32'",
+    # sherpa-onnx-core ships the native runtime (onnxruntime.dll,
+    # sherpa-onnx-c-api.dll, sherpa-onnx-cxx-api.dll) that sherpa_onnx's .pyd links
+    # against. Without it the KeywordSpotter constructor aborts the process at
+    # startup. It is required on every platform, so no environment marker here.
+    "sherpa-onnx-core>=1.12.26",
     # 图像处理
     "opencv-python-headless>=4.9.0",
     "pillow>=10.0.0",
