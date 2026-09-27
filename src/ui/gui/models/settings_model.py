@@ -18,6 +18,7 @@ from src.ui.gui.models.settings.camera_devices import SettingsCameraDevicesMixin
 from src.ui.gui.models.settings.camera_options import SettingsCameraOptionsMixin
 from src.ui.gui.models.settings.mcp_tools import SettingsMcpToolsMixin
 from src.ui.gui.models.settings.shortcuts import SettingsShortcutsMixin
+from src.ui.gui.models.settings.smarthome import SettingsSmartHomeMixin
 from src.ui.gui.models.settings.system_options import SettingsSystemOptionsMixin
 from src.ui.gui.models.settings.wake_word import SettingsWakeWordMixin
 from src.utils.config_manager import get_config
@@ -34,13 +35,16 @@ class SettingsModel(
     SettingsAudioDevicesMixin,
     SettingsShortcutsMixin,
     SettingsCameraDevicesMixin,
+    SettingsSmartHomeMixin,
     BaseModel,
 ):
     """Set the window data model (composed mixin)."""
 
     settingsChanged = Signal()
     devicesChanged = Signal()
+    camerasChanged = Signal()
     statusMessage = Signal(str)
+    mqttBrokerScanFinished = Signal(str)
     testComplete = Signal(str, bool)
     wakeWordChanged = Signal()
     configSaved = Signal()
@@ -64,6 +68,8 @@ class SettingsModel(
         self._cameras_loaded_once = False
         self._audio_devices_loaded = False
         self._audio_devices_refreshing = False
+        self._mqtt_scan_running = False
+        self.mqttBrokerScanFinished.connect(self._apply_mqtt_broker_scan)
 
         self._testing_input = False
         self._testing_output = False
@@ -497,5 +503,17 @@ class SettingsModel(
     )
     selectedCameraIndex = Property(
         int, SettingsCameraDevicesMixin._get_selectedCameraIndex, SettingsCameraDevicesMixin._set_selectedCameraIndex, notify=settingsChanged
+    )
+    smartHomeBroker = Property(
+        str, SettingsSmartHomeMixin._get_smartHomeBroker, SettingsSmartHomeMixin._set_smartHomeBroker, notify=settingsChanged
+    )
+    smartHomePort = Property(
+        int, SettingsSmartHomeMixin._get_smartHomePort, SettingsSmartHomeMixin._set_smartHomePort, notify=settingsChanged
+    )
+    smartHomeUsername = Property(
+        str, SettingsSmartHomeMixin._get_smartHomeUsername, SettingsSmartHomeMixin._set_smartHomeUsername, notify=settingsChanged
+    )
+    smartHomePassword = Property(
+        str, SettingsSmartHomeMixin._get_smartHomePassword, SettingsSmartHomeMixin._set_smartHomePassword, notify=settingsChanged
     )
 

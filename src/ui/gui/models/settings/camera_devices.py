@@ -69,6 +69,7 @@ class SettingsCameraDevicesMixin:
         finally:
             self._cameras = cameras
             self._cameras_loaded_once = True
+            self.camerasChanged.emit()
             self.devicesChanged.emit()
             self.statusMessage.emit(
                 f"Camera list refreshed ({len(cameras)} found)"

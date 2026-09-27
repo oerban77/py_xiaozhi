@@ -13,6 +13,9 @@ ScrollView {
     contentWidth: availableWidth
 
     property var catalog: []
+    property bool mqttScanBusy: false
+    property string mqttScanResult: ""
+    property var mqttScanMatches: []
 
     function reloadCatalog() {
         if (!settingsModel) {
@@ -77,6 +80,14 @@ ScrollView {
     Connections {
         target: settingsModel
         function onSettingsChanged() { root.reloadCatalog() }
+        function onMqttBrokerScanFinished(result) {
+            root.mqttScanBusy = false
+            root.mqttScanMatches = []
+            try { root.mqttScanMatches = JSON.parse(result) } catch (e) {}
+            root.mqttScanResult = root.mqttScanMatches.length
+                ? "Open hosts on port " + settingsModel.smartHomePort + ":"
+                : "No open host found on port " + settingsModel.smartHomePort
+        }
     }
 
     ColumnLayout {
@@ -96,6 +107,109 @@ ScrollView {
             font.pixelSize: Theme.fontSizeXs
             color: Theme.textSecondary
             wrapMode: Text.WordWrap
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingSm
+
+            Text {
+                text: "Smart Home MQTT"
+                font.pixelSize: Theme.fontSizeMd
+                font.weight: Font.Medium
+                color: Theme.textSecondary
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Configure the broker used by the enabled smart-home MCP tools. The existing tool switches control whether smart home is enabled."
+                font.pixelSize: Theme.fontSizeXs
+                color: Theme.textPlaceholder
+                wrapMode: Text.WordWrap
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                rowSpacing: Theme.spacingSm
+                columnSpacing: Theme.spacingMd
+
+                Text { text: "Broker IP / Host"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                XTextField {
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.smartHomeBroker : ""
+                    placeholderText: "192.168.1.10"
+                    onEditingFinished: if (settingsModel) settingsModel.smartHomeBroker = text
+                }
+
+                Text { text: "Port"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+                    TextField {
+                        id: mqttPortField
+                        Layout.preferredWidth: 100
+                        text: settingsModel ? String(settingsModel.smartHomePort) : "1883"
+                        placeholderText: "1883"
+                        validator: IntValidator { bottom: 1; top: 65535 }
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.inputText
+                        onEditingFinished: if (settingsModel && acceptableInput) settingsModel.smartHomePort = Number(text)
+                        background: Rectangle {
+                            radius: Theme.radiusSm
+                            color: Theme.backgroundSecondary
+                            border.color: Theme.border
+                        }
+                    }
+                    XButton {
+                        Layout.preferredWidth: 110
+                        Layout.preferredHeight: 32
+                        textSize: Theme.fontSizeSm
+                        variant: "secondary"
+                        text: root.mqttScanBusy ? "Scanning..." : "Scan"
+                        enabled: !root.mqttScanBusy
+                        onClicked: {
+                            root.mqttScanBusy = true
+                            root.mqttScanResult = ""
+                            if (settingsModel) settingsModel.scanMqttBroker()
+                            else root.mqttScanBusy = false
+                        }
+                    }
+                }
+
+                Text { text: "Username"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                XTextField {
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.smartHomeUsername : ""
+                    onEditingFinished: if (settingsModel) settingsModel.smartHomeUsername = text
+                }
+
+                Text { text: "Password"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                XTextField {
+                    Layout.fillWidth: true
+                    isPassword: true
+                    text: settingsModel ? settingsModel.smartHomePassword : ""
+                    onEditingFinished: if (settingsModel) settingsModel.smartHomePassword = text
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: root.mqttScanResult
+                visible: text.length > 0
+                font.pixelSize: Theme.fontSizeXs
+                color: root.mqttScanResult.startsWith("Open hosts") ? Theme.success : Theme.textPlaceholder
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: root.mqttScanMatches.length > 0
+                text: root.mqttScanMatches.map(function(host) {
+                    return host + ":" + settingsModel.smartHomePort
+                }).join(", ")
+                font.pixelSize: Theme.fontSizeXs
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
         }
 
         Repeater {

@@ -15,10 +15,21 @@ MainWindow {
         active: false
         source: "windows/SettingsWindow.qml"
 
-        onLoaded: {
+        function showWindow() {
+            if (status !== Loader.Ready || !item)
+                return
             item.visible = true
             item.raise()
             item.requestActivate()
+        }
+
+        onLoaded: {
+            showWindow()
+        }
+
+        onStatusChanged: {
+            if (status === Loader.Error)
+                console.error("Settings window failed to load:", errorString())
         }
     }
 
@@ -27,14 +38,12 @@ MainWindow {
         target: eventBridge
 
         function onShowSettingsWindow() {
-            if (settingsLoader.active) {
-                // 已加载，直接显示
-                settingsLoader.item.visible = true
-                settingsLoader.item.raise()
-                settingsLoader.item.requestActivate()
-            } else {
-                // 首次加载
+            if (settingsLoader.status === Loader.Ready) {
+                settingsLoader.showWindow()
+            } else if (settingsLoader.status !== Loader.Error) {
                 settingsLoader.active = true
+            } else {
+                console.error("Settings window is unavailable:", settingsLoader.errorString())
             }
         }
     }

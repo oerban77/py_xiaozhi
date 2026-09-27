@@ -17,13 +17,9 @@ Button {
         radius: Theme.radiusSm
         color: {
             if (!root.enabled) return Theme.backgroundSecondary
-            if (root.variant === "text") return root.pressed ? Theme.backgroundPressed : (root.hovered ? Theme.backgroundHover : "transparent")
-            if (root.variant === "danger") return root.pressed ? Theme.errorBorder : (root.hovered ? Theme.errorLight : "transparent")
-            if (root.variant === "secondary") return root.pressed ? Theme.backgroundPressed : (root.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
             return root.pressed ? Theme.primaryPressed : (root.hovered ? Theme.primaryHover : Theme.primary)
         }
-        border.width: (root.variant === "secondary" || root.variant === "danger") ? 1 : 0
-        border.color: root.variant === "danger" ? Theme.error : Theme.border
+        border.width: 0
 
         Behavior on color {
             ColorAnimation { duration: Theme.animationFast }
@@ -34,12 +30,7 @@ Button {
         text: root.text
         font.family: Theme.fontFamily
         font.pixelSize: root.textSize
-        color: {
-            if (!root.enabled) return Theme.textPlaceholder
-            if (root.variant === "danger") return Theme.error
-            if (root.variant === "primary") return "white"
-            return Theme.textPrimary
-        }
+        color: root.enabled ? "white" : Theme.textPlaceholder
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }

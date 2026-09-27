@@ -11,27 +11,33 @@ ScrollView {
 
     // 测试状态
     property bool cameraTesting: false
+    property bool cameraLoading: true
+    property var cameraList: []
     property string testResult: ""
 
     // 进入摄像头页时再扫描（启动阶段不扫 OpenCV，避免冷启动卡顿）
     Component.onCompleted: {
         if (settingsModel) {
             var list = settingsModel.getCameras()
+            root.cameraList = list
             if (list.length === 0) {
+                root.cameraLoading = true
                 settingsModel.refreshCameras()
             } else {
-                cameraCombo.model = list
+                root.cameraLoading = false
                 cameraCombo.currentIndex = settingsModel.selectedCameraIndex
             }
+        } else {
+            root.cameraLoading = false
         }
     }
 
     Connections {
         target: settingsModel
-        function onDevicesChanged() {
+        function onCamerasChanged() {
             if (settingsModel) {
-                cameraCombo.model = settingsModel.getCameras()
-                // model 设置后重新同步 currentIndex
+                root.cameraList = settingsModel.getCameras()
+                root.cameraLoading = false
                 cameraCombo.currentIndex = settingsModel.selectedCameraIndex
             }
         }
@@ -81,7 +87,11 @@ ScrollView {
                 XComboBox {
                     id: cameraCombo
                     Layout.fillWidth: true
-                    currentIndex: settingsModel ? settingsModel.selectedCameraIndex : 0
+                    model: root.cameraList.length > 0 ? root.cameraList :
+                           [root.cameraLoading ? "Detecting cameras..." : "No camera detected"]
+                    enabled: root.cameraList.length > 0
+                    currentIndex: root.cameraList.length > 0 && settingsModel
+                                  ? settingsModel.selectedCameraIndex : 0
                     onActivated: function(index) {
                         if (settingsModel) settingsModel.selectedCameraIndex = index
                     }
@@ -90,7 +100,7 @@ ScrollView {
 
                 XButton {
                     text: root.cameraTesting ? "Testing" : "Test"
-                    enabled: !root.cameraTesting
+                    enabled: !root.cameraTesting && !root.cameraLoading && root.cameraList.length > 0
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
                     textSize: Theme.fontSizeSm

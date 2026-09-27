@@ -61,3 +61,8 @@ class SettingsController:
         self.ensure_model().reload()
         self._bridge.showSettingsWindow.emit()
         logger.debug("SettingsController: open-settings signal sent")
+
+    def close(self) -> None:
+        """Stop settings background work before the GUI engine is destroyed."""
+        if self._settings_model is not None:
+            self._settings_model.stopMqttBrokerScan()

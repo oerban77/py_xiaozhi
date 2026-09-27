@@ -68,6 +68,7 @@ class GuiViewManager(QObject):
     async def close(self):
         logger.info("GuiViewManager: shutting down...")
         self._running = False
+        self._settings.close()
         if self._tray_service:
             self._tray_service.hide()
         self._host.shutdown()

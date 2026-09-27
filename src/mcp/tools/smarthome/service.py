@@ -10,7 +10,6 @@ Ported from the reference Xiaozhi desktop app (mcp/mcp_smarthome.py):
 The MQTT broker is configured in config.json under ``SMART_HOME``:
 
     "SMART_HOME": {
-        "ENABLED": true,
         "MQTT": {
             "BROKER": "192.168.1.10",      // IP or host, e.g. 656a351f...s1.eu.hivemq.cloud
             "PORT": 1883,                   // 1883 (plain) or 8883 (TLS)
@@ -105,7 +104,6 @@ def _load_smarthome_config() -> dict:
         use_tls = port == 8883
 
     return {
-        "enabled": bool(sh.get("ENABLED", sh.get("enabled", False))),
         "broker": broker,
         "port": port,
         "username": str(mqtt.get("USERNAME") or mqtt.get("username") or ""),
@@ -131,6 +129,7 @@ class SmartHomeManager:
         self._user = ""
         self._password = ""
         self._client_id = "xiaozhi-mcp"
+        self._config_signature = None
 
         # State per device: {"<topic>_<powerCmd>": {"state": bool, "online": bool}}
         self._device_state: dict[str, dict[str, bool]] = {}
@@ -140,6 +139,22 @@ class SmartHomeManager:
         self._disc_power: dict[str, str] = {}
 
     # ── Connection ──────────────────────────────────────────
+
+    def shutdown(self) -> None:
+        """Stop the previous MQTT client before applying new broker settings."""
+        client = self.client
+        self.client = None
+        self.connected = False
+        if client is None:
+            return
+        try:
+            client.disconnect()
+        except Exception as e:
+            logger.debug(f"Smart home MQTT disconnect failed: {e}")
+        try:
+            client.loop_stop()
+        except Exception as e:
+            logger.debug(f"Smart home MQTT loop stop failed: {e}")
 
     def configure(
         self,
@@ -472,14 +487,21 @@ class SmartHomeManager:
 def _get_manager() -> SmartHomeManager:
     """Return the initialized singleton manager (creates it on first use)."""
     global _MANAGER
+    cfg = _load_smarthome_config()
+    signature = (
+        cfg["broker"], cfg["port"], cfg["username"], cfg["password"],
+        cfg["client_id"], cfg["use_tls"], json.dumps(cfg["devices"], sort_keys=True),
+    )
     with _MANAGER_LOCK:
-        if _MANAGER is not None:
+        if _MANAGER is None:
+            _MANAGER = SmartHomeManager()
+        if _MANAGER._config_signature == signature:
             return _MANAGER
-
-        cfg = _load_smarthome_config()
-        manager = SmartHomeManager()
-        if cfg.get("enabled") and cfg.get("broker"):
-            manager.configure(
+        if _MANAGER.client is not None:
+            _MANAGER.shutdown()
+        _MANAGER._config_signature = signature
+        if cfg.get("broker"):
+            _MANAGER.configure(
                 broker=cfg["broker"],
                 port=cfg["port"],
                 user=cfg["username"],
@@ -496,25 +518,26 @@ def _get_manager() -> SmartHomeManager:
                 f"broker {cfg['broker']}:{cfg['port']}"
             )
         else:
-            logger.info(
-                "Smart home is disabled or no broker is configured "
-                "(SMART_HOME.ENABLED / SMART_HOME.MQTT.BROKER)"
-            )
-        _MANAGER = manager
-        return manager
+            logger.info("Smart home MQTT broker is not configured")
+        return _MANAGER
 
 
 def _manager_status(manager: SmartHomeManager, cfg: dict) -> str:
-    if not cfg.get("enabled"):
-        return (
-            "Smart home is disabled. Enable it in settings "
-            "(SMART_HOME.ENABLED = true) and configure the MQTT broker."
-        )
     if not cfg.get("broker"):
         return "No MQTT broker configured (SMART_HOME.MQTT.BROKER is empty)."
     if not manager.connected:
         return f"Not connected to the MQTT broker ({manager._broker}:{manager._port})"
     return ""
+
+
+def shutdown_smarthome_manager() -> None:
+    """Disconnect the singleton MQTT client during MCP/application shutdown."""
+    global _MANAGER
+    with _MANAGER_LOCK:
+        manager = _MANAGER
+        _MANAGER = None
+    if manager is not None:
+        manager.shutdown()
 
 
 # ── MCP tool handlers ──────────────────────────────────────

@@ -91,4 +91,18 @@ class McpPlugin(Plugin):
             except Exception as e:
                 logger.debug(f"MCP shutdown cleanup failed: {e}", exc_info=True)
 
+            try:
+                from src.mcp.plugins.subprocess_runtime import drop_all_sessions
+
+                drop_all_sessions()
+            except Exception as e:
+                logger.debug(f"MCP subprocess cleanup failed: {e}", exc_info=True)
+
+            try:
+                from src.mcp.tools.smarthome.service import shutdown_smarthome_manager
+
+                shutdown_smarthome_manager()
+            except Exception as e:
+                logger.debug(f"Smart home MQTT cleanup failed: {e}", exc_info=True)
+
         pool.register("mcp.server", _mcp_cleanup)
