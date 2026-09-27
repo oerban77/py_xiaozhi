@@ -8,6 +8,11 @@ Supported text formats: ``.txt .md .json .csv .log .ini .yaml .yml .xml .html``
 Supported Office formats (created/read with pure-Python OOXML, no extra deps):
 ``.docx`` and ``.xlsx``. PDF reading uses ``pypdf``/``PyPDF2`` when available
 (optional dependency); without it only file metadata is returned.
+Image formats (``.png .jpg .jpeg .webp .bmp .gif .tif .tiff .ico`` and every
+other format Pillow can decode) are read with ``image_read`` / ``document_manage``:
+metadata plus OCR text. OCR uses the first available engine
+(``pytesseract``, ``rapidocr-onnxruntime``, ``easyocr``); when none is installed
+the image is described through the camera vision service instead, if configured.
 """
 
 from __future__ import annotations
@@ -53,6 +58,52 @@ BINARY_EXTENSIONS = {
     ".odp",
 }
 
+# Every image format Pillow can plausibly decode.
+IMAGE_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".jpe",
+    ".jfif",
+    ".webp",
+    ".bmp",
+    ".dib",
+    ".gif",
+    ".tif",
+    ".tiff",
+    ".ico",
+    ".jp2",
+    ".j2k",
+    ".jpx",
+    ".jpm",
+    ".ppm",
+    ".pgm",
+    ".pbm",
+    ".pnm",
+    ".eps",
+    ".psd",
+    ".tga",
+    ".pcx",
+    ".dds",
+    ".hdr",
+    ".exr",
+    ".avif",
+    ".heic",
+    ".heif",
+    ".svg",
+    ".ras",
+    ".sgi",
+    ".xbm",
+    ".xpm",
+    ".cur",
+    ".fits",
+    ".fpx",
+    ".mpo",
+    ".pict",
+    ".pxr",
+    ".xwd",
+}
+
 _TEXT_FORMATS = {
     "text",
     "csv",
@@ -91,6 +142,8 @@ def _guess_format(path: str, requested: str | None = None) -> str:
     ext = os.path.splitext(path)[1].lower()
     if ext in TEXT_EXTENSIONS:
         return "text"
+    if ext in IMAGE_EXTENSIONS:
+        return "image"
     if ext in BINARY_EXTENSIONS:
         return ext.lstrip(".").lower()
     return "binary"
@@ -387,6 +440,281 @@ def _write_placeholder_binary(path: str) -> None:
         fh.write(b"placeholder")
 
 
+# ── Images (metadata + OCR / vision description) ─────────────
+
+
+def _image_metadata(path: str) -> dict[str, Any]:
+    """Size, dimensions, format and colour mode via Pillow (no OCR)."""
+    try:
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover - Pillow is a hard dep elsewhere
+        logger.warning("Pillow unavailable: %s", exc)
+        return {"path": path, "size_bytes": os.path.getsize(path)}
+
+    try:
+        with Image.open(path) as img:
+            return {
+                "path": path,
+                "size_bytes": os.path.getsize(path),
+                "format": img.format or os.path.splitext(path)[1].lstrip("."),
+                "width": img.width,
+                "height": img.height,
+                "mode": img.mode,
+            }
+    except Exception as exc:
+        logger.warning("Image metadata failed for %s: %s", path, exc)
+        return {
+            "path": path,
+            "size_bytes": os.path.getsize(path),
+            "error": f"Could not decode image: {exc}",
+        }
+
+
+def _ocr_tesseract(image_path: str) -> str | None:
+    """OCR via the external tesseract binary (pytesseract wrapper)."""
+    try:
+        import pytesseract
+    except ImportError:
+        return None
+    try:
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            return pytesseract.image_to_string(img).strip() or None
+    except Exception as exc:
+        logger.warning("tesseract OCR failed: %s", exc)
+        return None
+
+
+def _ocr_rapidocr(image_path: str) -> str | None:
+    """OCR via rapidocr-onnxruntime (self-contained, no external binary)."""
+    try:
+        from rapidocr_onnxruntime import RapidOCR
+    except ImportError:
+        return None
+    try:
+        engine = RapidOCR()
+        result, _elapsed = engine(image_path)
+        if not result:
+            return None
+        lines = [item[1] for item in result if item and len(item) > 1]
+        return "\n".join(lines).strip() or None
+    except Exception as exc:
+        logger.warning("rapidocr OCR failed: %s", exc)
+        return None
+
+
+def _ocr_easyocr(image_path: str) -> str | None:
+    """OCR via easyocr (downloads model weights on first use)."""
+    try:
+        import easyocr
+    except ImportError:
+        return None
+    try:
+        reader = easyocr.Reader(["en"], gpu=False)
+        result = reader.readtext(image_path, detail=0)
+        return "\n".join(result).strip() or None
+    except Exception as exc:
+        logger.warning("easyocr OCR failed: %s", exc)
+        return None
+
+
+def _has_ocr_engine() -> bool:
+    """True when at least one OCR engine can be imported."""
+    for module in ("pytesseract", "rapidocr_onnxruntime", "easyocr"):
+        try:
+            __import__(module)
+            return True
+        except ImportError:
+            continue
+    return False
+
+
+def _ocr_image(image_path: str) -> str | None:
+    """Run the first available OCR engine; None when none is installed."""
+    for engine in (_ocr_tesseract, _ocr_rapidocr, _ocr_easyocr):
+        text = engine(image_path)
+        if text:
+            return text
+    return None
+
+
+def _vision_describe(image_path: str, question: str) -> str | None:
+    """Describe an image through the camera vision service, when configured.
+
+    Reuses the same CAMERA.explain_url / Local_VL_url settings as take_photo so
+    no separate account or configuration is needed.
+    """
+    try:
+        cfg = get_config()
+    except Exception:
+        return None
+
+    question = (question or "").strip()
+    default_q = "Describe this image briefly and clearly, including any visible text."
+
+    # Path 1: OpenAI-compatible VL endpoint (Local_VL_url + VLapi_key)
+    vl_url = (cfg.get_config("CAMERA.Local_VL_url", "") or "").strip()
+    vl_key = (cfg.get_config("CAMERA.VLapi_key", "") or "").strip()
+    if vl_url and vl_key:
+        try:
+            import base64
+
+            from PIL import Image
+
+            with Image.open(image_path) as img:
+                fmt = (img.format or "JPEG").upper()
+                if fmt not in ("JPEG", "PNG", "GIF", "WEBP"):
+                    fmt = "PNG"
+                img = img.convert("RGB")
+                buf = io.BytesIO()
+                img.save(buf, format=fmt)
+
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            model = cfg.get_config("CAMERA.models", "glm-4v-plus") or "glm-4v-plus"
+
+            from openai import OpenAI
+
+            client = OpenAI(
+                api_key=vl_key,
+                base_url=vl_url,
+                timeout=30.0,
+            )
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/{fmt.lower()};base64,{b64}"
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": question or default_q,
+                            },
+                        ],
+                    },
+                ],
+                modalities=["text"],
+            )
+            text = ""
+            for chunk in completion:
+                if chunk.choices:
+                    text += chunk.choices[0].delta.content or ""
+            return text.strip() or None
+        except Exception as exc:
+            logger.warning("VL vision describe failed: %s", exc)
+
+    # Path 2: xiaozhi explain endpoint (multipart upload, like NormalCamera)
+    explain_url = (cfg.get_config("CAMERA.explain_url", "") or "").strip()
+    if not explain_url:
+        return None
+    try:
+        import requests
+
+        with open(image_path, "rb") as fh:
+            image_bytes = fh.read()
+
+        headers = {
+            "Device-Id": cfg.get_config("SYSTEM_OPTIONS.DEVICE_ID") or "",
+            "Client-Id": cfg.get_config("SYSTEM_OPTIONS.CLIENT_ID") or "",
+        }
+        token = (cfg.get_config("CAMERA.explain_token", "") or "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        mime = _guess_mime(image_path)
+        files = {
+            "question": (None, question or default_q),
+            "file": (os.path.basename(image_path), image_bytes, mime),
+        }
+        response = requests.post(
+            explain_url, headers=headers, files=files, timeout=20
+        )
+        if response.status_code != 200:
+            logger.warning("Vision service returned HTTP %s", response.status_code)
+            return None
+        try:
+            payload = response.json()
+        except ValueError:
+            return response.text.strip() or None
+        if isinstance(payload, dict):
+            if not payload.get("success", True):
+                return None
+            text = (
+                payload.get("text")
+                or payload.get("result")
+                or payload.get("response")
+                or payload.get("content")
+                or ""
+            )
+            return str(text).strip() or None
+        return str(payload).strip() or None
+    except Exception as exc:
+        logger.warning("Explain vision describe failed: %s", exc)
+        return None
+
+
+def _guess_mime(path: str) -> str:
+    """Best-effort MIME type for an image path."""
+    ext = os.path.splitext(path)[1].lower()
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".jpe": "image/jpeg",
+        ".jfif": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".gif": "image/gif",
+        ".tif": "image/tiff",
+        ".tiff": "image/tiff",
+        ".ico": "image/x-icon",
+        ".svg": "image/svg+xml",
+    }.get(ext, "image/jpeg")
+
+
+def _read_image(path: str, question: str | None = None) -> str:
+    """Read an image file: metadata block + OCR text or a vision description."""
+    meta = _image_metadata(path)
+    width = meta.get("width")
+    height = meta.get("height")
+    dims = (
+        f"{width}x{height} {meta.get('format', '')} ({meta.get('mode', '')})"
+        if width
+        else f"{meta.get('size_bytes', 0)} bytes"
+    )
+    header = f"Image: {path}\nDimensions: {dims}\n"
+
+    ocr_text = _ocr_image(path)
+    if ocr_text:
+        return f"{header}Text (OCR):\n{ocr_text}"
+
+    description = _vision_describe(path, question or "")
+    if description:
+        return f"{header}Description:\n{description}"
+
+    if _has_ocr_engine():
+        return (
+            f"{header}No text was detected in this image. The OCR engine "
+            "found no characters; it may be a photo or drawing rather than a "
+            "document. Set CAMERA.Local_VL_url + CAMERA.VLapi_key or "
+            "CAMERA.explain_url to have images described instead."
+        )
+
+    return (
+        f"{header}No OCR engine is installed and no vision service is "
+        "configured, so the image content could not be read. Install "
+        "rapidocr-onnxruntime (pip install rapidocr-onnxruntime) or set "
+        "CAMERA.Local_VL_url + CAMERA.VLapi_key / CAMERA.explain_url."
+    )
+
+
 # ── search_files ─────────────────────────────────────────────
 
 
@@ -543,6 +871,8 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
         return _read_xlsx(path)
     if fmt == "pdf":
         return _read_pdf(path, args.get("query"))
+    if fmt == "image":
+        return _read_image(path, args.get("query"))
     return f"Document available. Detected format: {fmt}"
 
 
@@ -560,3 +890,29 @@ async def search_files(args: dict[str, Any]) -> str:
 async def document_manage(args: dict[str, Any]) -> str:
     """Read / create / edit / delete / export a document."""
     return await asyncio.to_thread(_document_manage_sync, args)
+
+
+def _image_read_sync(args: dict[str, Any]) -> str:
+    """Read any image file: metadata plus OCR text (or a vision description)."""
+    path_value = (
+        args.get("path")
+        or args.get("file")
+        or args.get("image_path")
+        or args.get("document_path")
+        or ""
+    )
+    if not path_value:
+        return "An image path is required"
+
+    path = _resolve_path(str(path_value))
+    if not os.path.exists(path):
+        return f"File not found: {path_value}"
+    if os.path.isdir(path):
+        return f"Path is a folder: {path}"
+
+    return _read_image(path, args.get("question") or args.get("query"))
+
+
+async def image_read(args: dict[str, Any]) -> str:
+    """Read an image file from disk (all formats Pillow can decode)."""
+    return await asyncio.to_thread(_image_read_sync, args)

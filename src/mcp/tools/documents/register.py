@@ -7,7 +7,7 @@ from collections.abc import Callable
 from src.logging import get_logger
 from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
 
-from .service import document_manage, search_files
+from .service import document_manage, image_read, search_files
 
 logger = get_logger()
 
@@ -44,6 +44,9 @@ def register_documents_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Supports text formats (.txt .md .json .csv .log .ini .yaml .xml), "
                 ".docx and .xlsx (written with built-in OOXML, no extra deps), "
                 "and .pdf (text extraction via the optional pypdf package).\n"
+                "Images (.png .jpg .jpeg .webp .bmp .gif .tif .tiff .ico and every "
+                "other format Pillow can decode) return metadata plus OCR text; "
+                "use the dedicated image_read tool for images.\n"
                 "Parameters:\n"
                 "- action: read | create | edit | delete | export (required)\n"
                 "- path: document path, absolute or relative to cwd (required)\n"
@@ -64,6 +67,29 @@ def register_documents_tools(add_tool: Callable[[McpTool], None]) -> None:
                 ]
             ),
             document_manage,
+        ),
+        McpTool(
+            "image_read",
+            (
+                "Read an image file from disk and return its text content.\n"
+                "Supports every format Pillow can decode: PNG, JPG/JPEG, WEBP, "
+                "BMP, GIF, TIFF, ICO, JP2, PPM, EPS, PSD, AVIF, HEIC and more.\n"
+                "Returns the image dimensions plus the text found in it (OCR).\n"
+                "OCR uses the first available engine: tesseract, "
+                "rapidocr-onnxruntime or easyocr. When none is installed the "
+                "image is described through the camera vision service instead "
+                "(CAMERA.Local_VL_url / CAMERA.explain_url), if configured.\n"
+                "Parameters:\n"
+                "- path: image path, absolute or relative to cwd (required)\n"
+                "- question: what to ask about the image (vision service only)"
+            ),
+            PropertyList(
+                [
+                    Property("path", PropertyType.STRING),
+                    Property("question", PropertyType.STRING, default_value=""),
+                ]
+            ),
+            image_read,
         ),
     ]
 
