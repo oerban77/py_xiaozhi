@@ -134,6 +134,7 @@ class McpServer:
         from src.mcp.tools.coding import register_coding_tools
         from src.mcp.tools.documents import register_documents_tools
         from src.mcp.tools.hardware import register_hardware_tools
+        from src.mcp.tools.kali import register_kali_tools
         from src.mcp.tools.prayer import register_prayer_tools
         from src.mcp.tools.qrcode import register_qrcode_tools
         from src.mcp.tools.reminder import register_reminder_tools
@@ -148,6 +149,7 @@ class McpServer:
         register_coding_tools(self.add_tool)
         register_documents_tools(self.add_tool)
         register_hardware_tools(self.add_tool)
+        register_kali_tools(self.add_tool)
         register_weather_tools(self.add_tool)
         register_websearch_tools(self.add_tool)
         register_prayer_tools(self.add_tool)
