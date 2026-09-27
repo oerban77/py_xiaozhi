@@ -3,8 +3,10 @@ MCP Server Implementation for Python
 Reference: https://modelcontextprotocol.io/specification/2024-11-05
 """
 
+import asyncio
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from src.constants.system import SystemConstants
@@ -25,6 +27,7 @@ class McpServer:
         self.tools: list[McpTool] = []
         self._send_callback: Callable | None = None
         self._camera = None
+        self._vision_ready = asyncio.Event()
         # external plugin tool_name -> plugin_id
         self._plugin_tool_owner: dict[str, str] = {}
 
@@ -41,10 +44,42 @@ class McpServer:
     def get_camera(self):
         return self._camera
 
+    async def analyze_image_file(self, path: str, question: str) -> str:
+        """Analyze a local image with the camera's negotiated vision service."""
+        try:
+            await asyncio.wait_for(self._vision_ready.wait(), timeout=10)
+        except TimeoutError:
+            logger.warning("Timed out waiting for the server vision capability")
+
+        camera = self._camera
+        if camera is None:
+            raise RuntimeError("Vision service is not available")
+
+        image_data = await asyncio.to_thread(Path(path).read_bytes)
+        result = await asyncio.to_thread(camera.analyze, question, image_data)
+        if not isinstance(result, str):
+            return str(result)
+
+        try:
+            payload = json.loads(result)
+        except ValueError:
+            return result.strip()
+
+        if isinstance(payload, dict):
+            if not payload.get("success", True):
+                raise RuntimeError(
+                    str(payload.get("message") or "Vision service rejected the image")
+                )
+            for key in ("text", "result", "response", "content"):
+                if payload.get(key):
+                    return str(payload[key]).strip()
+        return result.strip()
+
     def detach(self) -> None:
         """Unbind runtime dependencies when the container closes, keeping the tool list for reuse in the same process."""
         self._send_callback = None
         self._camera = None
+        self._vision_ready.clear()
 
     def add_tool(
         self, tool: McpTool | tuple[str, str, PropertyList, Callable]
@@ -389,6 +424,7 @@ class McpServer:
                 camera.set_explain_url(url)
                 if token:
                     camera.set_explain_token(token)
+                self._vision_ready.set()
                 logger.info(f"Vision service configured with URL: {url}")
 
     async def _reply_result(self, request_id: int, result: Any):

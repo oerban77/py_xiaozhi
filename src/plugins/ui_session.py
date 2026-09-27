@@ -23,6 +23,7 @@ class SessionActions:
         ctx: "PluginContext",
         cmd: "PluginCommands",
         presenter: "UiPresenter",
+        image_analyzer=None,
     ) -> None:
         self._ctx = ctx
         self._cmd = cmd
@@ -32,6 +33,7 @@ class SessionActions:
         # Whether a conversation has already started in auto mode (the button shows "Stop Chat")
         self._auto_session_active = False
         self._bus = None
+        self._image_analyzer = image_analyzer
 
     @property
     def auto_mode(self) -> bool:
@@ -152,11 +154,22 @@ class SessionActions:
             extension = path.suffix.lower()
             if extension in IMAGE_EXTENSIONS:
                 kind = "image"
-                extracted = await image_read(
-                    {"path": str(path), "question": question or "Describe this image."}
-                )
-                if extracted.startswith("Image: "):
-                    extracted = extracted.partition("\n")[2]
+                image_question = question or "Describe this image."
+                if self._image_analyzer is not None:
+                    if not await self._ensure_listen_session():
+                        await self._set_attachment_status(
+                            "Could not connect to the vision service"
+                        )
+                        return
+                    extracted = await self._image_analyzer(
+                        str(path), image_question
+                    )
+                else:
+                    extracted = await image_read(
+                        {"path": str(path), "question": image_question}
+                    )
+                    if extracted.startswith("Image: "):
+                        extracted = extracted.partition("\n")[2]
             elif extension in TEXT_EXTENSIONS or extension in {
                 ".docx",
                 ".xlsx",
@@ -197,9 +210,9 @@ class SessionActions:
             else:
                 status = "Attachment sent for analysis"
             await self._set_attachment_status(status)
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to analyze a chat attachment")
-            await self._set_attachment_status("Could not analyze attachment")
+            await self._set_attachment_status(f"Image analysis failed: {exc}")
 
     async def _set_attachment_status(self, status: str) -> None:
         if self._bus is not None:

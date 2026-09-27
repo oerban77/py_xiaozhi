@@ -69,7 +69,11 @@ async def setup_plugins(
     # Create the plugin instances (Audio publishes the codec through events; MusicPlayer is not injected)
     audio_plugin = AudioPlugin()
     wake_word_plugin = WakeWordPlugin()
-    ui_plugin = UIPlugin(mode=mode, task_manager=container.tasks)
+    ui_plugin = UIPlugin(
+        mode=mode,
+        task_manager=container.tasks,
+        image_analyzer=container.mcp_server.analyze_image_file,
+    )
     shortcuts_plugin = ShortcutsPlugin()
     mcp_plugin = McpPlugin(
         server=container.mcp_server,

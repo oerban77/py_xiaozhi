@@ -1208,6 +1208,77 @@ def test_image_vision_uses_xiaozhi_explain_endpoint(monkeypatch, tmp_path):
     assert requests_call["files"]["question"][1] == "Describe this image"
 
 
+def test_normal_camera_upgrades_xiaozhi_vision_url_to_https():
+    from src.mcp.tools.camera.normal_camera import NormalCamera
+
+    camera = object.__new__(NormalCamera)
+    NormalCamera.set_explain_url(camera, "http://api.xiaozhi.me/vision/explain")
+
+    assert camera.explain_url == "https://api.xiaozhi.me/vision/explain"
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_image_analysis_uses_negotiated_camera(tmp_path):
+    from src.mcp.mcp_server import McpServer
+
+    image_path = tmp_path / "image.png"
+    image_path.write_bytes(b"image bytes")
+    calls = []
+
+    class Camera:
+        def analyze(self, question, image_data):
+            calls.append((question, image_data))
+            return '{"success": true, "text": "A cat."}'
+
+    server = McpServer()
+    server.set_camera(Camera())
+
+    result = await server.analyze_image_file(str(image_path), "Describe it")
+
+    assert result == "A cat."
+    assert calls == [("Describe it", b"image bytes")]
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_uses_vision_capability_url_and_token(tmp_path):
+    from src.mcp.mcp_server import McpServer
+
+    image_path = tmp_path / "image.png"
+    image_path.write_bytes(b"image bytes")
+
+    class Camera:
+        def __init__(self):
+            self.explain_url = ""
+            self.explain_token = ""
+
+        def set_explain_url(self, url):
+            self.explain_url = url
+
+        def set_explain_token(self, token):
+            self.explain_token = token
+
+        def analyze(self, question, image_data):
+            assert self.explain_url == "http://api.xiaozhi.me/vision/explain"
+            assert self.explain_token == "server-token"
+            return '{"success": true, "text": "A mountain."}'
+
+    server = McpServer()
+    camera = Camera()
+    server.set_camera(camera)
+    await server._parse_capabilities(
+        {
+            "vision": {
+                "url": "http://api.xiaozhi.me/vision/explain",
+                "token": "server-token",
+            }
+        }
+    )
+
+    result = await server.analyze_image_file(str(image_path), "Describe it")
+
+    assert result == "A mountain."
+
+
 def test_image_ocr_fallback_explains_missing_vision(monkeypatch):
     from src.mcp.tools.documents import service
 

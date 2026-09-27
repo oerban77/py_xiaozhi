@@ -26,10 +26,12 @@ class UIPlugin(Plugin):
         self,
         mode: Optional[str] = None,
         task_manager: Optional["TaskManager"] = None,
+        image_analyzer=None,
     ) -> None:
         super().__init__()
         self.mode = (mode or "cli").lower()
         self._task_manager = task_manager
+        self._image_analyzer = image_analyzer
         self.viewport: Optional["ViewPort"] = None
         self._presenter = UiPresenter()
         self._session: Optional[SessionActions] = None
@@ -43,7 +45,12 @@ class UIPlugin(Plugin):
             task_manager=self._task_manager,
         )
         self._presenter.bind(self.viewport)
-        self._session = SessionActions(self._ctx, self._cmd, self._presenter)
+        self._session = SessionActions(
+            self._ctx,
+            self._cmd,
+            self._presenter,
+            image_analyzer=self._image_analyzer,
+        )
 
     async def start(self) -> None:
         from src.core.event_bus import Events

@@ -3,6 +3,7 @@ Normal camera implementation using remote API.
 """
 
 import json
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
@@ -28,6 +29,9 @@ class NormalCamera(BaseCamera):
         self.explain_token = ""
 
     def set_explain_url(self, url: str):
+        parts = urlsplit(url)
+        if parts.scheme.lower() == "http" and parts.hostname == "api.xiaozhi.me":
+            url = urlunsplit(("https", parts.netloc, parts.path, parts.query, parts.fragment))
         self.explain_url = url
         logger.info(f"Vision service URL set to: {url}")
 
