@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import html.parser
 import re
 import time
 import urllib.parse
