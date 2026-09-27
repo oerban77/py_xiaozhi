@@ -190,7 +190,13 @@ class SessionActions:
                 f"{extracted}"
             )
             await self.send_text(prompt)
-            await self._set_attachment_status("Attachment sent for analysis")
+            if kind == "image" and "Visual description unavailable:" in extracted:
+                status = "OCR sent; configure a vision service to describe images"
+            elif kind == "image" and "Vision service did not respond" in extracted:
+                status = "Vision unavailable; OCR text sent instead"
+            else:
+                status = "Attachment sent for analysis"
+            await self._set_attachment_status(status)
         except Exception:
             logger.exception("Failed to analyze a chat attachment")
             await self._set_attachment_status("Could not analyze attachment")

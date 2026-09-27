@@ -1156,6 +1156,76 @@ def test_event_bridge_converts_attachment_url_to_local_path(monkeypatch, tmp_pat
     assert emitted[0][1].question == "Describe it"
 
 
+def test_image_read_prefers_vision_description_over_ocr(monkeypatch):
+    from src.mcp.tools.documents import service
+
+    monkeypatch.setattr(service, "_vision_endpoint_configured", lambda: True)
+    monkeypatch.setattr(
+        service, "_vision_describe", lambda path, question: "A bicycle beside a tree."
+    )
+    monkeypatch.setattr(service, "_image_metadata", lambda path: pytest.fail("metadata should not load before vision"))
+    monkeypatch.setattr(service, "_ocr_image", lambda path: pytest.fail("OCR should not replace vision"))
+
+    result = service._read_image("sample.png", "Describe the scene")
+
+    assert "Description:\nA bicycle beside a tree." in result
+
+
+def test_image_vision_uses_xiaozhi_explain_endpoint(monkeypatch, tmp_path):
+    import sys
+    from types import SimpleNamespace
+
+    from src.mcp.tools.documents import service
+
+    config_values = {"CAMERA.explain_url": "", "CAMERA.explain_token": ""}
+    config = SimpleNamespace(
+        get_config=lambda key, default=None: config_values.get(key, default)
+    )
+    monkeypatch.setattr(service, "get_config", lambda: config)
+    image_path = tmp_path / "image.png"
+    image_path.write_bytes(b"image bytes")
+    requests_call = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = '{"success": true, "text": "A cat on a chair."}'
+
+        def json(self):
+            return {"success": True, "text": "A cat on a chair."}
+
+    def fake_post(url, **kwargs):
+        requests_call["url"] = url
+        requests_call.update(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setitem(sys.modules, "requests", SimpleNamespace(post=fake_post))
+
+    assert service._vision_endpoint_configured()
+    assert service._vision_describe(str(image_path), "Describe this image") == (
+        "A cat on a chair."
+    )
+    assert requests_call["url"] == "https://api.xiaozhi.me/vision/explain"
+    assert requests_call["files"]["question"][1] == "Describe this image"
+
+
+def test_image_ocr_fallback_explains_missing_vision(monkeypatch):
+    from src.mcp.tools.documents import service
+
+    monkeypatch.setattr(service, "_vision_endpoint_configured", lambda: False)
+    monkeypatch.setattr(service, "_vision_describe", lambda *args: pytest.fail("unconfigured vision called"))
+    monkeypatch.setattr(
+        service,
+        "_image_metadata",
+        lambda path: {"width": 10, "height": 10, "format": "PNG", "mode": "RGB"},
+    )
+    monkeypatch.setattr(service, "_ocr_image", lambda path: "SALE 50%")
+
+    result = service._read_image("sample.png", "Describe this image")
+
+    assert "Text (OCR):\nSALE 50%" in result
+    assert "Visual description unavailable:" in result
+
+
 @pytest.mark.asyncio
 async def test_abort_speaking_resumes_keep_listening():
     """持续监听时打断后回到 listening."""

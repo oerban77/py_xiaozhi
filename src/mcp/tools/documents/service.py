@@ -29,6 +29,7 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from src.logging import get_logger
+from src.utils.config_manager import get_config
 
 logger = get_logger()
 
@@ -120,6 +121,7 @@ _TEXT_FORMATS = {
 
 _MAX_SEARCH_RESULTS = 200
 _MAX_READ_BYTES = 256 * 1024
+_DEFAULT_EXPLAIN_URL = "https://api.xiaozhi.me/vision/explain"
 
 
 def _resolve_path(path_value: str) -> str:
@@ -539,6 +541,16 @@ def _ocr_image(image_path: str) -> str | None:
     return None
 
 
+def _vision_endpoint_configured() -> bool:
+    try:
+        cfg = get_config()
+    except Exception:
+        return False
+
+    explain_url = (cfg.get_config("CAMERA.explain_url", "") or "").strip()
+    return bool(explain_url or _DEFAULT_EXPLAIN_URL)
+
+
 def _vision_describe(image_path: str, question: str) -> str | None:
     """Describe an image through the camera vision service, when configured.
 
@@ -551,67 +563,9 @@ def _vision_describe(image_path: str, question: str) -> str | None:
         return None
 
     question = (question or "").strip()
-    default_q = "Describe this image briefly and clearly, including any visible text."
-
-    # Path 1: OpenAI-compatible VL endpoint (Local_VL_url + VLapi_key)
-    vl_url = (cfg.get_config("CAMERA.Local_VL_url", "") or "").strip()
-    vl_key = (cfg.get_config("CAMERA.VLapi_key", "") or "").strip()
-    if vl_url and vl_key:
-        try:
-            import base64
-
-            from PIL import Image
-
-            with Image.open(image_path) as img:
-                fmt = (img.format or "JPEG").upper()
-                if fmt not in ("JPEG", "PNG", "GIF", "WEBP"):
-                    fmt = "PNG"
-                img = img.convert("RGB")
-                buf = io.BytesIO()
-                img.save(buf, format=fmt)
-
-            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-            model = cfg.get_config("CAMERA.models", "glm-4v-plus") or "glm-4v-plus"
-
-            from openai import OpenAI
-
-            client = OpenAI(
-                api_key=vl_key,
-                base_url=vl_url,
-                timeout=30.0,
-            )
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/{fmt.lower()};base64,{b64}"
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": question or default_q,
-                            },
-                        ],
-                    },
-                ],
-                modalities=["text"],
-            )
-            text = ""
-            for chunk in completion:
-                if chunk.choices:
-                    text += chunk.choices[0].delta.content or ""
-            return text.strip() or None
-        except Exception as exc:
-            logger.warning("VL vision describe failed: %s", exc)
-
-    # Path 2: xiaozhi explain endpoint (multipart upload, like NormalCamera)
-    explain_url = (cfg.get_config("CAMERA.explain_url", "") or "").strip()
+    explain_url = (
+        cfg.get_config("CAMERA.explain_url", "") or _DEFAULT_EXPLAIN_URL
+    ).strip()
     if not explain_url:
         return None
     try:
@@ -630,7 +584,7 @@ def _vision_describe(image_path: str, question: str) -> str | None:
 
         mime = _guess_mime(image_path)
         files = {
-            "question": (None, question or default_q),
+            "question": (None, question or "Describe this image briefly and clearly."),
             "file": (os.path.basename(image_path), image_bytes, mime),
         }
         response = requests.post(
@@ -681,6 +635,16 @@ def _guess_mime(path: str) -> str:
 
 def _read_image(path: str, question: str | None = None) -> str:
     """Read an image file: metadata block + OCR text or a vision description."""
+    question = (question or "").strip()
+    vision_configured = _vision_endpoint_configured()
+    vision_attempted = False
+
+    if question and vision_configured:
+        vision_attempted = True
+        description = _vision_describe(path, question)
+        if description:
+            return f"Image: {path}\nDescription:\n{description}"
+
     meta = _image_metadata(path)
     width = meta.get("width")
     height = meta.get("height")
@@ -693,11 +657,22 @@ def _read_image(path: str, question: str | None = None) -> str:
 
     ocr_text = _ocr_image(path)
     if ocr_text:
-        return f"{header}Text (OCR):\n{ocr_text}"
+        result = f"{header}Text (OCR):\n{ocr_text}"
+        if question and not vision_configured:
+            result += (
+                "\n\nVisual description unavailable: configure a vision URL "
+                "and API key for hosted services, or a private/local vision URL."
+            )
+        elif question and vision_attempted:
+            result += "\n\nVision service did not respond; only OCR text is available."
+        return result
 
-    description = _vision_describe(path, question or "")
-    if description:
-        return f"{header}Description:\n{description}"
+    if not vision_attempted and vision_configured:
+        description = _vision_describe(
+            path, question or "Describe this image briefly and clearly."
+        )
+        if description:
+            return f"{header}Description:\n{description}"
 
     if _has_ocr_engine():
         return (
