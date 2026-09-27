@@ -131,6 +131,7 @@ class McpServer:
 
         from src.mcp.tools.app import register_app_tools
         from src.mcp.tools.prayer import register_prayer_tools
+        from src.mcp.tools.qrcode import register_qrcode_tools
         from src.mcp.tools.reminder import register_reminder_tools
         from src.mcp.tools.smarthome import register_smarthome_tools
         from src.mcp.tools.volume import register_volume_tools
@@ -142,6 +143,7 @@ class McpServer:
         register_weather_tools(self.add_tool)
         register_websearch_tools(self.add_tool)
         register_prayer_tools(self.add_tool)
+        register_qrcode_tools(self.add_tool)
         register_reminder_tools(self.add_tool)
         register_smarthome_tools(self.add_tool)
 
