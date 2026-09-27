@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
 import "../components"
+import "../controls"
 
 AppWindow {
     id: root
@@ -144,80 +145,43 @@ AppWindow {
                     spacing: Theme.spacingSm
 
                     // 手动模式按钮（点击切换录音）
-                    Button {
+                    XButton {
                         id: manualBtn
                         Layout.preferredWidth: 100
                         Layout.fillWidth: true
                         Layout.maximumWidth: 140
                         Layout.preferredHeight: 38
+                        textSize: Theme.fontSizeSm
                         text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Hold to Talk"
                         visible: !(mainModel && mainModel.autoMode)
-
-                        background: Rectangle {
-                            color: manualBtn.pressed ? Theme.primaryPressed : (manualBtn.hovered ? Theme.primaryHover : Theme.primary)
-                            radius: Theme.radiusMd
-                        }
-
-                        contentItem: Text {
-                            text: manualBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
 
                         onClicked: if (eventBridge) eventBridge.onManualToggle()
                     }
 
                     // 自动模式按钮
-                    Button {
+                    XButton {
                         id: autoBtn
                         Layout.preferredWidth: 100
                         Layout.fillWidth: true
                         Layout.maximumWidth: 140
                         Layout.preferredHeight: 38
+                        textSize: Theme.fontSizeSm
                         text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Start Chat"
                         visible: mainModel && mainModel.autoMode
-
-                        background: Rectangle {
-                            color: autoBtn.pressed ? Theme.primaryPressed : (autoBtn.hovered ? Theme.primaryHover : Theme.primary)
-                            radius: Theme.radiusMd
-                        }
-
-                        contentItem: Text {
-                            text: autoBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
 
                         onClicked: if (eventBridge) eventBridge.onAutoStart()
                     }
 
                     // 打断对话
-                    Button {
+                    XButton {
                         id: abortBtn
                         Layout.preferredWidth: 80
                         Layout.fillWidth: true
                         Layout.maximumWidth: 120
                         Layout.preferredHeight: 38
+                        textSize: Theme.fontSizeSm
                         text: "Interrupt"
-
-                        background: Rectangle {
-                            color: abortBtn.pressed ? Theme.divider : (abortBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
-                            radius: Theme.radiusMd
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-
-                        contentItem: Text {
-                            text: abortBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        variant: "secondary"
 
                         onClicked: if (eventBridge) eventBridge.onAbort()
                     }
@@ -261,80 +225,42 @@ AppWindow {
                             }
                         }
 
-                        Button {
+                        XButton {
                             id: sendBtn
                             Layout.preferredWidth: 60
                             Layout.maximumWidth: 84
                             Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
                             text: "Send"
-
-                            background: Rectangle {
-                                color: sendBtn.pressed ? Theme.primaryPressed : (sendBtn.hovered ? Theme.primaryHover : Theme.primary)
-                                radius: Theme.radiusMd
-                            }
-
-                            contentItem: Text {
-                                text: sendBtn.text
-                                font.pixelSize: Theme.fontSizeSm
-                                color: "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
 
                             onClicked: sendText()
                         }
                     }
 
                     // 模式切换
-                    Button {
+                    XButton {
                         id: modeBtn
                         Layout.preferredWidth: 80
                         Layout.fillWidth: true
                         Layout.maximumWidth: 120
                         Layout.preferredHeight: 38
+                        textSize: Theme.fontSizeSm
                         text: (mainModel && mainModel.modeText) ? mainModel.modeText : "Manual"
-
-                        background: Rectangle {
-                            color: modeBtn.pressed ? Theme.divider : (modeBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
-                            radius: Theme.radiusMd
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-
-                        contentItem: Text {
-                            text: modeBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        variant: "secondary"
 
                         onClicked: if (eventBridge) eventBridge.onAutoToggle()
                     }
 
                     // 参数设置
-                    Button {
+                    XButton {
                         id: settingsBtn
                         Layout.preferredWidth: 80
                         Layout.fillWidth: true
                         Layout.maximumWidth: 120
                         Layout.preferredHeight: 38
+                        textSize: Theme.fontSizeSm
                         text: "Settings"
-
-                        background: Rectangle {
-                            color: settingsBtn.pressed ? Theme.divider : (settingsBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
-                            radius: Theme.radiusMd
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-
-                        contentItem: Text {
-                            text: settingsBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        variant: "secondary"
 
                         onClicked: if (eventBridge) eventBridge.onOpenSettings()
                     }

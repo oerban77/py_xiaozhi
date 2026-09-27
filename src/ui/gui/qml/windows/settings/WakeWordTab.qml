@@ -142,23 +142,11 @@ ScrollView {
 
                 Item { Layout.fillWidth: true }
 
-                Button {
+                XButton {
                     text: "Save"
                     implicitHeight: 36
                     implicitWidth: 120
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.enabled ? (parent.pressed ? Theme.primaryPressed : (parent.hovered ? Theme.primaryHover : Theme.primary)) : Theme.textPlaceholder
-                    }
+                    textSize: Theme.fontSizeSm
 
                     enabled: settingsModel && settingsModel.wakeWord && settingsModel.wakeWord.length > 0
                     onClicked: if (settingsModel) settingsModel.saveWakeWord()

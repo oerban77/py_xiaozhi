@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
 import "../components"
+import "../controls"
 import "settings"
 
 AppWindow {
@@ -205,26 +206,13 @@ AppWindow {
                     }
 
                     // 重置按钮
-                    Button {
+                    XButton {
                         id: resetBtn
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 34
+                        textSize: Theme.fontSizeSm
                         text: "Reset"
-
-                        background: Rectangle {
-                            color: resetBtn.pressed ? Theme.errorLight : (resetBtn.hovered ? Theme.errorLight : "transparent")
-                            border.color: Theme.error
-                            border.width: 1
-                            radius: Theme.radiusSm
-                        }
-
-                        contentItem: Text {
-                            text: resetBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.error
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        variant: "danger"
 
                         onClicked: {
                             settingsModel.reload()
@@ -232,49 +220,24 @@ AppWindow {
                     }
 
                     // 取消按钮
-                    Button {
+                    XButton {
                         id: cancelBtn
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 34
+                        textSize: Theme.fontSizeSm
                         text: "Cancel"
-
-                        background: Rectangle {
-                            color: cancelBtn.pressed ? Theme.divider : (cancelBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
-                            radius: Theme.radiusSm
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-
-                        contentItem: Text {
-                            text: cancelBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textSecondary
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        variant: "secondary"
 
                         onClicked: root.close()
                     }
 
                     // 保存按钮
-                    Button {
+                    XButton {
                         id: saveBtn
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 34
+                        textSize: Theme.fontSizeSm
                         text: "Save"
-
-                        background: Rectangle {
-                            color: saveBtn.pressed ? Theme.primaryPressed : (saveBtn.hovered ? Theme.primaryHover : Theme.primary)
-                            radius: Theme.radiusSm
-                        }
-
-                        contentItem: Text {
-                            text: saveBtn.text
-                            font.pixelSize: Theme.fontSizeSm
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
 
                         onClicked: {
                             // 先抢焦点，让当前 TextField 触发 editingFinished 写回模型

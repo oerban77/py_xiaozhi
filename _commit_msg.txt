@@ -1,0 +1,12 @@
+fix(ui): unify button colors via XButton with hover/pressed feedback
+
+- Theme: add backgroundPressed token (deeper than hover) so clicks are visible
+- XButton: add "danger" variant and textSize override; route all states
+  (normal/hover/pressed/disabled) through Theme tokens with a smooth
+  ColorAnimation
+- XIconButton: pressedColor now uses primaryPressed/backgroundPressed instead
+  of the hover color (previously hover and pressed were identical)
+- Migrate 33 hand-rolled Buttons across 10 files to XButton, fixing several
+  inverted hover/pressed mappings (AudioDeviceTab, CameraTab, SystemOptionsTab,
+  McpToolsTab) where hover was lighter than normal or pressed was lighter
+  than normal

@@ -46,6 +46,7 @@ QtObject {
     readonly property color background: "#FFFFFF"
     readonly property color backgroundSecondary: "#F7F8FA"
     readonly property color backgroundHover: "#F2F3F5"
+    readonly property color backgroundPressed: "#E5E6EB"    // 按下（比 hover 更深，保证点击有反馈）
 
     // 文字色
     readonly property color textPrimary: "#1D2129"

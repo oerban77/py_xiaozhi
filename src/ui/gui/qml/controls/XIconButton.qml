@@ -8,7 +8,7 @@ Rectangle {
     property string icon: ""
     property bool flat: false
     property color hoverColor: flat ? Theme.backgroundHover : Theme.primaryHover
-    property color pressedColor: flat ? Theme.backgroundHover : Theme.primaryPressed
+    property color pressedColor: flat ? Theme.backgroundPressed : Theme.primaryPressed
     property color normalColor: flat ? "transparent" : Theme.primary
     property color iconColor: flat ? Theme.textSecondary : "white"
     property color iconHoverColor: iconColor

@@ -63,26 +63,13 @@ ScrollView {
         return on + "/" + total
     }
 
-    component GroupActionButton: Button {
+    component GroupActionButton: XButton {
         id: btn
-        font.pixelSize: Theme.fontSizeXs
+        textSize: Theme.fontSizeXs
         Layout.preferredHeight: 28
         Layout.preferredWidth: 52
         padding: 0
-        background: Rectangle {
-            radius: Theme.radiusSm
-            color: btn.pressed ? Theme.backgroundHover
-                 : (btn.hovered ? Theme.backgroundSecondary : Theme.background)
-            border.width: 1
-            border.color: Theme.divider
-        }
-        contentItem: Text {
-            text: btn.text
-            font.pixelSize: Theme.fontSizeXs
-            color: Theme.textSecondary
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
+        variant: "secondary"
     }
 
     Component.onCompleted: reloadCatalog()

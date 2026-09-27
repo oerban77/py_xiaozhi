@@ -492,48 +492,24 @@ ScrollView {
                         border.color: pathCacheField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
-                Button {
+                XButton {
                     text: "Browse"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         var p = settingsModel.browseDirectory("cache")
                         if (p) pathCacheField.text = p
                     }
                 }
-                Button {
+                XButton {
                     text: "Default"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         settingsModel.clearPathDir("cache")
@@ -567,48 +543,24 @@ ScrollView {
                         border.color: pathLogField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
-                Button {
+                XButton {
                     text: "Browse"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         var p = settingsModel.browseDirectory("log")
                         if (p) pathLogField.text = p
                     }
                 }
-                Button {
+                XButton {
                     text: "Default"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         settingsModel.clearPathDir("log")
@@ -642,48 +594,24 @@ ScrollView {
                         border.color: pathMusicField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
-                Button {
+                XButton {
                     text: "Browse"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         var p = settingsModel.browseDirectory("music")
                         if (p) pathMusicField.text = p
                     }
                 }
-                Button {
+                XButton {
                     text: "Default"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         settingsModel.clearPathDir("music")
@@ -717,48 +645,24 @@ ScrollView {
                         border.color: pathKeywordsField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
-                Button {
+                XButton {
                     text: "Browse"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         var p = settingsModel.browseDirectory("keywords")
                         if (p) pathKeywordsField.text = p
                     }
                 }
-                Button {
+                XButton {
                     text: "Default"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         settingsModel.clearPathDir("keywords")
@@ -792,48 +696,24 @@ ScrollView {
                         border.color: pathMcpField.activeFocus ? Theme.primary : "transparent"
                     }
                 }
-                Button {
+                XButton {
                     text: "Browse"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         var p = settingsModel.browseDirectory("mcp")
                         if (p) pathMcpField.text = p
                     }
                 }
-                Button {
+                XButton {
                     text: "Default"
-                    font.pixelSize: Theme.fontSizeSm
+                    textSize: Theme.fontSizeSm
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 32
-                    background: Rectangle {
-                        radius: Theme.radiusSm
-                        color: parent.pressed ? Theme.backgroundHover : Theme.backgroundSecondary
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    variant: "secondary"
                     onClicked: {
                         if (!settingsModel) return
                         settingsModel.clearPathDir("mcp")

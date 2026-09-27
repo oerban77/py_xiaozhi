@@ -88,24 +88,12 @@ ScrollView {
                     font.pixelSize: Theme.fontSizeSm
                 }
 
-                Button {
+                XButton {
                     text: root.cameraTesting ? "Testing" : "Test"
                     enabled: !root.cameraTesting
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
-
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.pressed ? Theme.primaryPressed : (parent.hovered ? Theme.primaryHover : Theme.primary)) : Theme.textPlaceholder
-                        radius: Theme.radiusSm
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    textSize: Theme.fontSizeSm
 
                     onClicked: {
                         root.cameraTesting = true
@@ -114,23 +102,12 @@ ScrollView {
                     }
                 }
 
-                Button {
+                XButton {
                     text: "Refresh"
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
-
-                    background: Rectangle {
-                        color: parent.pressed ? Theme.divider : (parent.hovered ? Theme.backgroundSecondary : Theme.backgroundHover)
-                        radius: Theme.radiusSm
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textSecondary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    textSize: Theme.fontSizeSm
+                    variant: "secondary"
 
                     onClicked: if (settingsModel) settingsModel.refreshCameras()
                 }

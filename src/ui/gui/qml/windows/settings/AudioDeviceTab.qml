@@ -78,22 +78,11 @@ ScrollView {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            XButton {
                 text: "Refresh"
                 Layout.preferredHeight: 32
-
-                background: Rectangle {
-                    color: parent.pressed ? Theme.divider : (parent.hovered ? Theme.backgroundSecondary : Theme.backgroundHover)
-                    radius: Theme.radiusSm
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    font.pixelSize: Theme.fontSizeSm
-                    color: Theme.textSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                textSize: Theme.fontSizeSm
+                variant: "secondary"
 
                 onClicked: if (settingsModel) settingsModel.refreshDevices()
             }
@@ -125,24 +114,12 @@ ScrollView {
                     font.pixelSize: Theme.fontSizeSm
                 }
 
-                Button {
+                XButton {
                     text: root.inputTesting ? "Testing" : "Test"
                     enabled: !root.inputTesting
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 32
-
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.pressed ? Theme.primaryPressed : (parent.hovered ? Theme.primaryHover : Theme.primary)) : Theme.textPlaceholder
-                        radius: Theme.radiusSm
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    textSize: Theme.fontSizeSm
 
                     onClicked: {
                         root.inputTesting = true
@@ -202,24 +179,12 @@ ScrollView {
                     font.pixelSize: Theme.fontSizeSm
                 }
 
-                Button {
+                XButton {
                     text: root.outputTesting ? "Testing" : "Test"
                     enabled: !root.outputTesting
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 32
-
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.pressed ? Theme.primaryPressed : (parent.hovered ? Theme.primaryHover : Theme.primary)) : Theme.textPlaceholder
-                        radius: Theme.radiusSm
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    textSize: Theme.fontSizeSm
 
                     onClicked: {
                         root.outputTesting = true
@@ -399,22 +364,11 @@ ScrollView {
 
                 Item { Layout.fillWidth: true }
 
-                Button {
+                XButton {
                     text: "Clear Log"
                     Layout.preferredHeight: 28
-
-                    background: Rectangle {
-                        color: parent.pressed ? Theme.divider : (parent.hovered ? Theme.backgroundSecondary : Theme.backgroundHover)
-                        radius: Theme.radiusSm
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: Theme.fontSizeXs
-                        color: Theme.textSecondary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    textSize: Theme.fontSizeXs
+                    variant: "secondary"
 
                     onClicked: {
                         root.statusLogs = []
