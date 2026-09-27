@@ -19,6 +19,9 @@ from src.audio_codecs.audio_codec import (  # noqa: E402
     _MUSIC_DUCK_GAIN,
     AudioCodec,
 )
+from src.audio_codecs import stream_manager as stream_manager_module  # noqa: E402
+from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
+from src.utils.audio_device import DeviceConfig  # noqa: E402
 
 
 class TestPcmFifo:
@@ -124,3 +127,49 @@ class TestMixing:
         codec._tts_fifo.clear()
         # TTS 清空不影响音乐
         assert codec._music_fifo.size == n
+
+
+def test_output_stream_uses_host_selected_blocksize(monkeypatch):
+    calls = {"input": [], "output": []}
+
+    class FakeStream:
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def close(self):
+            pass
+
+    def fake_stream(kind):
+        def create(**kwargs):
+            calls[kind].append(kwargs)
+            return FakeStream()
+
+        return create
+
+    monkeypatch.setattr(stream_manager_module.sd, "InputStream", fake_stream("input"))
+    monkeypatch.setattr(stream_manager_module.sd, "OutputStream", fake_stream("output"))
+
+    device_config = DeviceConfig(
+        input_device_id=1,
+        output_device_id=2,
+        input_sample_rate=16000,
+        output_sample_rate=48000,
+        input_channels=1,
+        output_channels=2,
+        input_frame_size=320,
+        output_frame_size=960,
+    )
+    manager = AudioStreamManager(device_config)
+
+    def callback(*args):
+        pass
+
+    manager.create_streams(callback, callback)
+    assert calls["input"][0]["blocksize"] == device_config.input_frame_size
+    assert calls["output"][0]["blocksize"] == 0
+
+    assert manager.reinitialize_stream(False, output_callback=callback)
+    assert calls["output"][1]["blocksize"] == 0

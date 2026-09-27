@@ -1069,6 +1069,94 @@ async def test_send_text_from_idle_starts_listen_then_detect():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("suffix", "expected_kind"),
+    [(".txt", "document"), (".png", "image")],
+)
+async def test_send_attachment_extracts_and_sends_content(
+    monkeypatch, tmp_path, suffix, expected_kind
+):
+    from src.mcp.tools.documents import service as document_service
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    file_path = tmp_path / f"attachment{suffix}"
+    file_path.write_bytes(b"test")
+    calls = []
+    sent = []
+    statuses = []
+
+    async def fake_document_manage(args):
+        calls.append(("document", args))
+        return "Quarterly revenue was 42."
+
+    async def fake_image_read(args):
+        calls.append(("image", args))
+        return f"Image: {file_path}\nDimensions: 10x10 PNG\nDescription: a chart"
+
+    monkeypatch.setattr(document_service, "document_manage", fake_document_manage)
+    monkeypatch.setattr(document_service, "image_read", fake_image_read)
+
+    class _Cmd:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+
+    class _Ctx:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    async def record_status(status):
+        statuses.append(status)
+
+    bus = EventBus()
+    bus.on(Events.UI_ATTACHMENT_STATUS, record_status)
+    session = SessionActions(_Ctx(), _Cmd(), None)
+    session.subscribe(bus)
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(path=str(file_path), question="What is shown?")
+    )
+
+    assert calls[0][0] == expected_kind
+    assert calls[0][1]["path"] == str(file_path)
+    assert "What is shown?" in sent[0]
+    assert "attachment" in sent[0]
+    assert str(file_path) not in sent[0]
+    assert statuses == ["Attachment sent for analysis"]
+    if expected_kind == "document":
+        assert "Quarterly revenue was 42." in sent[0]
+    else:
+        assert "a chart" in sent[0]
+
+
+def test_event_bridge_converts_attachment_url_to_local_path(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    from PySide6.QtCore import QUrl
+
+    from src.ui.shared.bridge.event_bridge import EventBridge
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    file_path = tmp_path / "sample image.png"
+    bridge = EventBridge(EventBus())
+    emitted = []
+
+    def capture_event(event, data):
+        emitted.append((event, data))
+
+    monkeypatch.setattr(bridge, "_emit_event", capture_event)
+    bridge.onSendAttachment(QUrl.fromLocalFile(str(file_path)).toString(), "Describe it")
+
+    assert emitted[0][0] == Events.UI_SEND_ATTACHMENT
+    assert isinstance(emitted[0][1], UISendAttachmentRequest)
+    assert Path(emitted[0][1].path) == file_path
+    assert emitted[0][1].question == "Describe it"
+
+
+@pytest.mark.asyncio
 async def test_abort_speaking_resumes_keep_listening():
     """持续监听时打断后回到 listening."""
     from src.bootstrap.session import ConversationSession

@@ -23,6 +23,7 @@ class EventBridge(QObject):
     showWindow = Signal()
     hideWindow = Signal()
     showSettingsWindow = Signal()  # Show the settings window
+    attachmentStatusChanged = Signal(str)
 
     # ========== Construction ==========
 
@@ -30,6 +31,7 @@ class EventBridge(QObject):
         super().__init__(parent)
         self._event_bus = event_bus
         self._task_manager = task_manager
+        self._event_bus.on(Events.UI_ATTACHMENT_STATUS, self._on_attachment_status)
 
     def _emit_event(self, event: str, data=None):
         """Safely emit an EventBus event, scheduling it onto the asyncio loop from the Qt main thread."""
@@ -95,6 +97,24 @@ class EventBridge(QObject):
             logger.debug(f"EventBridge: Sending text: {text[:20]}...")
             from src.ui.shared.events import UISendTextRequest
             self._emit_event(Events.UI_SEND_TEXT, UISendTextRequest(text=text))
+
+    @Slot(str, str)
+    def onSendAttachment(self, path: str, question: str):
+        """Analyze a user-selected local file, then send its extracted content."""
+        from PySide6.QtCore import QUrl
+
+        file_url = QUrl(path)
+        local_path = file_url.toLocalFile() if file_url.isLocalFile() else path
+        if local_path.strip():
+            from src.ui.shared.events import UISendAttachmentRequest
+
+            self._emit_event(
+                Events.UI_SEND_ATTACHMENT,
+                UISendAttachmentRequest(path=local_path, question=question),
+            )
+
+    async def _on_attachment_status(self, status):
+        self.attachmentStatusChanged.emit(str(status or ""))
 
     @Slot()
     def onQuitRequest(self):

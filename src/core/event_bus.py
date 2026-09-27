@@ -62,6 +62,8 @@ class Events:
     UI_AUTO_START = "ui_auto_start"  # Auto: start/stop conversation
     UI_ABORT_REQUEST = "ui_abort_request"  # interrupt
     UI_SEND_TEXT = "ui_send_text"  # Send text
+    UI_SEND_ATTACHMENT = "ui_send_attachment"  # Analyze and send an attachment
+    UI_ATTACHMENT_STATUS = "ui_attachment_status"  # Attachment processing result
     UI_QUIT_REQUEST = "ui_quit_request"  # Quit
     UI_OPEN_SETTINGS = "ui_open_settings"  # Open settings
     UI_TOGGLE_WINDOW = "ui_toggle_window"  # show/hide main window (GUI)

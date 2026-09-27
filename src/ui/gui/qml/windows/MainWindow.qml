@@ -1,6 +1,7 @@
 // 主窗口 - 匹配原布局
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import "../theme"
 import "../components"
@@ -16,6 +17,43 @@ AppWindow {
     title: ""
     // 由 QmlAppHost.show_root 控制显示；避免 QML 加载瞬间抢焦点
     visible: false
+    property string attachmentPath: ""
+    property string attachmentName: ""
+    property string attachmentStatus: ""
+
+    FileDialog {
+        id: attachmentDialog
+        title: "Attach a document or image"
+        fileMode: FileDialog.OpenFile
+        nameFilters: [
+            "Documents and images (*.txt *.md *.json *.csv *.log *.ini *.yaml *.yml *.xml *.html *.htm *.docx *.xlsx *.pdf *.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.ico)",
+            "All files (*)"
+        ]
+
+        onAccepted: {
+            const fileUrl = String(selectedFile)
+            root.attachmentPath = fileUrl
+            root.attachmentName = decodeURIComponent(
+                fileUrl.substring(fileUrl.lastIndexOf("/") + 1)
+            )
+            root.attachmentStatus = ""
+        }
+    }
+
+    Connections {
+        target: eventBridge
+
+        function onAttachmentStatusChanged(status) {
+            root.attachmentStatus = status
+            attachmentStatusTimer.restart()
+        }
+    }
+
+    Timer {
+        id: attachmentStatusTimer
+        interval: 4000
+        onTriggered: root.attachmentStatus = ""
+    }
 
     // 直接使用 ColumnLayout，不需要额外的 Rectangle 层
     // AppWindow 已经提供了带圆角的容器
@@ -134,102 +172,187 @@ AppWindow {
             // 按钮区域
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 72
+                Layout.preferredHeight: 112
+                    + (root.attachmentName.length > 0 ? 20 : 0)
+                    + (root.attachmentStatus.length > 0 ? 18 : 0)
                 color: Theme.backgroundSecondary
+                visible: !root.isMaximized
 
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
                     anchors.leftMargin: Theme.spacingMd
                     anchors.rightMargin: Theme.spacingMd
-                    anchors.bottomMargin: 10
-                    spacing: Theme.spacingSm
+                    anchors.topMargin: Theme.spacingSm
+                    anchors.bottomMargin: Theme.spacingSm
+                    spacing: Theme.spacingXs
 
-                    // 手动模式按钮（点击切换录音）
-                    XButton {
-                        id: manualBtn
-                        Layout.preferredWidth: 100
+                    RowLayout {
                         Layout.fillWidth: true
-                        Layout.maximumWidth: 140
                         Layout.preferredHeight: 38
-                        textSize: Theme.fontSizeSm
-                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Hold to Talk"
-                        visible: !(mainModel && mainModel.autoMode)
+                        spacing: Theme.spacingSm
 
-                        onClicked: if (eventBridge) eventBridge.onManualToggle()
-                    }
+                        // 手动模式按钮（点击切换录音）
+                        XButton {
+                            id: manualBtn
+                            Layout.preferredWidth: 100
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 140
+                            Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
+                            text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Hold to Talk"
+                            visible: !(mainModel && mainModel.autoMode)
 
-                    // 自动模式按钮
-                    XButton {
-                        id: autoBtn
-                        Layout.preferredWidth: 100
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: 140
-                        Layout.preferredHeight: 38
-                        textSize: Theme.fontSizeSm
-                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Start Chat"
-                        visible: mainModel && mainModel.autoMode
+                            onClicked: if (eventBridge) eventBridge.onManualToggle()
+                        }
 
-                        onClicked: if (eventBridge) eventBridge.onAutoStart()
-                    }
+                        // 自动模式按钮
+                        XButton {
+                            id: autoBtn
+                            Layout.preferredWidth: 100
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 140
+                            Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
+                            text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Start Chat"
+                            visible: mainModel && mainModel.autoMode
 
-                    // 打断对话
-                    XButton {
-                        id: abortBtn
-                        Layout.preferredWidth: 80
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: 120
-                        Layout.preferredHeight: 38
-                        textSize: Theme.fontSizeSm
-                        text: "Interrupt"
-                        variant: "secondary"
+                            onClicked: if (eventBridge) eventBridge.onAutoStart()
+                        }
 
-                        onClicked: if (eventBridge) eventBridge.onAbort()
+                        // 打断对话
+                        XButton {
+                            id: abortBtn
+                            Layout.preferredWidth: 80
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 120
+                            Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
+                            text: "Interrupt"
+                            variant: "secondary"
+
+                            onClicked: if (eventBridge) eventBridge.onAbort()
+                        }
+
+                        // 模式切换
+                        XButton {
+                            id: modeBtn
+                            Layout.preferredWidth: 80
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 120
+                            Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
+                            text: (mainModel && mainModel.modeText) ? mainModel.modeText : "Manual"
+                            variant: "secondary"
+
+                            onClicked: if (eventBridge) eventBridge.onAutoToggle()
+                        }
+
+                        // 参数设置
+                        XButton {
+                            id: settingsBtn
+                            Layout.preferredWidth: 80
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 120
+                            Layout.preferredHeight: 38
+                            textSize: Theme.fontSizeSm
+                            text: "Settings"
+                            variant: "secondary"
+
+                            onClicked: if (eventBridge) eventBridge.onOpenSettings()
+                        }
                     }
 
                     // 输入 + 发送
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 120
-                        Layout.preferredHeight: 38
+                        Layout.preferredHeight: root.attachmentName.length > 0 ? 60 : 38
                         spacing: Theme.spacingSm
 
                         Rectangle {
+                            id: chatInput
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 38
+                            Layout.preferredHeight: root.attachmentName.length > 0 ? 60 : 38
                             color: Theme.background
                             radius: Theme.radiusMd
                             border.color: textInput.activeFocus ? Theme.primary : Theme.border
                             border.width: 1
 
-                            TextInput {
-                                id: textInput
+                            ColumnLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                verticalAlignment: TextInput.AlignVCenter
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                selectByMouse: true
-                                clip: true
+                                anchors.margins: Theme.spacingXs
+                                spacing: 0
 
-                                Text {
-                                    anchors.fill: parent
-                                    text: "Type text..."
-                                    font: textInput.font
-                                    color: Theme.textPlaceholder
-                                    verticalAlignment: Text.AlignVCenter
-                                    visible: !textInput.text && !textInput.activeFocus
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 20
+                                    spacing: Theme.spacingXs
+                                    visible: root.attachmentName.length > 0
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.attachmentName
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.textSecondary
+                                        elide: Text.ElideMiddle
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    ToolButton {
+                                        text: "×"
+                                        flat: true
+                                        Layout.preferredWidth: 24
+                                        Layout.preferredHeight: 20
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Remove attachment"
+                                        onClicked: clearAttachment()
+                                    }
                                 }
 
-                                Keys.onReturnPressed: sendText()
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    spacing: 0
+
+                                    ToolButton {
+                                        text: "📎"
+                                        flat: true
+                                        Layout.preferredWidth: 32
+                                        Layout.preferredHeight: 32
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: "Attach a document or image"
+                                        onClicked: attachmentDialog.open()
+                                    }
+
+                                    TextInput {
+                                        id: textInput
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        font.pixelSize: Theme.fontSizeSm
+                                        color: Theme.textPrimary
+                                        selectByMouse: true
+                                        clip: true
+
+                                        Text {
+                                            anchors.fill: parent
+                                            text: "Type a message..."
+                                            font: textInput.font
+                                            color: Theme.textPlaceholder
+                                            verticalAlignment: Text.AlignVCenter
+                                            visible: !textInput.text && !textInput.activeFocus
+                                        }
+
+                                        Keys.onReturnPressed: sendText()
+                                    }
+                                }
                             }
                         }
 
                         XButton {
                             id: sendBtn
-                            Layout.preferredWidth: 60
-                            Layout.maximumWidth: 84
+                            Layout.preferredWidth: 80
                             Layout.preferredHeight: 38
+                            Layout.alignment: Qt.AlignVCenter
                             textSize: Theme.fontSizeSm
                             text: "Send"
 
@@ -237,42 +360,39 @@ AppWindow {
                         }
                     }
 
-                    // 模式切换
-                    XButton {
-                        id: modeBtn
-                        Layout.preferredWidth: 80
+                    Text {
                         Layout.fillWidth: true
-                        Layout.maximumWidth: 120
-                        Layout.preferredHeight: 38
-                        textSize: Theme.fontSizeSm
-                        text: (mainModel && mainModel.modeText) ? mainModel.modeText : "Manual"
-                        variant: "secondary"
-
-                        onClicked: if (eventBridge) eventBridge.onAutoToggle()
+                        Layout.preferredHeight: 18
+                        visible: root.attachmentStatus.length > 0
+                        text: root.attachmentStatus
+                        font.pixelSize: Theme.fontSizeXs
+                        color: root.attachmentStatus.indexOf("Could not") === 0
+                            || root.attachmentStatus.indexOf("Unsupported") === 0
+                            || root.attachmentStatus.indexOf("No readable") === 0
+                            ? Theme.error : Theme.textSecondary
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
                     }
-
-                    // 参数设置
-                    XButton {
-                        id: settingsBtn
-                        Layout.preferredWidth: 80
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: 120
-                        Layout.preferredHeight: 38
-                        textSize: Theme.fontSizeSm
-                        text: "Settings"
-                        variant: "secondary"
-
-                        onClicked: if (eventBridge) eventBridge.onOpenSettings()
                     }
             }
         }
-    }
 
     function sendText() {
         let text = textInput.text.trim()
-        if (text.length > 0 && eventBridge) {
+        if (attachmentPath.length > 0 && eventBridge) {
+            attachmentStatus = "Analyzing attachment..."
+            attachmentStatusTimer.stop()
+            eventBridge.onSendAttachment(attachmentPath, text)
+            clearAttachment()
+            textInput.text = ""
+        } else if (text.length > 0 && eventBridge) {
             eventBridge.onSendText(text)
             textInput.text = ""
         }
+    }
+
+    function clearAttachment() {
+        attachmentPath = ""
+        attachmentName = ""
     }
 }

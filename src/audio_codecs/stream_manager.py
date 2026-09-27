@@ -66,7 +66,7 @@ class AudioStreamManager:
                     samplerate=self.device_config.output_sample_rate,
                     channels=self.device_config.output_channels,
                     dtype=np.float32,  # Unified float32
-                    blocksize=self.device_config.output_frame_size,
+                    blocksize=0,
                     callback=output_callback,
                     latency="low",
                 )
@@ -172,7 +172,7 @@ class AudioStreamManager:
                         samplerate=self.device_config.output_sample_rate,
                         channels=self.device_config.output_channels,
                         dtype=np.float32,
-                        blocksize=self.device_config.output_frame_size,
+                        blocksize=0,
                         callback=output_callback,
                         latency="low",
                     )
