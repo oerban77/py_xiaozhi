@@ -130,6 +130,7 @@ class McpServer:
             register_music_tools(self.add_tool, music_player)
 
         from src.mcp.tools.app import register_app_tools
+        from src.mcp.tools.prayer import register_prayer_tools
         from src.mcp.tools.volume import register_volume_tools
         from src.mcp.tools.weather import register_weather_tools
         from src.mcp.tools.websearch import register_websearch_tools
@@ -138,6 +139,7 @@ class McpServer:
         register_app_tools(self.add_tool)
         register_weather_tools(self.add_tool)
         register_websearch_tools(self.add_tool)
+        register_prayer_tools(self.add_tool)
 
         # External: user-directory plugin package (includes lib/), failure isolated
         try:
