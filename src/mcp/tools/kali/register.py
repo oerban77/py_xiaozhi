@@ -47,7 +47,7 @@ def register_kali_tools(add_tool: Callable[[McpTool], None]) -> None:
     for name, desc, callback in (
         (
             "nmap_basic_scan",
-            "Basic port scan of a host or IP (nmap <target>).",
+            "Fast local network scan of the 100 most common ports, without reverse DNS.",
             nmap_basic_scan,
         ),
         (

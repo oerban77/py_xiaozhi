@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import os
 import platform
+import shutil
 import subprocess
+from pathlib import Path
 from typing import Any, Callable
 
 from src.logging import get_logger
@@ -36,6 +39,7 @@ _MAX_OUTPUT = 16_000
 
 # The reference gives the network tools a longer budget (300s).
 _NET_TIMEOUT = 300
+_NMAP_BASIC_TIMEOUT = 90
 
 # strings -t accepts d (decimal), o (octal), x (hexadecimal).
 _STRING_FORMATS = ("d", "o", "x")
@@ -77,6 +81,30 @@ def _is_enabled() -> bool:
     return True
 
 
+def _resolve_executable(command: str) -> str:
+    """Resolve commands from PATH and common Windows installer locations."""
+    resolved = shutil.which(command)
+    if resolved or command.lower() != "nmap" or platform.system().lower() != "windows":
+        return resolved or command
+
+    for root in (
+        os.environ.get("ProgramFiles(x86)"),
+        os.environ.get("ProgramFiles"),
+        os.environ.get("ProgramW6432"),
+    ):
+        if root:
+            candidate = Path(root) / "Nmap" / "nmap.exe"
+            if candidate.is_file():
+                return str(candidate)
+    return command
+
+
+def _captured_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace").rstrip()
+    return (value or "").rstrip()
+
+
 def _tool(fn: Callable[[dict[str, Any]], str]) -> Callable[[dict[str, Any]], Any]:
     """Wrap a blocking handler so the framework can await it."""
 
@@ -95,10 +123,11 @@ def _run(argv: list[str], timeout: int | None = None) -> str:
     if timeout is None:
         timeout = _config_timeout()
 
-    logger.info(f"kali run: {' '.join(argv)}")
+    command = [_resolve_executable(argv[0]), *argv[1:]]
+    logger.info(f"kali run: {' '.join(command)}")
     try:
         proc = subprocess.run(
-            argv,
+            command,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -111,11 +140,18 @@ def _run(argv: list[str], timeout: int | None = None) -> str:
             "with your package manager (apt install nmap/tshark/binutils "
             "traceroute, or the Windows equivalent) and try again."
         )
-    except subprocess.TimeoutExpired:
-        return (
-            f"Command timed out after {timeout}s. Narrow the scan or raise "
-            "the KALI.TIMEOUT setting."
+    except subprocess.TimeoutExpired as exc:
+        partial = "\n".join(
+            part
+            for part in (_captured_text(exc.stdout), _captured_text(exc.stderr))
+            if part
         )
+        message = f"Command timed out after {timeout}s."
+        if partial:
+            message += f" Partial output:\n{partial}"
+        else:
+            message += " Narrow the scan or raise the KALI.TIMEOUT setting."
+        return message
     except PermissionError:
         return (
             f"Permission denied running '{argv[0]}'. This option usually "
@@ -158,11 +194,26 @@ def _int_arg(args: dict[str, Any], name: str, default: int) -> int:
 
 @_tool
 def nmap_basic_scan(args: dict[str, Any]) -> str:
-    """Basic port scan: nmap <target>"""
+    """Fast basic port scan suitable for local networks."""
     target = _target(args)
     if not target:
         return "Field 'target' is required"
-    return _run(["nmap", target], _NET_TIMEOUT)
+    return _run(
+        [
+            "nmap",
+            "-n",
+            "-T4",
+            "-F",
+            "--max-retries",
+            "1",
+            "--host-timeout",
+            "30s",
+            "--stats-every",
+            "10s",
+            target,
+        ],
+        _NMAP_BASIC_TIMEOUT,
+    )
 
 
 @_tool
