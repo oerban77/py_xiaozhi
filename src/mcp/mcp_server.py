@@ -130,6 +130,7 @@ class McpServer:
             register_music_tools(self.add_tool, music_player)
 
         from src.mcp.tools.app import register_app_tools
+        from src.mcp.tools.blender import register_blender_tools
         from src.mcp.tools.coding import register_coding_tools
         from src.mcp.tools.documents import register_documents_tools
         from src.mcp.tools.hardware import register_hardware_tools
@@ -143,6 +144,7 @@ class McpServer:
 
         register_volume_tools(self.add_tool, volume_controller)
         register_app_tools(self.add_tool)
+        register_blender_tools(self.add_tool)
         register_coding_tools(self.add_tool)
         register_documents_tools(self.add_tool)
         register_hardware_tools(self.add_tool)
