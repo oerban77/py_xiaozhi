@@ -15,3 +15,11 @@ class VolumeBackend(Protocol):
     def set_volume(self, volume: int) -> None:
         """Set the volume 0-100 (the caller already clamps it)."""
         ...
+
+    def get_muted(self) -> bool:
+        """Whether the output is currently muted (software mute of the default sink)."""
+        ...
+
+    def set_muted(self, muted: bool) -> None:
+        """Mute or unmute the default output sink."""
+        ...

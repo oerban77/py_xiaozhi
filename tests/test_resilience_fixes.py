@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.core.event_bus import EventBus, Events
-from src.core.protocol_manager import ProtocolTransport, _INCOMING_AUDIO_QUEUE_SIZE
+from src.core.protocol_manager import _INCOMING_AUDIO_QUEUE_SIZE, ProtocolTransport
 from src.core.task_manager import TaskManager
 from src.plugins.base import Plugin
 from src.plugins.manager import PluginManager
@@ -270,9 +270,9 @@ def test_music_tools_register_with_injected_player():
 
 def test_volume_tools_register_without_module_singleton():
     """音量工具闭包持有注入的 controller，无模块级 _volume_controller."""
+    import src.mcp.tools.volume.register as vol_tools
     from src.mcp.mcp_server import McpServer
     from src.mcp.tools.volume import register_volume_tools
-    import src.mcp.tools.volume.register as vol_tools
 
     server = McpServer()
     # 注入假 controller，避免依赖系统音量 API
@@ -471,6 +471,7 @@ def test_music_cache_paths(tmp_path):
 
 def test_gui_activation_no_ensure_future_or_get_event_loop():
     import inspect
+
     from src.ui.gui import activation as act_mod
 
     src = inspect.getsource(act_mod.GuiActivation)
@@ -647,6 +648,7 @@ def test_efuse_create_is_flat(tmp_path, monkeypatch):
 def test_efuse_strips_legacy_device_fingerprint(tmp_path):
     """旧嵌套 device_fingerprint 在 ensure 时剥离并回写."""
     import json
+
     from src.activation.identity import DeviceIdentity
 
     path = tmp_path / "efuse.json"
@@ -719,6 +721,7 @@ def test_efuse_save_never_writes_extra_keys(tmp_path):
 def test_mcp_tools_disabled_filters_list_and_call_gate():
     """MCP_TOOLS.DISABLED 从 list 排除且 call 拒绝."""
     import asyncio
+
     from src.mcp.mcp_server import McpServer
     from src.mcp.tooling import McpTool, PropertyList
 
@@ -1677,9 +1680,9 @@ def test_settings_run_worker_emits_test_complete_on_exception():
 
 def test_no_config_or_logging_get_instance_api():
     """配置/日志不再暴露 get_instance 懒单例."""
-    from src.utils import config_manager as cm
-    from src.logging import log_config as lc
     import src.logging as logging_pkg
+    from src.logging import log_config as lc
+    from src.utils import config_manager as cm
 
     assert not hasattr(cm.ConfigManager, "get_instance")
     assert not hasattr(cm.ConfigManager, "reset_instance")
@@ -1988,8 +1991,9 @@ def test_settings_model_save_is_atomic(tmp_path, monkeypatch):
     model._mcp_disabled_snapshot = []
     # save 会 emit Qt signals；无 QApp 时可能仍可用
     try:
-        from PySide6.QtWidgets import QApplication
         import sys
+
+        from PySide6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication(sys.argv[:1])
     except Exception:
         app = None
@@ -2050,6 +2054,59 @@ def test_get_lib_path_prefers_opus_dll(tmp_path, monkeypatch):
     assert p.name == "opus.dll"
 
 
+def test_get_tool_path_prefers_bundled_copy(tmp_path, monkeypatch):
+    import src.utils.resource_finder as rf
+
+    root = tmp_path / "libs" / "tools" / "win" / "x64"
+    root.mkdir(parents=True)
+    (root / "nmap.exe").write_bytes(b"1")
+    monkeypatch.setattr(rf, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(rf, "get_platform_info", lambda: ("win", "x64"))
+    monkeypatch.setattr(rf.sys, "platform", "win32")
+    monkeypatch.setattr(rf.shutil, "which", lambda _n: "/usr/bin/nmap")
+
+    assert rf.get_tool_path("nmap") == str(root / "nmap.exe")
+    assert rf.has_tool("nmap") is True
+
+
+def test_get_tool_path_falls_back_to_path(tmp_path, monkeypatch):
+    import src.utils.resource_finder as rf
+
+    monkeypatch.setattr(rf, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(rf, "get_platform_info", lambda: ("linux", "x64"))
+    monkeypatch.setattr(rf.shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    assert rf.get_tool_path("nmap") == "/usr/bin/nmap"
+    assert rf.has_tool("nmap") is True
+
+
+def test_get_tool_path_missing_returns_name(tmp_path, monkeypatch):
+    import src.utils.resource_finder as rf
+
+    monkeypatch.setattr(rf, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(rf, "get_platform_info", lambda: ("linux", "x64"))
+    monkeypatch.setattr(rf.shutil, "which", lambda _n: None)
+
+    # Never None/empty: callers pass it straight to subprocess
+    assert rf.get_tool_path("no-such-tool") == "no-such-tool"
+    assert rf.has_tool("no-such-tool") is False
+
+
+def test_get_ffmpeg_path_falls_back_to_tools_bundle(tmp_path, monkeypatch):
+    import src.utils.resource_finder as rf
+
+    # libs/ffmpeg absent, but a copy lives in the generic tools bundle
+    root = tmp_path / "libs" / "tools" / "linux" / "x64"
+    root.mkdir(parents=True)
+    (root / "ffmpeg").write_bytes(b"1")
+    monkeypatch.setattr(rf, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(rf, "get_platform_info", lambda: ("linux", "x64"))
+    monkeypatch.setattr(rf.sys, "platform", "linux")
+    monkeypatch.setattr(rf.shutil, "which", lambda _n: None)
+
+    assert rf.get_ffmpeg_path() == str(root / "ffmpeg")
+
+
 def test_discover_plugin_catalog_from_sources(tmp_path, monkeypatch):
     from src.mcp import tool_catalog as tc
 
@@ -2077,6 +2134,7 @@ def test_mcp_plugin_subprocess_runtime(tmp_path):
     """python-subprocess：独立进程加载并代理调用."""
     import asyncio
     import json
+
     from src.mcp.mcp_server import McpServer
     from src.mcp.plugins.host import McpHost
     from src.mcp.plugins.loader import PluginLoader

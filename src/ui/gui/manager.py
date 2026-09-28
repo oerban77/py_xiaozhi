@@ -1,5 +1,7 @@
 """GUI ViewManager: composes the QmlAppHost / main interface / settings controller to implement ViewPort."""
 
+import asyncio
+
 from PySide6.QtCore import QObject, Slot
 
 from src.core.event_bus import EventBus, Events
@@ -37,9 +39,11 @@ class GuiViewManager(QObject):
         self._main = MainWindowController()
         self._settings = SettingsController(event_bus, self._tasks, self._bridge)
         self._tray_service: TrayService | None = None
+        self._volume_controller = None
 
         self._event_bus.on(Events.UI_TOGGLE_WINDOW, self._on_toggle_window)
-        logger.debug("GuiViewManager: subscribed to window toggle event")
+        self._event_bus.on(Events.UI_MUTE_TOGGLE, self._on_mute_toggle)
+        logger.debug("GuiViewManager: subscribed to window/mute toggle events")
 
     async def start(self, mode: str = "gui"):
         if mode == "cli":
@@ -63,6 +67,7 @@ class GuiViewManager(QObject):
         self._host.show_root(activate=False)
         self._setup_tray()
         self._main.set_neutral_emotion()
+        await self._refresh_muted()
         logger.info("GuiViewManager: GUI started")
 
     async def close(self):
@@ -92,6 +97,57 @@ class GuiViewManager(QObject):
     async def _on_toggle_window(self, data=None):
         logger.debug("GuiViewManager: window toggle event received")
         self.toggle_window()
+
+    async def _on_mute_toggle(self, data=None):
+        """Toggle the speaker mute and push the new state to the model.
+
+        Runs on the asyncio loop; the blocking volume backend call is offloaded to a worker thread.
+        """
+        controller = self._get_volume_controller()
+        if controller is None:
+            logger.warning("GuiViewManager: volume controller unavailable; mute toggle ignored")
+            return
+
+        def _apply():
+            muted = controller.get_muted()
+            controller.set_muted(not muted)
+            return controller.get_muted()
+
+        try:
+            new_muted = await asyncio.to_thread(_apply)
+        except Exception as e:
+            logger.warning(f"GuiViewManager: mute toggle failed: {e}", exc_info=True)
+            return
+
+        self._main.main_model.set_muted(bool(new_muted))
+        logger.debug(f"GuiViewManager: mute toggled -> {new_muted}")
+
+    async def _refresh_muted(self) -> None:
+        """Read the current mute state and push it to the model (best effort)."""
+        controller = self._get_volume_controller()
+        if controller is None:
+            return
+
+        def _read():
+            return controller.get_muted()
+
+        try:
+            muted = await asyncio.to_thread(_read)
+            self._main.main_model.set_muted(bool(muted))
+        except Exception as e:
+            logger.warning(f"GuiViewManager: failed to read mute state: {e}", exc_info=True)
+
+    def _get_volume_controller(self):
+        """Lazily create the volume controller; returns None when unavailable."""
+        if self._volume_controller is None:
+            try:
+                from src.mcp.tools.volume import create_volume_controller
+
+                self._volume_controller = create_volume_controller()
+            except Exception as e:
+                logger.warning(f"GuiViewManager: volume controller init failed: {e}", exc_info=True)
+                self._volume_controller = None
+        return self._volume_controller
 
     # ----- ViewPort -----
 

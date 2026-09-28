@@ -120,8 +120,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 mkdir -p "$DEST"
-# clear previous inject (keep directory)
-find "$DEST" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+# clear previous inject (keep directory); pure bash so a Windows find.exe
+# shadowing GNU find on PATH cannot break this
+shopt -s nullglob dotglob
+for entry in "$DEST"/*; do
+  rm -rf "$entry"
+done
+shopt -u nullglob dotglob
 
 echo "==> Bundling FFmpeg for ${PLAT}/${ARCH} -> ${DEST}"
 

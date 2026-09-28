@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 
 from src.logging import get_logger
+from src.utils.resource_finder import get_tool_path
 
 logger = get_logger()
 
@@ -30,7 +30,8 @@ class LinuxVolumeBackend:
 
     def _init(self) -> None:
         for tool in ("pactl", "wpctl", "amixer"):
-            if shutil.which(tool):
+            # get_tool_path prefers a bundled portable copy, then falls back to PATH
+            if get_tool_path(tool) != tool:
                 self.linux_tool = tool
                 break
 
@@ -59,9 +60,28 @@ class LinuxVolumeBackend:
         elif tool == "amixer":
             self._set_amixer(volume)
 
+    def get_muted(self) -> bool:
+        tool = self.linux_tool
+        if tool == "pactl":
+            return self._muted_pactl()
+        if tool == "wpctl":
+            return self._muted_wpctl()
+        if tool == "amixer":
+            return self._muted_amixer()
+        return False
+
+    def set_muted(self, muted: bool) -> None:
+        tool = self.linux_tool
+        if tool == "pactl":
+            self._set_muted_pactl(muted)
+        elif tool == "wpctl":
+            self._set_muted_wpctl(muted)
+        elif tool == "amixer":
+            self._set_muted_amixer(muted)
+
     def _get_pactl(self) -> int:
         try:
-            result = _run_command(["pactl", "list", "sinks"])
+            result = _run_command([get_tool_path("pactl"), "list", "sinks"])
             if result and result.returncode == 0:
                 for line in result.stdout.split("\n"):
                     if "Volume:" in line:
@@ -82,7 +102,7 @@ class LinuxVolumeBackend:
     def _set_pactl(self, volume: int) -> None:
         try:
             result = _run_command(
-                ["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{volume}%"]
+                [get_tool_path("pactl"), "set-sink-volume", "@DEFAULT_SINK@", f"{volume}%"]
             )
             if result and result.returncode == 0:
                 logger.debug(f"pactl set volume succeeded: {volume}%")
@@ -95,7 +115,7 @@ class LinuxVolumeBackend:
 
     def _get_wpctl(self) -> int:
         try:
-            result = _run_command(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])
+            result = _run_command([get_tool_path("wpctl"), "get-volume", "@DEFAULT_AUDIO_SINK@"])
             if result and result.returncode == 0:
                 match = re.search(r"(\d+\.?\d*)", result.stdout)
                 if match:
@@ -115,7 +135,7 @@ class LinuxVolumeBackend:
         try:
             result = _run_command(
                 [
-                    "wpctl",
+                    get_tool_path("wpctl"),
                     "set-volume",
                     "@DEFAULT_AUDIO_SINK@",
                     f"{volume / 100.0:.2f}",
@@ -132,7 +152,7 @@ class LinuxVolumeBackend:
 
     def _get_amixer(self) -> int:
         try:
-            result = _run_command(["amixer", "get", "Master"])
+            result = _run_command([get_tool_path("amixer"), "get", "Master"])
             if result and result.returncode == 0:
                 match = re.search(r"\[(\d+)%\]", result.stdout)
                 if match:
@@ -150,7 +170,7 @@ class LinuxVolumeBackend:
 
     def _set_amixer(self, volume: int) -> None:
         try:
-            result = _run_command(["amixer", "sset", "Master", f"{volume}%"])
+            result = _run_command([get_tool_path("amixer"), "sset", "Master", f"{volume}%"])
             if result and result.returncode == 0:
                 logger.debug(f"amixer set volume succeeded: {volume}%")
             else:
@@ -159,3 +179,90 @@ class LinuxVolumeBackend:
                 )
         except Exception as e:
             logger.warning(f"Failed to set volume via amixer: {e}", exc_info=True)
+
+    # ---- mute ----
+
+    def _muted_pactl(self) -> bool:
+        try:
+            result = _run_command([get_tool_path("pactl"), "list", "sinks"])
+            if result and result.returncode == 0:
+                for line in result.stdout.split("\n"):
+                    if "Mute:" in line:
+                        return line.split(":", 1)[1].strip().lower() == "yes"
+            else:
+                logger.warning(
+                    f"pactl command execution failed: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get mute state via pactl: {e}", exc_info=True)
+        return False
+
+    def _set_muted_pactl(self, muted: bool) -> None:
+        try:
+            result = _run_command(
+                [get_tool_path("pactl"), "set-sink-mute", "@DEFAULT_SINK@", "1" if muted else "0"]
+            )
+            if result and result.returncode == 0:
+                logger.debug(f"pactl set mute succeeded: {muted}")
+            else:
+                logger.warning(
+                    f"pactl failed to set mute: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to set mute via pactl: {e}", exc_info=True)
+
+    def _muted_wpctl(self) -> bool:
+        try:
+            result = _run_command([get_tool_path("wpctl"), "get-volume", "@DEFAULT_AUDIO_SINK@"])
+            if result and result.returncode == 0:
+                # Output looks like: "Volume: 0.50 [MUTED]" when muted
+                return "[MUTED]" in result.stdout
+            else:
+                logger.warning(
+                    f"wpctl command execution failed: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get mute state via wpctl: {e}", exc_info=True)
+        return False
+
+    def _set_muted_wpctl(self, muted: bool) -> None:
+        try:
+            verb = "mute" if muted else "unmute"
+            result = _run_command(
+                [get_tool_path("wpctl"), "set-mute", "@DEFAULT_AUDIO_SINK@", verb]
+            )
+            if result and result.returncode == 0:
+                logger.debug(f"wpctl set mute succeeded: {muted}")
+            else:
+                logger.warning(
+                    f"wpctl failed to set mute: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to set mute via wpctl: {e}", exc_info=True)
+
+    def _muted_amixer(self) -> bool:
+        try:
+            result = _run_command([get_tool_path("amixer"), "get", "Master"])
+            if result and result.returncode == 0:
+                return re.search(r"\\[off\\]", result.stdout) is not None
+            else:
+                logger.warning(
+                    f"amixer command execution failed: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get mute state via amixer: {e}", exc_info=True)
+        return False
+
+    def _set_muted_amixer(self, muted: bool) -> None:
+        try:
+            result = _run_command(
+                [get_tool_path("amixer"), "sset", "Master", "mute" if muted else "unmute"]
+            )
+            if result and result.returncode == 0:
+                logger.debug(f"amixer set mute succeeded: {muted}")
+            else:
+                logger.warning(
+                    f"amixer failed to set mute: {result.returncode if result else 'None'}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to set mute via amixer: {e}", exc_info=True)

@@ -12,6 +12,7 @@ Rectangle {
     property color normalColor: flat ? "transparent" : Theme.primary
     property color iconColor: flat ? Theme.textSecondary : "white"
     property color iconHoverColor: iconColor
+    property bool hovered: mouseArea.containsMouse
 
     signal clicked()
 

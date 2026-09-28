@@ -73,3 +73,16 @@ class WindowsVolumeBackend:
             self.volume_control.SetMasterVolumeLevelScalar(volume / 100.0, None)
         except Exception as e:
             logger.warning(f"Failed to set Windows volume: {e}", exc_info=True)
+
+    def get_muted(self) -> bool:
+        try:
+            return bool(self.volume_control.GetMute())
+        except Exception as e:
+            logger.warning(f"Failed to get Windows mute state: {e}", exc_info=True)
+            return False
+
+    def set_muted(self, muted: bool) -> None:
+        try:
+            self.volume_control.SetMute(bool(muted), None)
+        except Exception as e:
+            logger.warning(f"Failed to set Windows mute state: {e}", exc_info=True)

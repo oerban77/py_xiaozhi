@@ -75,9 +75,10 @@ def register_volume_tools(
         try:
             if controller is not None:
                 current = await asyncio.to_thread(controller.get_volume)
+                muted = await asyncio.to_thread(controller.get_muted)
                 status = {
                     "volume": current,
-                    "muted": current == 0,
+                    "muted": muted or current == 0,
                     "available": True,
                 }
             else:

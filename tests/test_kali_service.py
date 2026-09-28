@@ -11,10 +11,19 @@ def test_resolve_nmap_from_standard_windows_install_location(monkeypatch, tmp_pa
     executable.touch()
 
     monkeypatch.setattr(service.platform, "system", lambda: "Windows")
-    monkeypatch.setattr(service.shutil, "which", lambda _command: None)
+    # No bundled copy and nothing on PATH, so the installer location is used
+    monkeypatch.setattr(service, "get_tool_path", lambda _name: _name)
     monkeypatch.setenv("ProgramFiles(x86)", str(install_root))
 
     assert service._resolve_executable("nmap") == str(executable)
+
+
+def test_resolve_prefers_bundled_tool(monkeypatch, tmp_path):
+    """A bundled portable copy wins over a system install."""
+    bundled = tmp_path / "libs" / "tools" / "win" / "x64" / "nmap.exe"
+    monkeypatch.setattr(service, "get_tool_path", lambda _name: str(bundled))
+
+    assert service._resolve_executable("nmap") == str(bundled)
 
 
 def test_basic_nmap_scan_uses_fast_lan_options(monkeypatch):

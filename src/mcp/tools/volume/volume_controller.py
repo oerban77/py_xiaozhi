@@ -7,9 +7,9 @@ wiring, and dependency checks.
 from __future__ import annotations
 
 import platform
-import shutil
 
 from src.logging import get_logger
+from src.utils.resource_finder import has_tool
 
 from .backend import VolumeBackend
 
@@ -58,6 +58,21 @@ class VolumeController:
         except Exception as e:
             self.logger.warning(f"Failed to set volume: {e}", exc_info=True)
 
+    def get_muted(self) -> bool:
+        """Whether the output is currently muted."""
+        try:
+            return bool(self._backend.get_muted())
+        except Exception as e:
+            self.logger.warning(f"Failed to get mute state: {e}", exc_info=True)
+            return False
+
+    def set_muted(self, muted: bool) -> None:
+        """Mute or unmute the output."""
+        try:
+            self._backend.set_muted(bool(muted))
+        except Exception as e:
+            self.logger.warning(f"Failed to set mute state: {e}", exc_info=True)
+
     @staticmethod
     def check_dependencies() -> bool:
         """Check and report missing dependencies."""
@@ -86,7 +101,7 @@ class VolumeController:
     @staticmethod
     def _check_linux_tools(missing: list[str]) -> None:
         tools = ["pactl", "wpctl", "amixer"]
-        if not any(shutil.which(tool) for tool in tools):
+        if not any(has_tool(tool) for tool in tools):
             missing.append("pulseaudio-utils, wireplumber, or alsa-utils")
 
     @staticmethod

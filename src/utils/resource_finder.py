@@ -18,6 +18,10 @@ Core API:
 - get_user_data_dir() / get_user_cache_dir() / get_user_log_dir()
 - get_music_cache_dir() / get_keywords_dir()
 - apply_path_overrides_from_config() / migrate_directory()
+
+Bundled external programs:
+- get_tool_path(name) / has_tool(name)   generic resolver for libs/tools/<plat>/<arch>/
+- get_ffmpeg_path() / get_ffprobe_path() ffmpeg bundle (libs/ffmpeg/<plat>/<arch>/)
 """
 
 from __future__ import annotations
@@ -483,34 +487,75 @@ def get_lib_dir(lib_name: str) -> Path | None:
     return lib_path.parent if lib_path else None
 
 
+def _bundled_tool_path(name: str) -> Path | None:
+    """Locate a bundled external program under libs/tools/<plat>/<arch>/.
+
+    Args:
+        name: the program name WITHOUT any extension, e.g. "nmap", "ffmpeg"
+
+    Returns:
+        The bundled executable path, or None when the bundle is absent (dev
+        builds and installs that ship without the optional tools payload).
+    """
+    plat_dir, arch = get_platform_info()
+    ext = ".exe" if sys.platform == "win32" else ""
+    bundled = (
+        get_app_root() / "libs" / "tools" / plat_dir / arch / f"{name}{ext}"
+    )
+    if bundled.is_file():
+        return bundled
+    return None
+
+
+def get_tool_path(name: str) -> str:
+    """Resolve an external program, preferring a bundled portable copy.
+
+    Search order: bundled libs/tools/<plat>/<arch>/<name>[.exe] -> system PATH.
+
+    This is the generic counterpart of get_ffmpeg_path(); the result is always
+    a usable command string (never None/empty), so callers can pass it
+    straight to subprocess. Windows names must be given without the ``.exe``
+    suffix.
+    """
+    bundled = _bundled_tool_path(name)
+    if bundled is not None:
+        return str(bundled)
+    return shutil.which(name) or name
+
+
+def has_tool(name: str) -> bool:
+    """Whether ``name`` is available (bundled or on PATH)."""
+    if _bundled_tool_path(name) is not None:
+        return True
+    return shutil.which(name) is not None
+
+
 def get_ffmpeg_path() -> str:
     """Get the ffmpeg executable path.
 
-    Search order: bundled libs/ffmpeg/ -> System PATH
+    Search order: bundled libs/ffmpeg/ -> libs/tools/ -> System PATH
     """
-    import shutil
-
     plat_dir, arch = get_platform_info()
     ext = ".exe" if sys.platform == "win32" else ""
     bundled = get_app_root() / "libs" / "ffmpeg" / plat_dir / arch / f"ffmpeg{ext}"
     if bundled.exists():
         return str(bundled)
-    return shutil.which("ffmpeg") or "ffmpeg"
+    return get_tool_path("ffmpeg")
 
 
 def get_ffprobe_path() -> str:
     """Get the ffprobe executable path.
 
-    Search order: bundled libs/ffmpeg/ -> System PATH
+    Search order: bundled libs/ffmpeg/ -> libs/tools/ -> System PATH
     """
-    import shutil
-
     plat_dir, arch = get_platform_info()
     ext = ".exe" if sys.platform == "win32" else ""
-    bundled = get_app_root() / "libs" / "ffmpeg" / plat_dir / arch / f"ffprobe{ext}"
+    bundled = (
+        get_app_root() / "libs" / "ffmpeg" / plat_dir / arch / f"ffprobe{ext}"
+    )
     if bundled.exists():
         return str(bundled)
-    return shutil.which("ffprobe") or "ffprobe"
+    return get_tool_path("ffprobe")
 
 
 def get_models_dir() -> Path:

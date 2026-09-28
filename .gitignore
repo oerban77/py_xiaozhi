@@ -14,6 +14,9 @@ cache/
 # CI 注入的 FFmpeg 二进制（不进仓库）
 libs/ffmpeg/
 
+# CI 注入的便携工具二进制（nmap 等，不进仓库）
+libs/tools/
+
 # 打包相关
 /build
 /dist

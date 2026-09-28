@@ -17,6 +17,7 @@ class MainModel(BaseModel):
     autoModeChanged = Signal()
     modeTextChanged = Signal()
     buttonTextChanged = Signal()
+    mutedChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,6 +29,7 @@ class MainModel(BaseModel):
         self._auto_mode = False
         self._mode_text = "Manual"
         self._button_text = "Hold to Talk"
+        self._muted = False
 
     # ========== Properties ==========
 
@@ -63,6 +65,10 @@ class MainModel(BaseModel):
     @Property(str, notify=buttonTextChanged)
     def buttonText(self) -> str:
         return self._button_text
+
+    @Property(bool, notify=mutedChanged)
+    def muted(self) -> bool:
+        return self._muted
 
     # ========== Setters ==========
 
@@ -107,3 +113,8 @@ class MainModel(BaseModel):
         if self._button_text != text:
             self._button_text = text
             self.buttonTextChanged.emit()
+
+    def set_muted(self, muted: bool):
+        if self._muted != bool(muted):
+            self._muted = bool(muted)
+            self.mutedChanged.emit()

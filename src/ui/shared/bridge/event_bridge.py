@@ -127,3 +127,13 @@ class EventBridge(QObject):
         """Open the settings window - emits the signal directly to QML."""
         logger.debug("EventBridge: open settings window")
         self.showSettingsWindow.emit()
+
+    @Slot()
+    def onMuteToggle(self):
+        """Toggle speaker mute.
+
+        Runs on the Qt main thread; the blocking volume backend call is pushed onto the
+        asyncio loop via _emit_event so the UI never freezes.
+        """
+        logger.debug("EventBridge: mute toggle")
+        self._emit_event(Events.UI_MUTE_TOGGLE)

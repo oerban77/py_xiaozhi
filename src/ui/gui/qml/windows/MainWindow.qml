@@ -113,6 +113,24 @@ AppWindow {
 
                         property string currentEmotionUrl: (mainModel && mainModel.emotionUrl) ? mainModel.emotionUrl : ""
 
+                        // 静音/取消静音按钮（右上角）
+                        XIconButton {
+                            id: muteBtn
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            width: 32
+                            height: 32
+                            flat: true
+                            icon: (mainModel && mainModel.muted) ? "🔇" : "🔊"
+                            iconColor: (mainModel && mainModel.muted) ? Theme.error : Theme.textSecondary
+                            iconHoverColor: iconColor
+
+                            ToolTip.visible: hovered
+                            ToolTip.text: (mainModel && mainModel.muted) ? qsTr("Unmute") : qsTr("Mute")
+
+                            onClicked: if (eventBridge) eventBridge.onMuteToggle()
+                        }
+
                         AnimatedImage {
                             anchors.centerIn: parent
                             width: Math.max(Math.min(parent.width, parent.height) * 0.7, 60)

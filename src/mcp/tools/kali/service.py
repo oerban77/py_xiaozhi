@@ -23,13 +23,13 @@ import asyncio
 import functools
 import os
 import platform
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
 from src.logging import get_logger
 from src.utils.config_manager import get_config
+from src.utils.resource_finder import get_tool_path
 
 logger = get_logger()
 
@@ -82,20 +82,25 @@ def _is_enabled() -> bool:
 
 
 def _resolve_executable(command: str) -> str:
-    """Resolve commands from PATH and common Windows installer locations."""
-    resolved = shutil.which(command)
-    if resolved or command.lower() != "nmap" or platform.system().lower() != "windows":
-        return resolved or command
+    """Resolve a command name to an executable path.
 
-    for root in (
-        os.environ.get("ProgramFiles(x86)"),
-        os.environ.get("ProgramFiles"),
-        os.environ.get("ProgramW6432"),
-    ):
-        if root:
-            candidate = Path(root) / "Nmap" / "nmap.exe"
-            if candidate.is_file():
-                return str(candidate)
+    Search order: bundled portable copy (libs/tools/<plat>/<arch>/) -> PATH ->
+    common Windows installer locations (a system Nmap install).
+    """
+    resolved = get_tool_path(command)
+    if resolved != command:
+        return resolved
+
+    if command.lower() == "nmap" and platform.system().lower().startswith("win"):
+        for root in (
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramW6432"),
+        ):
+            if root:
+                candidate = Path(root) / "Nmap" / "nmap.exe"
+                if candidate.is_file():
+                    return str(candidate)
     return command
 
 

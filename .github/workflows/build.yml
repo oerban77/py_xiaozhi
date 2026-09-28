@@ -256,6 +256,14 @@ jobs:
             fi
           fi
 
+      # Inject portable copies of the external programs the MCP tools invoke
+      # (nmap on Windows). libs/tools/ is gitignored; injected only in CI.
+      - name: Bundle portable tools into libs/tools/
+        shell: bash
+        run: |
+          chmod +x scripts/bundle_tools.sh
+          ./scripts/bundle_tools.sh
+
       - name: Configure macOS target architecture for unifypy
         if: runner.os == 'macOS'
         shell: bash

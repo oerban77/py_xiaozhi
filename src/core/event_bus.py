@@ -67,6 +67,7 @@ class Events:
     UI_QUIT_REQUEST = "ui_quit_request"  # Quit
     UI_OPEN_SETTINGS = "ui_open_settings"  # Open settings
     UI_TOGGLE_WINDOW = "ui_toggle_window"  # show/hide main window (GUI)
+    UI_MUTE_TOGGLE = "ui_mute_toggle"  # toggle speaker mute (GUI)
 
     # Configuration change events
     CONFIG_CHANGED = "config_changed"  # Configuration has changed (requires hot reload)

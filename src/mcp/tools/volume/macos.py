@@ -49,3 +49,21 @@ class MacosVolumeBackend:
             applescript.run(f"set volume output volume {volume}")
         except Exception as e:
             logger.warning(f"Failed to set macOS volume: {e}", exc_info=True)
+
+    def get_muted(self) -> bool:
+        try:
+            applescript = self._lazy_import("applescript")
+            result = applescript.run("output muted of (get volume settings)")
+            if result and result.out:
+                return result.out.strip().lower() == "true"
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to get macOS mute state: {e}", exc_info=True)
+            return False
+
+    def set_muted(self, muted: bool) -> None:
+        try:
+            applescript = self._lazy_import("applescript")
+            applescript.run(f"set volume output muted {'true' if muted else 'false'}")
+        except Exception as e:
+            logger.warning(f"Failed to set macOS mute state: {e}", exc_info=True)
