@@ -52,6 +52,9 @@ class NormalCamera(BaseCamera):
                 {"success": False, "message": "Image explain URL is not set"}
             )
 
+        question = (question or "").strip() or (
+            "Jelaskan isi gambar ini secara singkat dan jelas dalam bahasa Indonesia."
+        )
         buf = image_data if image_data is not None else self.jpeg_data["buf"]
         if not buf:
             return json.dumps({"success": False, "message": "Camera buffer is empty"})
@@ -60,6 +63,7 @@ class NormalCamera(BaseCamera):
         headers = {
             "Device-Id": get_config().get_config("SYSTEM_OPTIONS.DEVICE_ID"),
             "Client-Id": get_config().get_config("SYSTEM_OPTIONS.CLIENT_ID"),
+            "Accept-Language": "id-ID",
         }
 
         if self.explain_token:
@@ -90,7 +94,7 @@ class NormalCamera(BaseCamera):
 
             # Log the response
             logger.info(
-                f"Explain image size={self.jpeg_data['len']}, "
+                f"Explain image size={len(buf)}, "
                 f"question={question}\n{response.text}"
             )
             return response.text

@@ -27,11 +27,13 @@ class UIPlugin(Plugin):
         mode: Optional[str] = None,
         task_manager: Optional["TaskManager"] = None,
         image_analyzer=None,
+        pending_image_setter=None,
     ) -> None:
         super().__init__()
         self.mode = (mode or "cli").lower()
         self._task_manager = task_manager
         self._image_analyzer = image_analyzer
+        self._pending_image_setter = pending_image_setter
         self.viewport: Optional["ViewPort"] = None
         self._presenter = UiPresenter()
         self._session: Optional[SessionActions] = None
@@ -50,6 +52,7 @@ class UIPlugin(Plugin):
             self._cmd,
             self._presenter,
             image_analyzer=self._image_analyzer,
+            pending_image_setter=self._pending_image_setter,
         )
 
     async def start(self) -> None:

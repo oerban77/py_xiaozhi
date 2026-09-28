@@ -106,7 +106,7 @@ class PluginCommands(Protocol):
         """
         ...
 
-    async def send_wake_word_detected(self, text: str) -> None:
+    async def send_wake_word_detected(self, text: str) -> bool:
         """
         Send the detected text (wake word or user input).
         """

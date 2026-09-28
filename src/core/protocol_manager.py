@@ -322,12 +322,14 @@ class ProtocolGateway:
         if protocol:
             await protocol.send_abort_speaking(reason)
 
-    async def send_wake_word_detected(self, wake_word: str) -> None:
+    async def send_wake_word_detected(self, wake_word: str) -> bool:
         protocol = self._transport.protocol
         if protocol and self._transport.is_audio_channel_opened():
             await protocol.send_wake_word_detected(wake_word)
+            return True
         else:
             logger.warning("Audio channel not open; skipping send_wake_word_detected")
+            return False
 
     async def send_iot_descriptors(self, descriptors) -> None:
         protocol = self._transport.protocol

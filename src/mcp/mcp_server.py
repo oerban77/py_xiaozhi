@@ -28,6 +28,7 @@ class McpServer:
         self._send_callback: Callable | None = None
         self._camera = None
         self._vision_ready = asyncio.Event()
+        self._pending_image: tuple[str, str] | None = None
         # external plugin tool_name -> plugin_id
         self._plugin_tool_owner: dict[str, str] = {}
 
@@ -43,6 +44,16 @@ class McpServer:
 
     def get_camera(self):
         return self._camera
+
+    def set_pending_image(self, path: str, question: str) -> None:
+        self._pending_image = (path, question) if path else None
+        if self._pending_image:
+            logger.info("Queued image attachment for camera MCP: %s", Path(path).name)
+
+    def consume_pending_image(self) -> tuple[str, str] | None:
+        pending = self._pending_image
+        self._pending_image = None
+        return pending
 
     async def analyze_image_file(self, path: str, question: str) -> str:
         """Analyze a local image with the camera's negotiated vision service."""
@@ -216,8 +227,8 @@ class McpServer:
         except Exception as e:
             logger.error(f"Failed to load external MCP plugin: {e}", exc_info=True)
 
-        # Restore the original tools
-        self.tools.extend(original_tools)
+        # Keep pre-registered camera tools on the first MCP page so the server can select them.
+        self.tools = original_tools + self.tools
 
     async def parse_message(self, message: str | dict[str, Any]):
         """

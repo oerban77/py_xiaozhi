@@ -51,7 +51,11 @@ class McpPlugin(Plugin):
 
             camera = create_camera()
             server.set_camera(camera)
-            register_camera_tools(server.add_tool, camera)
+            register_camera_tools(
+                server.add_tool,
+                camera,
+                pending_image_provider=server.consume_pending_image,
+            )
             register_screenshot_tools(server.add_tool, camera)
 
             server.add_common_tools(music_player=self._music_player)

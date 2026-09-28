@@ -1086,7 +1086,7 @@ async def test_send_attachment_extracts_and_sends_content(
     file_path = tmp_path / f"attachment{suffix}"
     file_path.write_bytes(b"test")
     calls = []
-    sent = []
+    displayed = []
     statuses = []
 
     async def fake_document_manage(args):
@@ -1102,7 +1102,7 @@ async def test_send_attachment_extracts_and_sends_content(
 
     class _Cmd:
         async def send_wake_word_detected(self, text):
-            sent.append(text)
+            pytest.fail("attachments must not be sent as wake-word detections")
 
     class _Ctx:
         def is_speaking(self):
@@ -1114,9 +1114,13 @@ async def test_send_attachment_extracts_and_sends_content(
     async def record_status(status):
         statuses.append(status)
 
+    class _Ui:
+        def set_chat_text(self, text):
+            displayed.append(text)
+
     bus = EventBus()
     bus.on(Events.UI_ATTACHMENT_STATUS, record_status)
-    session = SessionActions(_Ctx(), _Cmd(), None)
+    session = SessionActions(_Ctx(), _Cmd(), _Ui())
     session.subscribe(bus)
 
     await session.send_attachment_from_event(
@@ -1125,16 +1129,158 @@ async def test_send_attachment_extracts_and_sends_content(
 
     assert calls[0][0] == expected_kind
     assert calls[0][1]["path"] == str(file_path)
-    assert "What is shown?" in sent[0]
-    assert "attachment" in sent[0]
-    assert str(file_path) not in sent[0]
-    assert statuses == ["Attachment sent for analysis"]
+    assert "What is shown?" in displayed[0]
+    assert "attachment" in displayed[0]
+    assert str(file_path) not in displayed[0]
+    assert statuses == ["Attachment processed"]
     if expected_kind == "document":
-        assert "Quarterly revenue was 42." in sent[0]
+        assert "Quarterly revenue was 42." in displayed[0]
     else:
-        assert "a chart" in sent[0]
+        assert "a chart" in displayed[0]
 
 
+@pytest.mark.asyncio
+async def test_image_attachment_uses_camera_analyzer_and_displays_result(
+    monkeypatch, tmp_path
+):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    file_path = tmp_path / "camera-analysis.png"
+    file_path.write_bytes(b"image bytes")
+    analyzed = []
+    displayed = []
+    statuses = []
+
+    async def fake_analyzer(path, question):
+        analyzed.append((path, question))
+        return "A bicycle beside a tree."
+
+    class _Ctx:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class _Cmd:
+        async def send_wake_word_detected(self, text):
+            pytest.fail("attachment results must not be sent as wake words")
+
+    class _Ui:
+        def set_chat_text(self, text):
+            displayed.append(text)
+
+    async def record_status(status):
+        statuses.append(status)
+
+    bus = EventBus()
+    bus.on(Events.UI_ATTACHMENT_STATUS, record_status)
+    session = SessionActions(
+        _Ctx(), _Cmd(), _Ui(), image_analyzer=fake_analyzer
+    )
+    session.subscribe(bus)
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(path=str(file_path), question="What is shown?")
+    )
+
+    assert analyzed == [(str(file_path), "What is shown?")]
+    assert "A bicycle beside a tree." in displayed[0]
+    assert statuses == ["Attachment processed"]
+
+
+@pytest.mark.asyncio
+async def test_attached_image_is_analyzed_by_camera_mcp_tool(tmp_path):
+    import json
+
+    from src.mcp.tools.camera.register import register_camera_tools
+
+    image_path = tmp_path / "selected.png"
+    image_bytes = b"selected image bytes"
+    image_path.write_bytes(image_bytes)
+    calls = []
+
+    class _Camera:
+        def capture(self):
+            pytest.fail("attached images must not trigger a webcam capture")
+
+        def analyze(self, question, image_data=None):
+            calls.append((question, image_data))
+            return json.dumps({"success": True, "text": "Deskripsi gambar"})
+
+    tools = []
+    register_camera_tools(
+        tools.append,
+        _Camera(),
+        pending_image_provider=lambda: (
+            str(image_path),
+            "Apa isi gambar ini?",
+        ),
+    )
+
+    result = json.loads(await tools[0].call({"question": "analisa gambar"}))
+
+    assert result["isError"] is False
+    assert "Deskripsi gambar" in result["content"][0]["text"]
+    assert "bahasa Indonesia" in result["content"][0]["text"]
+    assert calls[0][1] == image_bytes
+    assert "Apa isi gambar ini?" in calls[0][0]
+    assert "berbahasa Mandarin" in calls[0][0]
+
+
+@pytest.mark.asyncio
+async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
+    tmp_path,
+):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    image_path = tmp_path / "selected.png"
+    image_path.write_bytes(b"image bytes")
+    queued = []
+    sent = []
+    statuses = []
+
+    class _Ctx:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class _Cmd:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+            return True
+
+    async def record_status(status):
+        statuses.append(status)
+
+    bus = EventBus()
+    bus.on(Events.UI_ATTACHMENT_STATUS, record_status)
+    session = SessionActions(
+        _Ctx(),
+        _Cmd(),
+        None,
+        pending_image_setter=lambda path, question: queued.append(
+            (path, question)
+        ),
+    )
+    session.subscribe(bus)
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(
+            path=str(image_path), question="Apa isi gambar ini?"
+        )
+    )
+
+    assert queued == [(str(image_path), "Apa isi gambar ini?")]
+    assert sent == ["analisa gambar"]
+    assert statuses == ["Gambar dikirim ke asisten untuk dianalisis"]
+
+
+@pytest.mark.asyncio
 def test_event_bridge_converts_attachment_url_to_local_path(monkeypatch, tmp_path):
     from pathlib import Path
 
@@ -1218,6 +1364,41 @@ def test_normal_camera_upgrades_xiaozhi_vision_url_to_https():
     NormalCamera.set_explain_url(camera, "http://api.xiaozhi.me/vision/explain")
 
     assert camera.explain_url == "https://api.xiaozhi.me/vision/explain"
+
+
+def test_normal_camera_analyzes_external_image_bytes(monkeypatch):
+    from types import SimpleNamespace
+
+    from src.mcp.tools.camera import normal_camera
+
+    camera = object.__new__(normal_camera.NormalCamera)
+    camera.explain_url = "https://vision.example/explain"
+    camera.explain_token = ""
+    camera.jpeg_data = {"buf": b"", "len": 0}
+    config = SimpleNamespace(
+        get_config=lambda key: "device" if key.endswith("DEVICE_ID") else "client"
+    )
+    monkeypatch.setattr(normal_camera, "get_config", lambda: config)
+    image_bytes = b"external image bytes"
+    calls = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = '{"success": true, "text": "A test image."}'
+
+    def fake_post(url, **kwargs):
+        calls["url"] = url
+        calls.update(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setattr(normal_camera.requests, "post", fake_post)
+
+    result = camera.analyze("Describe this image", image_data=image_bytes)
+
+    assert result == FakeResponse.text
+    assert calls["files"]["file"][1] == image_bytes
+    assert calls["headers"]["Accept-Language"] == "id-ID"
+    assert calls["files"]["question"][1] == "Describe this image"
 
 
 @pytest.mark.asyncio

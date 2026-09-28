@@ -3,6 +3,7 @@
 import asyncio
 import json
 from collections.abc import Callable
+from pathlib import Path
 
 from src.logging import get_logger
 from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
@@ -41,10 +42,52 @@ def create_camera():
     return camera
 
 
-def register_camera_tools(add_tool: Callable[[McpTool], None], camera) -> None:
+def register_camera_tools(
+    add_tool: Callable[[McpTool], None], camera, pending_image_provider=None
+) -> None:
     async def take_photo(arguments: dict) -> str:
         logger.info(f"Using camera implementation: {camera.__class__.__name__}")
         question = arguments.get("question", "")
+
+        pending_image = (
+            pending_image_provider() if pending_image_provider is not None else None
+        )
+        if pending_image is not None:
+            image_path, attachment_question = pending_image
+            image_data = await asyncio.to_thread(Path(image_path).read_bytes)
+            user_question = attachment_question or question
+            vision_question = (
+                f"{user_question}\n\n"
+                "Jawab dalam bahasa Indonesia. Jika isi gambar berbahasa Mandarin, "
+                "terjemahkan atau ringkas dalam bahasa Indonesia."
+            )
+            logger.info(
+                "Analyzing selected attachment through camera MCP: file=%s, bytes=%d",
+                Path(image_path).name,
+                len(image_data),
+            )
+            result = await asyncio.to_thread(
+                camera.analyze, vision_question, image_data
+            )
+            try:
+                payload = json.loads(result) if isinstance(result, str) else result
+            except (TypeError, ValueError):
+                return str(result).strip()
+            if isinstance(payload, dict):
+                if not payload.get("success", True):
+                    raise RuntimeError(
+                        str(payload.get("message") or "Vision service rejected the image")
+                    )
+                for key in ("text", "result", "response", "content"):
+                    if payload.get(key):
+                        return (
+                            "Hasil analisis gambar: "
+                            f"{str(payload[key]).strip()}\n\n"
+                            "Sampaikan jawaban akhir kepada pengguna dalam bahasa Indonesia. "
+                            "Terjemahkan isi Mandarin jika diperlukan."
+                        )
+            return str(result).strip()
+
         logger.info(f"Taking photo with question: {question}")
 
         success = await asyncio.to_thread(camera.capture)
@@ -63,6 +106,9 @@ def register_camera_tools(add_tool: Callable[[McpTool], None], camera) -> None:
                 "snap a picture, take a picture, take a look, look, help me look, what is this, "
                 "recognize, image recognition, look at the image, picture, photo, help me see.\n"
                 "Function: take a photo and analyze its content, answering the user's questions about the image.\n"
+                "If the desktop app has queued an attached image, analyze that selected file instead of capturing the camera. "
+                "For requests like 'analisa gambar', 'gambar yang saya lampirkan', or questions about an uploaded image, "
+                "you MUST call this tool. The app supplies the selected image and the user's exact question.\n"
                 "Use cases:\n"
                 "1. The user asks to take a photo to look at something (e.g., 'help me see what this is', "
                 "'take a photo', 'look at what is in front')\n"

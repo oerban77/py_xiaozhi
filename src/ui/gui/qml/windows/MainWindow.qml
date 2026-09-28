@@ -151,14 +151,36 @@ AppWindow {
 
                     // 对话 + 音乐行
                     Rectangle {
+                        id: conversationArea
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 72
+                        property bool showingAttachmentResult: mainModel
+                            && (mainModel.ttsText.indexOf("Image analysis:") === 0
+                                || mainModel.ttsText.indexOf("Document content:") === 0)
+                        Layout.preferredHeight: showingAttachmentResult ? 150 : 72
                         color: "transparent"
+
+                        ScrollView {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingSm
+                            clip: true
+                            visible: conversationArea.showingAttachmentResult
+
+                            Text {
+                                width: parent.width
+                                text: (mainModel && mainModel.ttsText) ? mainModel.ttsText : "Idle"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textSecondary
+                                verticalAlignment: Text.AlignTop
+                                wrapMode: Text.WordWrap
+                                textFormat: Text.PlainText
+                            }
+                        }
 
                         Column {
                             anchors.fill: parent
                             anchors.margins: Theme.spacingSm
                             spacing: Theme.spacingXs
+                            visible: !conversationArea.showingAttachmentResult
 
                             Text {
                                 width: parent.width

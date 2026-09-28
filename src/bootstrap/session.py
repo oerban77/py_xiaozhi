@@ -90,6 +90,12 @@ class ConversationSession:
         try:
             msg_type = json_data.get("type") if isinstance(json_data, dict) else None
             logger.info(f"JSON message received: type={msg_type}")
+            if msg_type == "alert":
+                logger.warning(
+                    "Server alert: code=%s, message=%s",
+                    json_data.get("code"),
+                    json_data.get("message") or json_data.get("text"),
+                )
 
             if msg_type == "tts":
                 state = json_data.get("state")
