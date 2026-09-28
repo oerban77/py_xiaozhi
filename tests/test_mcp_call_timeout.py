@@ -10,7 +10,7 @@ import json
 
 from src.mcp import mcp_server
 from src.mcp.mcp_server import McpServer
-from src.mcp.tooling import McpTool, PropertyList, Property, PropertyType
+from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
 
 
 def _make_server() -> McpServer:
