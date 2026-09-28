@@ -315,6 +315,29 @@ class McpServer:
             if tool.name not in disabled:
                 yield tool
 
+    def _call_timeout(self) -> float:
+        """Wall-clock budget for a single tools/call (0 disables the limit).
+
+        The xiaozhi server enforces its own tool-call deadline and closes the
+        session when it expires. Answering within this window (with a partial
+        result or a clear error) keeps the session alive instead of letting a
+        slow tool outlive the connection.
+        """
+        try:
+            from src.utils.config_manager import get_config
+
+            raw = get_config().get_config("MCP_TOOLS.CALL_TIMEOUT", 45)
+            value = float(raw)
+        except Exception:
+            return 45.0
+        if value < 0:
+            # A negative value is a typo, not a request to disable the limit;
+            # fall back to the smallest sane budget instead of running unbounded.
+            return 1.0
+        if value == 0:
+            return 0.0
+        return max(1.0, min(value, 600.0))
+
     async def _handle_tools_list(
         self, request_id: int, params: dict[str, Any]
     ):
@@ -397,9 +420,26 @@ class McpServer:
 
         # Call the tool asynchronously
         try:
-            result = await tool.call(arguments)
+            timeout = self._call_timeout()
+            if timeout > 0:
+                result = await asyncio.wait_for(
+                    tool.call(arguments), timeout=timeout
+                )
+            else:
+                result = await tool.call(arguments)
             logger.info(f"[MCP] Tool {tool_name} executed successfully, result: {result}")
             await self._reply_result(request_id, json.loads(result))
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"[MCP] Tool {tool_name} timed out after {timeout}s; "
+                f"replying with an error to keep the session alive"
+            )
+            await self._reply_error(
+                request_id,
+                f"Tool '{tool_name}' timed out after {timeout}s. The result "
+                "was discarded because it took too long. Try a narrower "
+                "request (for example a faster scan or a single host).",
+            )
         except Exception as e:
             logger.error(
                 f"[MCP] Tool {tool_name} execution failed: {e}", exc_info=True

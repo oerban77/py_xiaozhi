@@ -33,13 +33,15 @@ from src.utils.resource_finder import get_tool_path
 
 logger = get_logger()
 
-_DEFAULT_TIMEOUT = 120
+_DEFAULT_TIMEOUT = 60
 _MAX_TIMEOUT = 600
 _MAX_OUTPUT = 16_000
 
-# The reference gives the network tools a longer budget (300s).
-_NET_TIMEOUT = 300
-_NMAP_BASIC_TIMEOUT = 90
+# The reference gives the network tools a longer budget (300s), but the xiaozhi
+# server tears the session down long before that. These stay inside the default
+# MCP_TOOLS.CALL_TIMEOUT window so a scan still gets an answer back to the LLM.
+_NET_TIMEOUT = 40
+_NMAP_BASIC_TIMEOUT = 30
 
 # strings -t accepts d (decimal), o (octal), x (hexadecimal).
 _STRING_FORMATS = ("d", "o", "x")
@@ -212,7 +214,7 @@ def nmap_basic_scan(args: dict[str, Any]) -> str:
             "--max-retries",
             "1",
             "--host-timeout",
-            "30s",
+            "20s",
             "--stats-every",
             "10s",
             target,

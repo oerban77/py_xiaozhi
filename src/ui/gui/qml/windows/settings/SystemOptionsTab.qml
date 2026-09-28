@@ -731,6 +731,82 @@ ScrollView {
             }
         }
 
+        // 分隔线
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Theme.border
+        }
+
+        // 网页搜索区域
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingMd
+
+            Text {
+                text: "Web Search"
+                font.pixelSize: Theme.fontSizeMd
+                font.weight: Font.Medium
+                color: Theme.textSecondary
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                rowSpacing: Theme.spacingMd
+                columnSpacing: Theme.spacingLg
+
+                Text {
+                    text: "Search Engine"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 130
+                }
+                ComboBox {
+                    id: searchEngineCombo
+                    Layout.fillWidth: true
+                    model: ["anysearch", "gnews"]
+                    currentIndex: {
+                        if (!settingsModel) return 0
+                        var v = settingsModel.searchEngine
+                        return v === "gnews" ? 1 : 0
+                    }
+                    onActivated: if (settingsModel) settingsModel.searchEngine = model[index]
+                    font.pixelSize: Theme.fontSizeSm
+                }
+
+                Text {
+                    text: "Anysearch URL"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 130
+                }
+                TextField {
+                    id: anysearchUrlField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.anysearchUrl : ""
+                    onTextEdited: if (settingsModel) settingsModel.anysearchUrl = text
+                    onEditingFinished: if (settingsModel) settingsModel.anysearchUrl = text
+                    placeholderText: "Leave empty to use the public anysearch endpoint"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: anysearchUrlField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "\"gnews\" uses Google News RSS only (no general web results). \"anysearch\" is keyless web search."
+                font.pixelSize: Theme.fontSizeXs
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+        }
+
         Item { Layout.fillHeight: true }
     }
 }

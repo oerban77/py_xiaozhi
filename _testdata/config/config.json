@@ -1,5 +1,5 @@
 {
-  "CONFIG_VERSION": 2,
+  "CONFIG_VERSION": 3,
   "SYSTEM_OPTIONS": {
     "CLIENT_ID": null,
     "DEVICE_ID": null,
@@ -93,7 +93,8 @@
     "REQUIRE_PLATFORMS": false
   },
   "MCP_TOOLS": {
-    "DISABLED": []
+    "DISABLED": [],
+    "CALL_TIMEOUT": 45
   },
   "AUDIO_DEVICES": {
     "input_device_id": null,

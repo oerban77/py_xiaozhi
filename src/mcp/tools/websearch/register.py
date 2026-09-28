@@ -26,7 +26,8 @@ def register_websearch_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Parameters:\n"
                 "- query: the search keywords (required), e.g. 'weather in London', 'match result'\n"
                 "- count: number of results (default 5, max 10)\n"
-                "- language: result language, e.g. 'en-US' (English), 'id-ID' (Indonesian), 'zh-CN' (Chinese)"
+                "- language: result language, e.g. 'en-US' (English), 'id-ID' (Indonesian), 'zh-CN' (Chinese)\n"
+                "Note: Google News result links are redirectors; read_article resolves them automatically.",
             ),
             PropertyList(
                 [
@@ -44,8 +45,8 @@ def register_websearch_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Read the body of an article from a URL. Returns the cleaned text "
                 "(only the core paragraphs).\n"
                 "Use this after web_search when the user wants the full content of a "
-                "specific result, or whenever a web page's text is needed.\n"
-                "Parameters:\n"
+                "specific result, or whenever a web page's text is needed.\n"                "Google News links are supported: the redirect is resolved to the "
+                "publisher's real article before reading.\n"                "Parameters:\n"
                 "- url: the article URL (required)\n"
                 "- max_chars: maximum characters returned (default 6000)"
             ),

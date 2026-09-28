@@ -103,10 +103,22 @@ class SettingsSystemOptionsMixin:
     def _set_musicOpusStreamBase(self, value: str):
         self._set_value("MUSIC.OPUS_STREAM_BASE", value)
 
+    # Web search configuration
+    def _get_searchEngine(self) -> str:
+        return self._get_value("WEB_SEARCH.SEARCH_ENGINE", "anysearch")
+
+    def _set_searchEngine(self, value: str):
+        self._set_value("WEB_SEARCH.SEARCH_ENGINE", value)
+
+    def _get_anysearchUrl(self) -> str:
+        return self._get_value("WEB_SEARCH.ANYSEARCH_URL", "")
+
+    def _set_anysearchUrl(self, value: str):
+        self._set_value("WEB_SEARCH.ANYSEARCH_URL", value)
+
     # MQTT configuration
     def _get_mqttEndpoint(self) -> str:
         return self._get_value("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.endpoint", "")
-
     def _set_mqttEndpoint(self, value: str):
         self._set_value("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.endpoint", value)
 

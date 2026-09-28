@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import html
 import html.parser
+import json
 import re
 import time
 import urllib.parse
@@ -34,6 +35,12 @@ _MAX_RESULTS = 10
 _DEFAULT_RESULTS = 5
 _MAX_ARTICLE_CHARS = 6000
 _SNIPPET_CHARS = 300
+
+# anysearch keyless search endpoint (verified reachable without an API key).
+_ANYSEARCH_URL = "https://api.anysearch.com/v1/search"
+# Google News RPC that turns an opaque news.google.com article blob into the
+# publisher's real URL (ported from free-search-mcp; verified working).
+_BATCHEXECUTE_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute"
 
 _SESSION: requests.Session | None = None
 
@@ -258,6 +265,188 @@ def _format_results(results: list[dict[str, str]]) -> str:
     return "\n\n".join(lines)
 
 
+def _web_search_config() -> dict[str, str]:
+    """Read the WEB_SEARCH config section; never raises (tools run before config init)."""
+    try:
+        from src.utils.config_manager import get_config
+
+        section = get_config().get_config("WEB_SEARCH", {}) or {}
+    except Exception:
+        return {}
+    return section if isinstance(section, dict) else {}
+
+
+def _anysearch_search(query: str, count: int) -> list[dict[str, str]]:
+    """Search via the keyless anysearch endpoint; returns result dicts."""
+    base = (_web_search_config().get("ANYSEARCH_URL") or "").strip() or _ANYSEARCH_URL
+    try:
+        resp = _get_session().post(
+            base,
+            json={"query": query, "max_results": max(1, min(100, count))},
+            headers={"Content-Type": "application/json"},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            logger.debug(f"anysearch -> HTTP {resp.status_code}")
+            return []
+        data = resp.json()
+    except Exception as e:
+        logger.debug(f"anysearch failed: {e}")
+        return []
+
+    # Body shape: {"code": ..., "data": {"results": [...]}}; be tolerant.
+    results = None
+    if isinstance(data, dict):
+        inner = data.get("data")
+        if isinstance(inner, dict):
+            results = inner.get("results")
+        if results is None:
+            results = data.get("results")
+
+    out: list[dict[str, str]] = []
+    for item in results if isinstance(results, list) else []:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        url = str(item.get("url") or "").strip()
+        if not title or not url:
+            continue
+        snippet = str(item.get("snippet") or "").strip()
+        if not snippet:
+            # anysearch repeats the snippet in "content" for some queries.
+            snippet = str(item.get("content") or "").strip()
+        out.append(
+            {
+                "title": title,
+                "snippet": _html_to_text(snippet)[:_SNIPPET_CHARS] if snippet else "",
+                "url": url,
+                "publisher_url": "",
+                "date": "",
+                "source": item.get("engine") or "anysearch",
+            }
+        )
+        if len(out) >= count:
+            break
+    return out
+
+
+_GARTURL_RE = re.compile(r'garturlres\\?",\s*\\?"\s*(https?://[^"\\]+)')
+
+
+def _parse_batchexecute(body: str) -> str | None:
+    """Pull the publisher URL out of a ``batchexecute`` response.
+
+    Body shape (after the ``)]}'`` XSSI guard):
+        [["wrb.fr","Fbv4je","[\"garturlres\",\"<URL>\",1]",...], ...]
+    """
+    if not body:
+        return None
+    text = body.lstrip(")]}'").strip()
+    # The array we want is usually on its own line after a length prefix; the
+    # length line itself is a bare number, so skip lines that are not arrays.
+    candidate = None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("[") and "Fbv4je" in line:
+            candidate = line
+            break
+    if candidate is None:
+        candidate = text
+    try:
+        arr = json.loads(candidate)
+    except (json.JSONDecodeError, ValueError):
+        arr = None
+    for row in arr if isinstance(arr, list) else []:
+        if not isinstance(row, list) or len(row) <= 2 or row[1] != "Fbv4je":
+            continue
+        # row[2] is a JSON *string* holding the garturlres payload.
+        target = row[2]
+        if not isinstance(target, str):
+            continue
+        try:
+            payload = json.loads(target)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            # Escaped/pretty-printed variants: pull the URL out directly.
+            m = _GARTURL_RE.search(target)
+            if m:
+                return m.group(1)
+            continue
+        if (
+            isinstance(payload, list)
+            and len(payload) > 1
+            and isinstance(payload[1], str)
+            and payload[1].startswith("http")
+        ):
+            return payload[1]
+    # Fallback: a pretty-printed/chunked response defeats the structured parse,
+    # so pull the garturlres URL straight out of the raw text.
+    m = _GARTURL_RE.search(body)
+    return m.group(1) if m else None
+
+
+def _resolve_google_news_url(url: str, deadline: float | None = None) -> str | None:
+    """Turn an opaque news.google.com article blob into the publisher's URL.
+
+    The blob renders with client-side JavaScript, so a plain fetch only returns
+    an empty shell. Google's own web client resolves it through a private RPC:
+    the article page carries a signature (``data-n-a-sg``), a timestamp
+    (``data-n-a-ts``) and the article id (``data-n-a-id``), which are POSTed to
+    the ``batchexecute`` endpoint; the reply contains the real URL.
+    Best-effort: any failure returns ``None`` and the caller keeps the blob.
+    """
+    try:
+        shell = _http_get(url, timeout=_remaining_timeout(deadline))
+        if shell.status_code != 200:
+            return None
+        # The shell is ~600 KB; only the attributes at the top matter, but the
+        # signature can appear late, so read the whole body within the deadline.
+        html_raw = _read_limited(shell, 1024 * 1024, deadline)
+    except Exception as e:
+        logger.debug(f"google news shell fetch failed: {e}")
+        return None
+
+    sg = re.search(r'data-n-a-sg="([^"]+)"', html_raw)
+    ts = re.search(r'data-n-a-ts="([^"]+)"', html_raw)
+    aid = re.search(r'data-n-a-id="([^"]+)"', html_raw)
+    if not (sg and ts and aid):
+        return None
+
+    inner = json.dumps(
+        [
+            "garturlreq",
+            [
+                ["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1,
+                 None, None, None, None, None, 0, 1],
+                "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0,
+            ],
+            aid.group(1),
+            int(ts.group(1)),
+            sg.group(1),
+        ]
+    )
+    freq = "f.req=" + urllib.parse.quote(
+        json.dumps([[["Fbv4je", inner, None, "generic"]]])
+    )
+    try:
+        resp = _get_session().post(
+            _BATCHEXECUTE_URL,
+            data=freq,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+            },
+            timeout=_remaining_timeout(deadline),
+        )
+        if resp.status_code != 200:
+            logger.debug(f"google news batchexecute -> HTTP {resp.status_code}")
+            return None
+        body = resp.text or ""
+    except Exception as e:
+        logger.debug(f"google news batchexecute failed: {e}")
+        return None
+
+    return _parse_batchexecute(body)
+
+
 async def web_search(args: dict[str, Any]) -> str:
     query = (args.get("query") or "").strip()
     if not query:
@@ -269,11 +458,24 @@ async def web_search(args: dict[str, Any]) -> str:
     count = max(1, min(_MAX_RESULTS, count))
     lang = (args.get("language") or "en-US").strip() or "en-US"
 
-    try:
-        results = await asyncio.to_thread(_google_news_search, query, count, lang)
-    except Exception as e:
-        logger.error(f"web_search failed: {e}", exc_info=True)
-        return f"Search failed: {e}"
+    engine = (_web_search_config().get("SEARCH_ENGINE") or "anysearch").strip().lower()
+
+    results: list[dict[str, str]] = []
+    if engine != "gnews":
+        try:
+            results = await asyncio.to_thread(_anysearch_search, query, count)
+        except Exception as e:
+            logger.error(f"web_search (anysearch) failed: {e}", exc_info=True)
+
+    # Fall back to Google News RSS when the search backend is unavailable or
+    # returns nothing (it is also the only source for news-specific results).
+    if not results:
+        try:
+            results = await asyncio.to_thread(_google_news_search, query, count, lang)
+        except Exception as e:
+            logger.error(f"web_search (google news) failed: {e}", exc_info=True)
+            if not results:
+                return f"Search failed: {e}"
 
     if not results:
         return f"No results found for '{query}'. Try different keywords."
@@ -293,13 +495,17 @@ async def read_article(args: dict[str, Any]) -> str:
     deadline = time.monotonic() + _READ_DEADLINE_S
 
     if _is_google_news_url(url):
-        return (
-            "This is a Google News link, which renders the article with "
-            "JavaScript in the browser. The raw page contains no readable "
-            "text, so the article body cannot be fetched this way.\n"
-            "Use the search result's 'Publisher' site (the original news "
-            "source) or pass a direct article URL from that site instead."
-        )
+        # The link is a JS redirector; resolve it to the publisher's real URL
+        # through Google's batchexecute RPC, then read that page instead.
+        resolved = await asyncio.to_thread(_resolve_google_news_url, url, deadline)
+        if resolved:
+            url = resolved
+        else:
+            return (
+                "This is a Google News link whose article page only renders with "
+                "JavaScript, and the redirect could not be resolved right now. "
+                "Try the search result's 'Publisher' site or a direct article URL."
+            )
 
     try:
         resp = _http_get(url, timeout=_remaining_timeout(deadline))

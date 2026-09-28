@@ -58,11 +58,11 @@ class ConfigManager:
     """
 
     # Current schema version; migrate_config() upgrades it during load
-    CONFIG_VERSION = 2
+    CONFIG_VERSION = 4
 
     # Default config (complete product schema; deep-copied on load; do not share nested objects with the instance)
     DEFAULT_CONFIG = {
-        "CONFIG_VERSION": 2,
+        "CONFIG_VERSION": 4,
         "SYSTEM_OPTIONS": {
             "CLIENT_ID": None,
             "DEVICE_ID": None,
@@ -153,6 +153,18 @@ class ConfigManager:
         # MCP tool exposure (blacklist: not shown in tools/list, and call is denied)
         "MCP_TOOLS": {
             "DISABLED": [],  # Example: ["music_player.stop", "self.application.launch"]
+            # Wall-clock budget for a single tools/call. The xiaozhi server closes the
+            # session when a tool call takes longer than its own limit, so a slow tool
+            # (e.g. an nmap scan) must be answered within this window. 0 = no limit.
+            "CALL_TIMEOUT": 45,
+        },
+        # Web search backend used by the web_search / read_article MCP tools.
+        # SEARCH_ENGINE selects the keyless backend: "anysearch" (default) or
+        # "gnews" (Google News RSS only). ANYSEARCH_URL lets a self-hosted
+        # anysearch instance be used; blank = the public endpoint.
+        "WEB_SEARCH": {
+            "SEARCH_ENGINE": "anysearch",
+            "ANYSEARCH_URL": "",
         },
         "AUDIO_DEVICES": {
             "input_device_id": None,
@@ -349,6 +361,29 @@ class ConfigManager:
             except Exception:
                 pass
             ver = 2
+
+        # v3: tools/call now has a wall-clock budget (MCP_TOOLS.CALL_TIMEOUT). Without it a
+        # slow tool (an nmap scan can run for minutes) outlives the server-side tool-call
+        # limit: the session is torn down and the result is discarded, so the user sees a
+        # disconnect instead of an answer.
+        if ver < 3:
+            config.setdefault("MCP_TOOLS", {})
+            if not isinstance(config.get("MCP_TOOLS"), dict):
+                config["MCP_TOOLS"] = {}
+            config["MCP_TOOLS"].setdefault("DISABLED", [])
+            config["MCP_TOOLS"].setdefault("CALL_TIMEOUT", 45)
+            ver = 3
+
+        # v4: web search has a pluggable keyless backend. Earlier configs have no
+        # WEB_SEARCH section at all, so the defaults are filled in here; users who
+        # never touched search get the new backend automatically.
+        if ver < 4:
+            config.setdefault("WEB_SEARCH", {})
+            if not isinstance(config.get("WEB_SEARCH"), dict):
+                config["WEB_SEARCH"] = {}
+            config["WEB_SEARCH"].setdefault("SEARCH_ENGINE", "anysearch")
+            config["WEB_SEARCH"].setdefault("ANYSEARCH_URL", "")
+            ver = 4
 
         if ver != original or config.get("CONFIG_VERSION") != self.CONFIG_VERSION:
             config["CONFIG_VERSION"] = self.CONFIG_VERSION

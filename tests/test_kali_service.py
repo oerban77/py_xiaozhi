@@ -38,7 +38,7 @@ def test_basic_nmap_scan_uses_fast_lan_options(monkeypatch):
     args, kwargs = run.call_args
     assert args[0] == [
         "nmap", "-n", "-T4", "-F", "--max-retries", "1", "--host-timeout",
-        "30s", "--stats-every", "10s", "192.168.1.0/24",
+        "20s", "--stats-every", "10s", "192.168.1.0/24",
     ]
     assert kwargs["timeout"] == service._NMAP_BASIC_TIMEOUT
 

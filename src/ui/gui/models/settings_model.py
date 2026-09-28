@@ -256,6 +256,12 @@ class SettingsModel(
     musicOpusStreamBase = Property(
         str, SettingsSystemOptionsMixin._get_musicOpusStreamBase, SettingsSystemOptionsMixin._set_musicOpusStreamBase, notify=settingsChanged
     )
+    searchEngine = Property(
+        str, SettingsSystemOptionsMixin._get_searchEngine, SettingsSystemOptionsMixin._set_searchEngine, notify=settingsChanged
+    )
+    anysearchUrl = Property(
+        str, SettingsSystemOptionsMixin._get_anysearchUrl, SettingsSystemOptionsMixin._set_anysearchUrl, notify=settingsChanged
+    )
     mqttEndpoint = Property(
         str, SettingsSystemOptionsMixin._get_mqttEndpoint, SettingsSystemOptionsMixin._set_mqttEndpoint, notify=settingsChanged
     )
