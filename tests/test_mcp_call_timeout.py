@@ -140,6 +140,56 @@ def test_missing_tool_name_replies_error():
     assert "error" in sent[0]
 
 
+def test_promoted_document_tool_is_not_repeated_across_pages():
+    server = _make_server()
+
+    async def callback(_args: dict) -> str:
+        return json.dumps({"content": [], "isError": False})
+
+    for index in range(4):
+        server.add_tool(
+            McpTool(
+                f"page_tool_{index}",
+                "x" * 2800,
+                PropertyList([]),
+                callback,
+            )
+        )
+    server.add_tool(
+        McpTool("document_manage", "Read an attached document", PropertyList([]), callback)
+    )
+    server.add_tool(McpTool("after_document", "After document", PropertyList([]), callback))
+    server.set_pending_document("2.pptx", "isinya apa ini?")
+
+    sent, send = _capture()
+    server.set_send_callback(send)
+
+    async def read_all_pages():
+        names = []
+        cursor = ""
+        while True:
+            params = {"cursor": cursor} if cursor else {}
+            await server._handle_tools_list(len(sent) + 1, params)
+            result = sent[-1]["result"]
+            names.extend(tool["name"] for tool in result["tools"])
+            cursor = result.get("nextCursor", "")
+            if not cursor:
+                return names
+
+    names = asyncio.run(read_all_pages())
+
+    assert len(sent) > 1
+    assert names[0] == "document_manage"
+    assert names.count("document_manage") == 1
+    assert len(names) == len(set(names))
+
+    sent.clear()
+    asyncio.run(server._handle_tools_list(99, {"cursor": "document_manage"}))
+    names_after_cursor = [tool["name"] for tool in sent[0]["result"]["tools"]]
+    assert "document_manage" not in names_after_cursor
+    assert "after_document" in names_after_cursor
+
+
 def test_call_timeout_reads_config(monkeypatch):
     """The budget comes from MCP_TOOLS.CALL_TIMEOUT."""
     server = _make_server()

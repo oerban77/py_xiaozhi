@@ -391,12 +391,12 @@ class McpServer:
         # answers the question directly and never calls the tool.
         pending_doc = self._pending_document
         promoted = None
-        if pending_doc and not cursor:
+        if pending_doc:
             for tool in self._iter_enabled_tools():
                 if tool.name == "document_manage":
                     promoted = tool
                     break
-            if promoted is not None:
+            if promoted is not None and not cursor:
                 pending_name = Path(pending_doc[0]).name
                 pending_question = (pending_doc[1] or "").strip()
                 banner = (
@@ -406,7 +406,10 @@ class McpServer:
                     "You MUST call document_manage with action=read and NO path "
                     "to read that attached file BEFORE answering. This is the "
                     "ONLY tool that can read the attached document; do not "
-                    "answer from memory.\n"
+                    "answer from memory. Do NOT ask the user any question and "
+                    "do NOT ask for confirmation first: the file is already "
+                    "attached, so call document_manage NOW and then answer "
+                    "from what it returns.\n"
                 )
                 tool_json = dict(promoted.to_json())
                 tool_json["description"] = banner + promoted.description
@@ -416,16 +419,17 @@ class McpServer:
                     total_size += tool_size
 
         for tool in self._iter_enabled_tools():
-            # Skip the promoted tool; it was already emitted above.
-            if promoted is not None and tool.name == promoted.name:
-                continue
-
             # If the start position has not been found yet, keep searching
             if not found_cursor:
                 if tool.name == cursor:
                     found_cursor = True
                 else:
                     continue
+
+            # Skip the promoted tool on every page; it was emitted on page one.
+            # Check the cursor first so a cursor pointing at this tool still advances.
+            if promoted is not None and tool.name == promoted.name:
+                continue
 
             # Check the size
             tool_json = tool.to_json()

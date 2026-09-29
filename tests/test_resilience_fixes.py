@@ -1283,6 +1283,53 @@ async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
 
 
 @pytest.mark.asyncio
+async def test_document_attachment_queues_question_and_sends_read_trigger(tmp_path):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    document_path = tmp_path / "2.txt"
+    document_path.write_text("document content", encoding="utf-8")
+    queued = []
+    sent = []
+    statuses = []
+
+    class _Ctx:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class _Cmd:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+            return True
+
+    async def record_status(status):
+        statuses.append(status)
+
+    bus = EventBus()
+    bus.on(Events.UI_ATTACHMENT_STATUS, record_status)
+    session = SessionActions(
+        _Ctx(),
+        _Cmd(),
+        None,
+        pending_document_setter=lambda path, question: queued.append(
+            (path, question)
+        ),
+    )
+    session.subscribe(bus)
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(path=str(document_path), question="isinya apa ini?")
+    )
+
+    assert queued == [(str(document_path), "isinya apa ini?")]
+    assert sent == ["baca lampiran"]
+    assert statuses == ["Dokumen dikirim ke asisten untuk dibaca"]
+
+
+@pytest.mark.asyncio
 def test_event_bridge_converts_attachment_url_to_local_path(monkeypatch, tmp_path):
     from pathlib import Path
 
