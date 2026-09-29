@@ -26,7 +26,7 @@ AppWindow {
         title: "Attach a document or image"
         fileMode: FileDialog.OpenFile
         nameFilters: [
-            "Documents and images (*.txt *.md *.json *.csv *.log *.ini *.yaml *.yml *.xml *.html *.htm *.docx *.xlsx *.pdf *.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.ico)",
+            "Documents and images (*.txt *.md *.json *.csv *.log *.ini *.yaml *.yml *.xml *.html *.htm *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.odt *.ods *.odp *.pdf *.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.ico)",
             "All files (*)"
         ]
 
@@ -354,14 +354,68 @@ AppWindow {
                                     spacing: 0
 
                                     XButton {
-                                        text: "📎︎"
                                         implicitWidth: 32
                                         implicitHeight: 32
                                         Layout.preferredWidth: 32
                                         Layout.preferredHeight: 32
+                                        topPadding: 0
+                                        bottomPadding: 0
+                                        leftPadding: 0
+                                        rightPadding: 0
                                         ToolTip.visible: hovered
                                         ToolTip.text: "Attach a document or image"
                                         onClicked: attachmentDialog.open()
+
+                                        // "📎" adalah color emoji: mengabaikan color teks,
+                                        // jadi clip digambar manual agar bisa berwarna putih.
+                                        // Canvas sebagai child biasa (bukan contentItem) supaya
+                                        // anchors.centerIn berfungsi normal.
+                                        Canvas {
+                                            anchors.centerIn: parent
+                                            width: 18
+                                            height: 18
+                                            onPaint: {
+                                                var ctx = getContext("2d")
+                                                ctx.clearRect(0, 0, width, height)
+                                                ctx.strokeStyle = "white"
+                                                ctx.lineWidth = 1.6
+                                                ctx.lineCap = "round"
+                                                ctx.lineJoin = "round"
+
+                                                ctx.save()
+                                                // 1. Pindahkan titik pusat (0,0) ke tengah-tengah kanvas (9,9)
+                                                ctx.translate(width / 2, height / 2)
+                                                
+                                                // 2. Putar -45 derajat agar miring persis seperti emoji 📎
+                                                ctx.rotate(-Math.PI / 4)
+                                                
+                                                // 3. Skala sedikit (0.8) agar gambar tidak terpotong di sudut saat berputar
+                                                ctx.scale(0.8, 0.8)
+
+                                                ctx.beginPath()
+                                                
+                                                // --- Alur gambar paperclip double-loop vertikal ---
+                                                
+                                                // Mulai dari ujung spiral dalam (inner end)
+                                                ctx.moveTo(1.5, -2)
+                                                ctx.lineTo(1.5, 3)
+                                                
+                                                // Lengkungan bawah dalam
+                                                ctx.arc(0, 3, 1.5, 0, Math.PI, false)
+                                                ctx.lineTo(-1.5, -5)
+                                                
+                                                // Lengkungan atas tengah
+                                                ctx.arc(1.5, -5, 3, Math.PI, 2 * Math.PI, false)
+                                                ctx.lineTo(4.5, 6)
+                                                
+                                                // Lengkungan bawah luar (terbesar)
+                                                ctx.arc(0, 6, 4.5, 0, Math.PI, false)
+                                                ctx.lineTo(-4.5, -3)
+
+                                                ctx.stroke()
+                                                ctx.restore()
+                                            }
+                                        }
                                     }
 
                                     TextInput {

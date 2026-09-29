@@ -25,6 +25,7 @@ class SessionActions:
         presenter: "UiPresenter",
         image_analyzer=None,
         pending_image_setter=None,
+        pending_document_setter=None,
     ) -> None:
         self._ctx = ctx
         self._cmd = cmd
@@ -36,6 +37,7 @@ class SessionActions:
         self._bus = None
         self._image_analyzer = image_analyzer
         self._pending_image_setter = pending_image_setter
+        self._pending_document_setter = pending_document_setter
 
     @property
     def auto_mode(self) -> bool:
@@ -152,6 +154,7 @@ class SessionActions:
                 return
 
             from src.mcp.tools.documents.service import (
+                BINARY_EXTENSIONS,
                 IMAGE_EXTENSIONS,
                 TEXT_EXTENSIONS,
                 document_manage,
@@ -189,12 +192,26 @@ class SessionActions:
                     )
                     if extracted.startswith("Image: "):
                         extracted = extracted.partition("\n")[2]
-            elif extension in TEXT_EXTENSIONS or extension in {
-                ".docx",
-                ".xlsx",
-                ".pdf",
-            }:
+            elif extension in TEXT_EXTENSIONS or extension in BINARY_EXTENSIONS:
                 kind = "document"
+                if self._pending_document_setter is not None:
+                    self._pending_document_setter(str(path), question or "")
+                    prompt = (
+                        "saya melampirkan dokumen, tolong baca dengan read_file "
+                        "lalu jawab pertanyaan saya"
+                    )
+                    if question:
+                        prompt = f"{question}\n\n{prompt}"
+                    if not await self.send_text(prompt):
+                        self._pending_document_setter("", "")
+                        await self._set_attachment_status(
+                            "Gagal mengirim permintaan baca dokumen"
+                        )
+                        return
+                    await self._set_attachment_status(
+                        "Dokumen dikirim ke asisten untuk dibaca"
+                    )
+                    return
                 extracted = await document_manage(
                     {"action": "read", "path": str(path)}
                 )

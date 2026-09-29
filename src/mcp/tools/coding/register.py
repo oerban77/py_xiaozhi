@@ -17,11 +17,21 @@ from .service import (
     list_files,
     read_file,
     search_text,
+    set_pending_document_provider,
 )
 
 
-def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
-    """Register the coding tool set."""
+def register_coding_tools(
+    add_tool: Callable[[McpTool], None],
+    pending_document_provider: Callable[[], tuple[str, str] | None] | None = None,
+) -> None:
+    """Register the coding tool set.
+
+    pending_document_provider: when supplied, ``read_file`` reads a chat-attached
+    document instead of a workspace path (the desktop app queues the file).
+    """
+
+    set_pending_document_provider(pending_document_provider)
 
     add_tool(
         McpTool(
@@ -29,11 +39,14 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             description=(
                 "Read a UTF-8 text file as line ranges. Returns the content with a "
                 "sha256 revision that apply_changes needs to modify the file. "
-                "Binary files are rejected."
+                "Binary files are rejected. When the desktop app has queued an "
+                "attached document, this tool reads that file instead; in that "
+                "case call it with no arguments (or any path) and answer the "
+                "user's question about the document."
             ),
             properties=PropertyList(
                 [
-                    Property("path", PropertyType.STRING),
+                    Property("path", PropertyType.STRING, default_value=""),
                     Property("start_line", PropertyType.INTEGER, default_value=1, min_value=1),
                     Property("end_line", PropertyType.INTEGER, default_value=0, min_value=0),
                     Property("max_lines", PropertyType.INTEGER, default_value=0, min_value=0),

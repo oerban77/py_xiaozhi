@@ -29,6 +29,7 @@ class McpServer:
         self._camera = None
         self._vision_ready = asyncio.Event()
         self._pending_image: tuple[str, str] | None = None
+        self._pending_document: tuple[str, str] | None = None
         # external plugin tool_name -> plugin_id
         self._plugin_tool_owner: dict[str, str] = {}
 
@@ -53,6 +54,16 @@ class McpServer:
     def consume_pending_image(self) -> tuple[str, str] | None:
         pending = self._pending_image
         self._pending_image = None
+        return pending
+
+    def set_pending_document(self, path: str, question: str) -> None:
+        self._pending_document = (path, question) if path else None
+        if self._pending_document:
+            logger.info("Queued document attachment for read_file MCP: %s", Path(path).name)
+
+    def consume_pending_document(self) -> tuple[str, str] | None:
+        pending = self._pending_document
+        self._pending_document = None
         return pending
 
     async def analyze_image_file(self, path: str, question: str) -> str:
@@ -158,12 +169,18 @@ class McpServer:
             tool_owner=self._plugin_tool_owner,
         )
 
-    def add_common_tools(self, music_player=None, volume_controller=None):
+    def add_common_tools(
+        self,
+        music_player=None,
+        volume_controller=None,
+        pending_document_provider=None,
+    ):
         """
         Add common tools (all explicitly mounted via register_*).
 
         music_player: MusicPlayer injected by the container; registers music tools when provided.
         volume_controller: optional injected VolumeController; created internally when not provided.
+        pending_document_provider: yields a chat-attached document to read_file.
         camera / screenshot are separately registered by McpPlugin during setup.
         """
         # Back up the original tool list
@@ -193,7 +210,9 @@ class McpServer:
         register_volume_tools(self.add_tool, volume_controller)
         register_app_tools(self.add_tool)
         register_blender_tools(self.add_tool)
-        register_coding_tools(self.add_tool)
+        register_coding_tools(
+            self.add_tool, pending_document_provider=pending_document_provider
+        )
         register_documents_tools(self.add_tool)
         register_hardware_tools(self.add_tool)
         register_kali_tools(self.add_tool)

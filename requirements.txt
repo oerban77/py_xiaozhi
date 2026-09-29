@@ -29,6 +29,10 @@ sherpa-onnx-core>=1.12.26; sys_platform != "win32"
 opencv-python-headless>=4.9.0
 pillow>=10.0.0
 
+# 文档读取 (可选: PDF 文本提取与旧版 Office .doc/.xls/.ppt 读取)
+pypdf>=4.0.0
+olefile>=0.46
+
 # 加密
 cryptography>=42.0.0
 

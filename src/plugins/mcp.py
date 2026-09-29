@@ -58,7 +58,10 @@ class McpPlugin(Plugin):
             )
             register_screenshot_tools(server.add_tool, camera)
 
-            server.add_common_tools(music_player=self._music_player)
+            server.add_common_tools(
+                music_player=self._music_player,
+                pending_document_provider=server.consume_pending_document,
+            )
         except Exception as e:
             logger.error(f"MCP tool registration failed: {e}", exc_info=True)
 

@@ -246,6 +246,70 @@ def _read_docx(path: str) -> str:
     return f"Word document. Size: {os.path.getsize(path)} bytes"
 
 
+def _read_odt(path: str) -> str:
+    """Read an ODF text document (OpenDocument .odt/.ods/.odp content.xml)."""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            data = zf.read("content.xml").decode("utf-8", errors="ignore")
+        parts = re.findall(r"<text:p[^>]*>(.*?)</text:p>", data, flags=re.S)
+        lines = []
+        for part in parts:
+            text = re.sub(r"<[^>]+>", "", part)
+            if text.strip():
+                lines.append(text.strip())
+        if lines:
+            return "\n".join(lines)
+    except Exception as exc:
+        logger.warning("ODF read failed: %s", exc)
+    return f"OpenDocument file. Size: {os.path.getsize(path)} bytes"
+
+
+def _read_legacy_office(path: str) -> str:
+    """Best-effort text extraction from a legacy OLE2 Office file (.doc/.xls/.ppt).
+
+    These are compound binary formats; without python-docx/pandas we can only
+    pull out the embedded ASCII/UTF-16 runs, which covers most plain text.
+    """
+    try:
+        import olefile
+
+        if not olefile.isOleFile(path):
+            raise RuntimeError("not an OLE2 compound file")
+        with olefile.OleFileIO(path) as ole:
+            streams = []
+            for stream in ole.listdir():
+                name = "/".join(stream)
+                if not name.lower().endswith((".doc", ".ppt", ".xls", "worddocument")):
+                    continue
+                streams.append((name, ole.openstream(stream).read()))
+            if not streams:
+                streams.append(("document", b""))
+        texts = []
+        for _name, data in streams:
+            if not data:
+                continue
+            # Printable ASCII runs
+            ascii_text = re.findall(rb"[\x20-\x7e]{4,}", data)
+            # UTF-16LE runs (common in OLE2)
+            utf16_text = re.findall(
+                rb"(?:[\x20-\x7e]\x00){4,}", data
+            )
+            chunks = [m.decode("ascii", "ignore") for m in ascii_text]
+            chunks += [m.decode("utf-16-le", "ignore") for m in utf16_text]
+            joined = " ".join(chunks).strip()
+            if joined:
+                texts.append(joined)
+        if texts:
+            return "\n".join(texts)
+    except ImportError:
+        logger.warning(
+            "Legacy Office read needs the optional 'olefile' package: %s", path
+        )
+    except Exception as exc:
+        logger.warning("Legacy Office read failed: %s", exc)
+    return f"Office document. Size: {os.path.getsize(path)} bytes"
+
+
 # ── XLSX (minimal OOXML, no external dependency) ──────────────
 
 
@@ -846,6 +910,10 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
         return _read_xlsx(path)
     if fmt == "pdf":
         return _read_pdf(path, args.get("query"))
+    if fmt in {"odt", "ods", "odp"}:
+        return _read_odt(path)
+    if fmt in {"doc", "xls", "ppt"}:
+        return _read_legacy_office(path)
     if fmt == "image":
         return _read_image(path, args.get("query"))
     return f"Document available. Detected format: {fmt}"

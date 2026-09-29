@@ -74,6 +74,7 @@ async def setup_plugins(
         task_manager=container.tasks,
         image_analyzer=container.mcp_server.analyze_image_file,
         pending_image_setter=container.mcp_server.set_pending_image,
+        pending_document_setter=container.mcp_server.set_pending_document,
     )
     shortcuts_plugin = ShortcutsPlugin()
     mcp_plugin = McpPlugin(
