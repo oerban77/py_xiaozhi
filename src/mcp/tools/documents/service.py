@@ -25,13 +25,36 @@ import os
 import re
 import shutil
 import zipfile
-from typing import Any
+from typing import Any, Callable
 from xml.sax.saxutils import escape
 
 from src.logging import get_logger
 from src.utils.config_manager import get_config
 
 logger = get_logger()
+
+# Injected by McpServer.add_common_tools: yields (path, question) for a document
+# attached in the desktop chat, so document_manage can read it without a path.
+_PENDING_DOCUMENT_PROVIDER: Callable[[], tuple[str, str] | None] | None = None
+
+
+def set_pending_document_provider(
+    provider: Callable[[], tuple[str, str] | None] | None,
+) -> None:
+    """Inject the chat-attachment provider (set by McpServer.add_common_tools)."""
+    global _PENDING_DOCUMENT_PROVIDER
+    _PENDING_DOCUMENT_PROVIDER = provider
+
+
+def _consume_pending_document() -> tuple[str, str] | None:
+    """Return (and clear) the chat-attached document, if any is queued."""
+    if _PENDING_DOCUMENT_PROVIDER is None:
+        return None
+    try:
+        return _PENDING_DOCUMENT_PROVIDER()
+    except Exception as exc:  # noqa: BLE001 — never break the tool call
+        logger.warning("pending document provider failed: %s", exc)
+        return None
 
 TEXT_EXTENSIONS = {
     ".txt",
@@ -262,6 +285,34 @@ def _read_odt(path: str) -> str:
     except Exception as exc:
         logger.warning("ODF read failed: %s", exc)
     return f"OpenDocument file. Size: {os.path.getsize(path)} bytes"
+
+
+def _read_pptx(path: str) -> str:
+    """Read a PowerPoint .pptx: slide text from every slide in order."""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = [
+                n
+                for n in zf.namelist()
+                if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)
+            ]
+            names.sort(key=lambda n: int(re.search(r"\d+", n).group()))
+            slides = []
+            for idx, name in enumerate(names, 1):
+                data = zf.read(name).decode("utf-8", errors="ignore")
+                parts = re.findall(r"<a:t[^>]*>(.*?)</a:t>", data, flags=re.S)
+                lines = [
+                    re.sub(r"<[^>]+>", "", part).strip()
+                    for part in parts
+                ]
+                lines = [ln for ln in lines if ln]
+                if lines:
+                    slides.append(f"[Slide {idx}]\n" + "\n".join(lines))
+            if slides:
+                return "\n\n".join(slides)
+    except Exception as exc:
+        logger.warning("PPTX read failed: %s", exc)
+    return f"PowerPoint document. Size: {os.path.getsize(path)} bytes"
 
 
 def _read_legacy_office(path: str) -> str:
@@ -497,7 +548,9 @@ def _read_pdf(path: str, query: str | None = None) -> str:
     ]
     if matches:
         return "\n".join(matches[:10])
-    return f"No results for query: {query}"
+    # No line matched: the LLM still needs the document content to answer the
+    # user's question, so fall back to the full extracted text.
+    return text
 
 
 def _write_placeholder_binary(path: str) -> None:
@@ -809,8 +862,18 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
     path_value = (
         args.get("path") or args.get("file") or args.get("document_path") or ""
     )
+    pending_question = ""
     if not path_value:
-        return "A document path is required"
+        # No path given: fall back to a document attached in the desktop chat.
+        pending = _consume_pending_document()
+        if pending is None:
+            return "A document path is required"
+        path_value = pending[0]
+        pending_question = str(pending[1] or "").strip()
+        args = dict(args)
+        args["path"] = path_value
+        if not args.get("query") and pending_question:
+            args["query"] = pending_question
 
     path = _resolve_path(str(path_value))
     fmt = _guess_format(path, args.get("format"))
@@ -889,6 +952,14 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
     if os.path.isdir(path):
         return f"Path is a folder: {path}"
 
+    # Surface the user's chat question and the file name to the LLM alongside
+    # the content, so it knows what to answer even though the sent prompt only
+    # carried the short question (the detect channel rejects long texts).
+    question_hint = ""
+    if pending_question:
+        file_name = os.path.basename(str(path_value))
+        question_hint = f"[Attached file: {file_name} | User question: {pending_question}]\n\n"
+
     if fmt in _TEXT_FORMATS:
         query = args.get("query")
         text = _read_text(path)
@@ -900,22 +971,26 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
                 line.strip() for line in text.splitlines() if query_text in line.lower()
             ]
             if matches:
-                return "\n".join(matches[:10])
-            return f"No results for query: {query}"
-        return text
+                return question_hint + "\n".join(matches[:10])
+            # No line matched: the LLM still needs the document content to answer
+            # the user's question, so fall back to the full text.
+            return question_hint + text
+        return question_hint + text
 
     if fmt == "docx":
-        return _read_docx(path)
+        return question_hint + _read_docx(path)
     if fmt == "xlsx":
-        return _read_xlsx(path)
+        return question_hint + _read_xlsx(path)
     if fmt == "pdf":
-        return _read_pdf(path, args.get("query"))
+        return question_hint + _read_pdf(path, args.get("query"))
     if fmt in {"odt", "ods", "odp"}:
-        return _read_odt(path)
+        return question_hint + _read_odt(path)
     if fmt in {"doc", "xls", "ppt"}:
-        return _read_legacy_office(path)
+        return question_hint + _read_legacy_office(path)
+    if fmt == "pptx":
+        return question_hint + _read_pptx(path)
     if fmt == "image":
-        return _read_image(path, args.get("query"))
+        return question_hint + _read_image(path, args.get("query"))
     return f"Document available. Detected format: {fmt}"
 
 

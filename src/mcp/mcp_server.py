@@ -59,7 +59,7 @@ class McpServer:
     def set_pending_document(self, path: str, question: str) -> None:
         self._pending_document = (path, question) if path else None
         if self._pending_document:
-            logger.info("Queued document attachment for read_file MCP: %s", Path(path).name)
+            logger.info("Queued document attachment for document_manage MCP: %s", Path(path).name)
 
     def consume_pending_document(self) -> tuple[str, str] | None:
         pending = self._pending_document
@@ -210,10 +210,10 @@ class McpServer:
         register_volume_tools(self.add_tool, volume_controller)
         register_app_tools(self.add_tool)
         register_blender_tools(self.add_tool)
-        register_coding_tools(
+        register_coding_tools(self.add_tool)
+        register_documents_tools(
             self.add_tool, pending_document_provider=pending_document_provider
         )
-        register_documents_tools(self.add_tool)
         register_hardware_tools(self.add_tool)
         register_kali_tools(self.add_tool)
         register_news_tools(self.add_tool)
@@ -384,7 +384,42 @@ class McpServer:
         found_cursor = not cursor
         next_cursor = ""
 
+        # When a document is attached in the chat, promote document_manage to
+        # the FIRST page of tools/list. The LLM only sees a short question
+        # (the detect channel rejects long texts), so it cannot know a document
+        # is attached unless the tool list itself says so. Without this the LLM
+        # answers the question directly and never calls the tool.
+        pending_doc = self._pending_document
+        promoted = None
+        if pending_doc and not cursor:
+            for tool in self._iter_enabled_tools():
+                if tool.name == "document_manage":
+                    promoted = tool
+                    break
+            if promoted is not None:
+                pending_name = Path(pending_doc[0]).name
+                pending_question = (pending_doc[1] or "").strip()
+                banner = (
+                    "[ATTACHED DOCUMENT IS WAITING - CALL THIS TOOL NOW] "
+                    f"The user attached the file '{pending_name}' in the chat "
+                    f"and asked: \"{pending_question}\". "
+                    "You MUST call document_manage with action=read and NO path "
+                    "to read that attached file BEFORE answering. This is the "
+                    "ONLY tool that can read the attached document; do not "
+                    "answer from memory.\n"
+                )
+                tool_json = dict(promoted.to_json())
+                tool_json["description"] = banner + promoted.description
+                tool_size = len(json.dumps(tool_json))
+                if total_size + tool_size + 100 <= max_payload_size:
+                    tools_json.append(tool_json)
+                    total_size += tool_size
+
         for tool in self._iter_enabled_tools():
+            # Skip the promoted tool; it was already emitted above.
+            if promoted is not None and tool.name == promoted.name:
+                continue
+
             # If the start position has not been found yet, keep searching
             if not found_cursor:
                 if tool.name == cursor:

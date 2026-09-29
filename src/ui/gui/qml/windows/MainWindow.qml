@@ -468,7 +468,25 @@ AppWindow {
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
+
+                    // Counter karakter untuk prompt attach dokumen.
+                    // Channel "detect" server menolak teks >= 32 char, jadi
+                    // tampilkan "n/32" (di luar textbox) saat ada attachment.
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 16
+                        visible: root.attachmentName.length > 0
+                        text: {
+                            let n = textInput.text.trim().length
+                            return n + "/32"
+                        }
+                        font.pixelSize: Theme.fontSizeXs
+                        color: textInput.text.trim().length >= 32
+                            ? Theme.error : Theme.textPlaceholder
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
                     }
+                }
             }
         }
 

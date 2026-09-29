@@ -1,5 +1,6 @@
 """Converts UI actions such as key presses, text sends and mode switches into protocol calls."""
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,18 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 _MAX_ATTACHMENT_TEXT_CHARS = 24_000
+
+# Indonesian/English words that show the user is already asking to READ or
+# PROCESS a document, so the "baca dokumen:" prefix is not needed. Generic
+# words like "isi"/"isinya" are intentionally excluded: "isinya apa ini?"
+# does not by itself tell the LLM to read an attached file.
+_MENTIONS_DOCUMENT = re.compile(
+    r"\b(dokumen|document|dokumennya|lampiran|attachment|"
+    r"pdf|pptx|docx|xlsx|"
+    r"baca|bacalah|read|summar(y|ize)|ringkas|resume|"
+    r"soalnya|materi|artikel|berita)\b",
+    re.IGNORECASE,
+)
 
 
 class SessionActions:
@@ -196,12 +209,24 @@ class SessionActions:
                 kind = "document"
                 if self._pending_document_setter is not None:
                     self._pending_document_setter(str(path), question or "")
-                    prompt = (
-                        "saya melampirkan dokumen, tolong baca dengan read_file "
-                        "lalu jawab pertanyaan saya"
-                    )
-                    if question:
-                        prompt = f"{question}\n\n{prompt}"
+                    # The detect channel rejects texts >= 32 chars ("Detect is
+                    # only for wake words, do not send long texts"), so the
+                    # prompt must stay short. The attached file is delivered to
+                    # document_manage through the pending-document queue, and
+                    # the tool description tells the LLM to use document_manage
+                    # for any attached document.
+                    #
+                    # The prompt must still make the intent explicit: the LLM
+                    # answers before it finishes paging tools/list, so the
+                    # promoted banner alone is too late. Prefix "baca dokumen:"
+                    # unless the question already mentions a document.
+                    raw_question = (question or "").strip()
+                    prompt = raw_question or "baca dokumen"
+                    if not _MENTIONS_DOCUMENT.search(prompt):
+                        prefix = "baca dokumen: "
+                        prompt = (prefix + prompt)[:31]
+                    if len(prompt) > 31:
+                        prompt = prompt[:31].strip()
                     if not await self.send_text(prompt):
                         self._pending_document_setter("", "")
                         await self._set_attachment_status(

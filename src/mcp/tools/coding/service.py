@@ -74,21 +74,6 @@ MAX_TIMEOUT_MS = 120_000
 BINARY_PROBE_BYTES = 4096
 MAX_DEPTH = 8
 
-# Office/binary document suffixes handled via the documents tool extractors when
-# they arrive as chat attachments (read_file itself only accepts UTF-8 text).
-_BINARY_DOCUMENT_SUFFIXES = {
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".ppt",
-    ".pptx",
-    ".odt",
-    ".ods",
-    ".odp",
-}
-
 # Commands that must never be run, whatever the arguments. The hardware tool
 # uses the same list; a coding assistant has no business running these either.
 BLACKLIST_PATTERNS = [
@@ -186,19 +171,6 @@ def _read_text(path: Path) -> str:
     return data.decode("utf-8", errors="replace")
 
 
-def _read_attached_document(path: Path) -> str:
-    """Read a chat-attached document as text, extracting Office/PDF content."""
-    if path.suffix.lower() not in _BINARY_DOCUMENT_SUFFIXES:
-        return _read_text(path)
-
-    # .docx/.xlsx/.pdf are binary: reuse the documents tool extractors so the
-    # LLM receives readable text instead of a BINARY_FILE rejection.
-    # _read_file runs in a worker thread, so call the sync implementation.
-    from src.mcp.tools.documents.service import _document_manage_sync
-
-    return _document_manage_sync({"action": "read", "path": str(path)})
-
-
 def _line_slice(text: str, start_line: int, end_line: int) -> tuple[str, int]:
     lines = text.split("\n")
     total = len(lines) - 1 if text.endswith("\n") else len(lines)
@@ -213,49 +185,18 @@ def _line_slice(text: str, start_line: int, end_line: int) -> tuple[str, int]:
 # ── read_file ─────────────────────────────────────────────────
 
 
-_PENDING_DOCUMENT_PROVIDER: Callable[[], tuple[str, str] | None] | None = None
-
-
-def set_pending_document_provider(
-    provider: Callable[[], tuple[str, str] | None] | None,
-) -> None:
-    """Inject the chat-attachment provider (set by McpServer.add_common_tools)."""
-    global _PENDING_DOCUMENT_PROVIDER
-    _PENDING_DOCUMENT_PROVIDER = provider
-
-
 def _read_file(args: dict) -> str:
     root = _workspace_root()
-    pending = _PENDING_DOCUMENT_PROVIDER() if _PENDING_DOCUMENT_PROVIDER else None
-    if pending is not None:
-        # A document attached in the desktop chat takes precedence over the
-        # workspace path: read it directly so the LLM can analyze the content.
-        path = Path(pending[0]).expanduser().resolve()
-        if not path.is_file():
-            raise ToolFailure(
-                "NOT_FOUND", f"Attached file is unavailable: {path}", category="not_found"
-            )
-        args = dict(args)
-        args["path"] = str(path)
-        root = path.parent
-        text = _read_attached_document(path)
-        # An attachment is a one-shot read: hand the whole document to the LLM
-        # so it can answer questions about it, instead of paginating it.
-        start_line = 1
-        end_line = 0
-        max_lines = 0
-        max_bytes = MAX_READ_BYTES * 4
-    else:
-        path = _resolve(str(args.get("path", "")), root, must_exist=True)
-        if path.is_dir():
-            raise ToolFailure(
-                "IS_DIRECTORY", f"Is a directory: {path}", category="validation"
-            )
-        text = _read_text(path)
-        start_line = int(args.get("start_line") or 1)
-        end_line = int(args.get("end_line") or 0)
-        max_lines = int(args.get("max_lines") or 0)
-        max_bytes = int(args.get("max_bytes") or MAX_READ_BYTES)
+    path = _resolve(str(args.get("path", "")), root, must_exist=True)
+    if path.is_dir():
+        raise ToolFailure(
+            "IS_DIRECTORY", f"Is a directory: {path}", category="validation"
+        )
+    text = _read_text(path)
+    start_line = int(args.get("start_line") or 1)
+    end_line = int(args.get("end_line") or 0)
+    max_lines = int(args.get("max_lines") or 0)
+    max_bytes = int(args.get("max_bytes") or MAX_READ_BYTES)
 
     total_bytes = len(text.encode("utf-8"))
     revision = content_revision(text)

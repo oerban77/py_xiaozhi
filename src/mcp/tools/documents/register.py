@@ -7,13 +7,26 @@ from collections.abc import Callable
 from src.logging import get_logger
 from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
 
-from .service import document_manage, image_read, search_files
+from .service import (
+    document_manage,
+    image_read,
+    search_files,
+    set_pending_document_provider,
+)
 
 logger = get_logger()
 
 
-def register_documents_tools(add_tool: Callable[[McpTool], None]) -> None:
-    """Register the document tools with McpServer."""
+def register_documents_tools(
+    add_tool: Callable[[McpTool], None],
+    pending_document_provider: Callable[[], tuple[str, str] | None] | None = None,
+) -> None:
+    """Register the document tools with McpServer.
+
+    pending_document_provider: when supplied, ``document_manage`` reads a
+    chat-attached document when the LLM calls it without a path.
+    """
+    set_pending_document_provider(pending_document_provider)
 
     tools: list[McpTool] = [
         McpTool(
@@ -40,16 +53,25 @@ def register_documents_tools(add_tool: Callable[[McpTool], None]) -> None:
         McpTool(
             "document_manage",
             (
+                "[ATTACHED DOCUMENT READER - use this for attached files] "
+                "When a document/file is attached, uploaded, or sent in the chat, "
+                "you MUST call this tool with action=read and NO path to read it. "
+                "This is the ONLY tool that can read a document attached in the "
+                "chat. Never use take_screenshot, read_file, or image_read for an "
+                "attached document. If the user asks to read, analyze, summarize, "
+                "explain, translate, or answer questions about an attached "
+                "document, call document_manage(action=read) FIRST, then answer "
+                "from the returned content.\n"
                 "Read, create, edit, delete or export a document.\n"
                 "Supports text formats (.txt .md .json .csv .log .ini .yaml .xml), "
                 ".docx and .xlsx (written with built-in OOXML, no extra deps), "
-                "and .pdf (text extraction via the optional pypdf package).\n"
-                "Images (.png .jpg .jpeg .webp .bmp .gif .tif .tiff .ico and every "
-                "other format Pillow can decode) return metadata plus OCR text; "
-                "use the dedicated image_read tool for images.\n"
+                ".pptx (slide text) and .pdf (text extraction via the optional "
+                "pypdf package).\n"
                 "Parameters:\n"
                 "- action: read | create | edit | delete | export (required)\n"
-                "- path: document path, absolute or relative to cwd (required)\n"
+                "- path: document path, absolute or relative to cwd. When the "
+                "user has attached a document this is optional: call it with "
+                "action=read and no path to read the attached file.\n"
                 "- content: text content for create/edit\n"
                 "- data: structured data (dict/list) to build json/csv/markdown/xlsx\n"
                 "- format: override detection: text|markdown|json|csv|docx|xlsx\n"
@@ -59,7 +81,7 @@ def register_documents_tools(add_tool: Callable[[McpTool], None]) -> None:
             PropertyList(
                 [
                     Property("action", PropertyType.STRING),
-                    Property("path", PropertyType.STRING),
+                    Property("path", PropertyType.STRING, default_value=""),
                     Property("content", PropertyType.STRING, default_value=""),
                     Property("format", PropertyType.STRING, default_value=""),
                     Property("output", PropertyType.STRING, default_value=""),
