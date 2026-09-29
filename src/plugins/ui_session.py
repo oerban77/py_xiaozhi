@@ -161,9 +161,7 @@ class SessionActions:
             extension = path.suffix.lower()
             if extension in IMAGE_EXTENSIONS:
                 kind = "image"
-                image_question = question or (
-                    "Jelaskan isi gambar ini secara singkat dan jelas dalam bahasa Indonesia."
-                )
+                image_question = (question or "").strip() or "analisa"
                 if self._pending_image_setter is not None:
                     self._pending_image_setter(str(path), image_question)
                     if not await self.send_text("analisa gambar"):

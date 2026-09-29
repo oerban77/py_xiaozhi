@@ -1230,8 +1230,12 @@ async def test_attached_image_is_analyzed_by_camera_mcp_tool(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("question", "expected_question"),
+    [("Apa isi gambar ini?", "Apa isi gambar ini?"), ("", "analisa")],
+)
 async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
-    tmp_path,
+    tmp_path, question, expected_question
 ):
     from src.plugins.ui_session import SessionActions
     from src.ui.shared.events import UISendAttachmentRequest
@@ -1270,12 +1274,10 @@ async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
     session.subscribe(bus)
 
     await session.send_attachment_from_event(
-        UISendAttachmentRequest(
-            path=str(image_path), question="Apa isi gambar ini?"
-        )
+        UISendAttachmentRequest(path=str(image_path), question=question)
     )
 
-    assert queued == [(str(image_path), "Apa isi gambar ini?")]
+    assert queued == [(str(image_path), expected_question)]
     assert sent == ["analisa gambar"]
     assert statuses == ["Gambar dikirim ke asisten untuk dianalisis"]
 
