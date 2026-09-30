@@ -422,11 +422,14 @@ AppWindow {
                                         id: textInput
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
+                                        Layout.leftMargin: 6
                                         verticalAlignment: TextInput.AlignVCenter
                                         font.pixelSize: Theme.fontSizeSm
                                         color: Theme.textPrimary
                                         selectByMouse: true
                                         clip: true
+                                        leftPadding: 4
+                                        rightPadding: 4
 
                                         Text {
                                             anchors.fill: parent
@@ -469,13 +472,12 @@ AppWindow {
                         verticalAlignment: Text.AlignVCenter
                     }
 
-                    // Counter karakter untuk prompt attach dokumen.
-                    // Channel "detect" server menolak teks >= 32 char, jadi
-                    // tampilkan "n/32" (di luar textbox) saat ada attachment.
+                    // Counter karakter untuk input pesan; berlaku baik saat attach file
+                    // maupun saat mengetik pesan biasa. Channel "detect" server menolak
+                    // teks >= 32 char, jadi tampilkan "n/32" di seluruh mode input.
                     Text {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 16
-                        visible: root.attachmentName.length > 0
                         text: {
                             let n = textInput.text.trim().length
                             return n + "/32"

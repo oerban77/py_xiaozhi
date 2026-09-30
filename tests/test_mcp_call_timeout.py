@@ -8,6 +8,7 @@ disconnect instead of an answer. The server now answers within the budget.
 import asyncio
 import json
 
+import src.mcp.tools.kali.service as kali_service
 from src.mcp import mcp_server
 from src.mcp.mcp_server import McpServer
 from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
@@ -228,6 +229,28 @@ def test_tools_list_disables_pagination_when_config_says_so(monkeypatch):
     result = sent[0]["result"]
     assert "nextCursor" not in result
     assert len(result["tools"]) >= 80
+
+
+def test_kali_run_hides_windows_console(monkeypatch):
+    """Windows nmap calls should not create a visible terminal window."""
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return type("Result", (), {"stdout": "ok", "stderr": "", "returncode": 0})()
+
+    monkeypatch.setattr(kali_service.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(kali_service, "_is_enabled", lambda: True)
+    monkeypatch.setattr(kali_service, "_config_timeout", lambda: 5)
+    monkeypatch.setattr(kali_service, "_resolve_executable", lambda cmd: cmd)
+    monkeypatch.setattr(kali_service.subprocess, "run", fake_run)
+
+    result = kali_service._run(["nmap", "-F", "127.0.0.1"], timeout=5)
+
+    assert result == "ok"
+    assert captured["kwargs"].get("creationflags") == kali_service.subprocess.CREATE_NO_WINDOW
+    assert captured["kwargs"].get("startupinfo") is not None
 
 
 def test_call_timeout_reads_config(monkeypatch):

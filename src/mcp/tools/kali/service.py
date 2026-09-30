@@ -112,6 +112,25 @@ def _captured_text(value: str | bytes | None) -> str:
     return (value or "").rstrip()
 
 
+def _hidden_windows_kwargs() -> dict[str, Any]:
+    """Hide console windows on Windows so nmap and friends run in the background."""
+    if not platform.system().lower().startswith("win"):
+        return {}
+
+    startupinfo = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo is None:
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+
+    info = startupinfo()
+    info.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+    info.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+    return {
+        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        "startupinfo": info,
+        "stdin": subprocess.DEVNULL,
+    }
+
+
 def _tool(fn: Callable[[dict[str, Any]], str]) -> Callable[[dict[str, Any]], Any]:
     """Wrap a blocking handler so the framework can await it."""
 
@@ -140,6 +159,7 @@ def _run(argv: list[str], timeout: int | None = None) -> str:
             timeout=timeout,
             encoding="utf-8",
             errors="replace",
+            **_hidden_windows_kwargs(),
         )
     except FileNotFoundError:
         return (
