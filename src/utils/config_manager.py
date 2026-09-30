@@ -153,6 +153,10 @@ class ConfigManager:
         # MCP tool exposure (blacklist: not shown in tools/list, and call is denied)
         "MCP_TOOLS": {
             "DISABLED": [],  # Example: ["music_player.stop", "self.application.launch"]
+            # Set to False to return all tools in a single tools/list payload without
+            # using nextCursor pagination. This is useful for clients that do not handle
+            # paged MCP tool catalogs correctly.
+            "PAGINATION_ENABLED": True,
             # Wall-clock budget for a single tools/call. The xiaozhi server closes the
             # session when a tool call takes longer than its own limit, so a slow tool
             # (e.g. an nmap scan) must be answered within this window. 0 = no limit.

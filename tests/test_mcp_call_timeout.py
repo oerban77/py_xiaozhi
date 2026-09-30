@@ -190,6 +190,46 @@ def test_promoted_document_tool_is_not_repeated_across_pages():
     assert "after_document" in names_after_cursor
 
 
+def test_tools_list_disables_pagination_when_config_says_so(monkeypatch):
+    """A disabled paginator returns the full tool list without nextCursor."""
+    server = _make_server()
+
+    async def callback(_args: dict) -> str:
+        return json.dumps({"content": [], "isError": False})
+
+    for index in range(200):
+        server.add_tool(
+            McpTool(
+                f"tool_{index}",
+                "x" * 2500,
+                PropertyList([]),
+                callback,
+            )
+        )
+
+    class FakeConfig:
+        def get_config(self, path, default=None):
+            if path == "MCP_TOOLS.PAGINATION_ENABLED":
+                return False
+            if path == "MCP_TOOLS.DISABLED":
+                return []
+            return default
+
+    monkeypatch.setattr(mcp_server, "get_config", lambda: FakeConfig(), raising=False)
+    import src.utils.config_manager as cm
+    monkeypatch.setattr(cm, "get_config", lambda: FakeConfig())
+
+    sent, send = _capture()
+    server.set_send_callback(send)
+
+    asyncio.run(server._handle_tools_list(51, {}))
+
+    assert len(sent) == 1
+    result = sent[0]["result"]
+    assert "nextCursor" not in result
+    assert len(result["tools"]) >= 80
+
+
 def test_call_timeout_reads_config(monkeypatch):
     """The budget comes from MCP_TOOLS.CALL_TIMEOUT."""
     server = _make_server()

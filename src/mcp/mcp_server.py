@@ -347,6 +347,16 @@ class McpServer:
             if tool.name not in disabled:
                 yield tool
 
+    def _pagination_enabled(self) -> bool:
+        """Whether to page tools/list responses by cursor. Disabled mode returns the full list in one payload."""
+        try:
+            from src.utils.config_manager import get_config
+
+            raw = get_config().get_config("MCP_TOOLS.PAGINATION_ENABLED", True)
+            return bool(raw)
+        except Exception:
+            return True
+
     def _call_timeout(self) -> float:
         """Wall-clock budget for a single tools/call (0 disables the limit).
 
@@ -376,8 +386,9 @@ class McpServer:
         """
         Handle the tool list request (already filtered by MCP_TOOLS.DISABLED).
         """
-        cursor = params.get("cursor", "")
-        max_payload_size = 8000
+        pagination_enabled = self._pagination_enabled()
+        cursor = params.get("cursor", "") if pagination_enabled else ""
+        max_payload_size = 8000 if pagination_enabled else float("inf")
 
         tools_json = []
         total_size = 0
@@ -443,7 +454,7 @@ class McpServer:
             total_size += tool_size
 
         result = {"tools": tools_json}
-        if next_cursor:
+        if pagination_enabled and next_cursor:
             result["nextCursor"] = next_cursor
 
         await self._reply_result(request_id, result)

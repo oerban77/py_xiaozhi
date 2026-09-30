@@ -400,6 +400,12 @@ class SettingsModel(
     mcpToolsCatalogJson = Property(
         str, SettingsMcpToolsMixin._get_mcpToolsCatalogJson, notify=settingsChanged
     )
+    mcpToolsPaginationEnabled = Property(
+        bool,
+        SettingsMcpToolsMixin._get_mcpToolsPaginationEnabled,
+        SettingsMcpToolsMixin._set_mcpToolsPaginationEnabled,
+        notify=settingsChanged,
+    )
     mcpToolsDisabledJson = Property(
         str,
         SettingsMcpToolsMixin._get_mcpToolsDisabledJson,

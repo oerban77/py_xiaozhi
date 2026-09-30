@@ -109,6 +109,24 @@ ScrollView {
             wrapMode: Text.WordWrap
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingMd
+
+            Text {
+                text: "Enable MCP pagination"
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textSecondary
+            }
+
+            Item { Layout.fillWidth: true }
+
+            XSwitch {
+                checked: settingsModel ? settingsModel.mcpToolsPaginationEnabled : true
+                onToggled: if (settingsModel) settingsModel.mcpToolsPaginationEnabled = checked
+            }
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
             spacing: Theme.spacingSm

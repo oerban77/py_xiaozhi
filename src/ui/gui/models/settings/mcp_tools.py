@@ -11,6 +11,12 @@ from src.mcp.tool_catalog import full_catalog_rows, normalize_disabled
 class SettingsMcpToolsMixin:
     """Relies on the host to provide _get_value / _set_value / settingsChanged."""
 
+    def _get_mcpToolsPaginationEnabled(self) -> bool:
+        return bool(self._get_value("MCP_TOOLS.PAGINATION_ENABLED", True))
+
+    def _set_mcpToolsPaginationEnabled(self, value: bool) -> None:
+        self._set_value("MCP_TOOLS.PAGINATION_ENABLED", bool(value))
+
     def _get_mcpToolsDisabledJson(self) -> str:
         raw = self._get_value("MCP_TOOLS.DISABLED", []) or []
         return json.dumps(normalize_disabled(raw), ensure_ascii=False)
