@@ -22,12 +22,16 @@ from __future__ import annotations
 import json
 import re
 import threading
+import wave
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
+import sounddevice as sd
+
 from src.logging import get_logger
-from src.utils.resource_finder import get_user_data_dir
+from src.utils.resource_finder import get_app_root, get_user_data_dir
 
 logger = get_logger()
 
@@ -41,6 +45,173 @@ CHECK_INTERVAL = 10  # seconds between scheduler checks
 _TRIGGER_WINDOW_BACK = CHECK_INTERVAL + 5  # tolerate a missed tick
 
 _MAX_DURATION_SEC = 86400 * 365  # one year
+
+# ── Alarm sound state (mirrors xiaozhi-esp32) ─────────────────
+
+# Tracks whether an alarm sound is currently playing.
+# When True, incoming TTS messages are queued and played after alarm finishes.
+_alarm_playing = threading.Event()
+_alarm_playing.clear()
+
+# Queue for TTS messages that arrive while alarm is playing.
+# After alarm finishes, these are played in order.
+_pending_tts_queue: list[dict] = []
+_pending_tts_lock = threading.Lock()
+
+
+def is_alarm_playing() -> bool:
+    """Return True if an alarm sound is currently playing."""
+    return _alarm_playing.is_set()
+
+
+def enqueue_tts(tts_message: dict) -> None:
+    """Queue a TTS message to be played after the alarm finishes."""
+    with _pending_tts_lock:
+        _pending_tts_queue.append(tts_message)
+
+
+def get_pending_tts() -> list[dict]:
+    """Get and clear all pending TTS messages."""
+    with _pending_tts_lock:
+        pending = list(_pending_tts_queue)
+        _pending_tts_queue.clear()
+        return pending
+
+def _get_output_device_id() -> int | None:
+    """Return the configured output device ID for the current app session."""
+    try:
+        from src.utils.config_manager import get_config
+
+        cfg = get_config()
+        output_device_id = cfg.get_config("AUDIO_DEVICES.output_device_id")
+        if output_device_id is not None:
+            return int(output_device_id)
+    except Exception as e:
+        logger.debug("Failed to resolve configured output device: %s", e)
+    return None
+
+
+# ── Alarm sound config (mirrors xiaozhi-esp32) ─────────────────
+
+ALARM_REPEAT_COUNT = 8
+ALARM_INTERVAL_S = 1.2  # seconds between alarm sound repeats
+
+_SOUNDS_DIR = get_app_root() / "assets" / "sounds"
+
+
+def _find_alarm_wav() -> Path | None:
+    """Locate alarm.wav in locale sound folders, fallback to en-US."""
+    for locale in ("id-ID", "en-US"):
+        path = _SOUNDS_DIR / locale / "alarm.wav"
+        if path.exists():
+            return path
+    return None
+
+
+def _load_wav(path: Path) -> tuple[np.ndarray, int] | None:
+    """Load a WAV as float32 mono and return (samples, sample_rate)."""
+    try:
+        with wave.open(str(path), "rb") as wf:
+            channels = wf.getnchannels()
+            sample_width = wf.getsampwidth()
+            sample_rate = wf.getframerate()
+            n_frames = wf.getnframes()
+            raw = wf.readframes(n_frames)
+
+        if sample_width == 2:
+            audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+        elif sample_width == 4:
+            audio = np.frombuffer(raw, dtype=np.int32).astype(np.float32) / 2147483648.0
+        elif sample_width == 1:
+            audio = (np.frombuffer(raw, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
+        else:
+            logger.error("Unsupported WAV bit depth: %d bit (%s)", sample_width * 8, path)
+            return None
+
+        if channels > 1:
+            audio = audio.reshape(-1, channels).mean(axis=1)
+        return audio, sample_rate
+    except Exception as e:
+        logger.error("Failed to load WAV %s: %s", path, e)
+        return None
+
+
+def _get_volume_controller():
+    """Lazily get the platform volume controller (Windows/macOS/Linux)."""
+    try:
+        from src.mcp.tools.volume import create_volume_controller
+        return create_volume_controller()
+    except Exception as e:
+        logger.warning("Could not create volume controller: %s", e)
+        return None
+
+
+def _play_alarm_sound(title: str) -> None:
+    """Play alarm sound: 8x repeats at max volume, then restore.
+
+    Mirrors the ESP32 behaviour:
+      1. Save current volume
+      2. Set volume to 100 (max)
+      3. Play alarm.wav ALARM_REPEAT_COUNT times with ALARM_INTERVAL_S gap
+      4. Restore original volume
+      5. Log completion
+    """
+    alarm_path = _find_alarm_wav()
+    if not alarm_path:
+        logger.error("alarm.wav not found in assets/sounds/<locale>/")
+        return
+
+    loaded = _load_wav(alarm_path)
+    if loaded is None:
+        return
+    audio, sample_rate = loaded
+
+    device_id = _get_output_device_id()
+    vc = _get_volume_controller()
+    prev_volume = vc.get_volume() if vc else 70
+    _alarm_playing.set()
+
+    try:
+        if vc:
+            try:
+                vc.set_volume(100)
+            except Exception as e:
+                logger.warning("Failed to set volume to 100: %s", e)
+
+        logger.info("Alarm sound starting: %s (%d repeats)", title, ALARM_REPEAT_COUNT)
+
+        for i in range(ALARM_REPEAT_COUNT):
+            try:
+                play_kwargs = {"samplerate": sample_rate}
+                if device_id is not None:
+                    play_kwargs["device"] = device_id
+                sd.play(audio, **play_kwargs)
+                sd.wait()
+            except Exception as e:
+                logger.warning("Alarm sound play failed (attempt %d): %s", i + 1, e)
+            if i < ALARM_REPEAT_COUNT - 1:
+                sd.sleep(int(ALARM_INTERVAL_S * 1000))
+
+        # Explicitly stop + reset to release PortAudio resources
+        # so the app's audio pipeline can continue without interference
+        try:
+            sd.stop()
+        except Exception:
+            pass
+        try:
+            sd.reset()
+        except Exception:
+            pass
+
+        logger.info("Alarm sound finished: %s", title)
+    finally:
+        _alarm_playing.clear()
+        if vc:
+            try:
+                vc.set_volume(prev_volume)
+                logger.debug("Volume restored to %d", prev_volume)
+            except Exception as e:
+                logger.warning("Failed to restore volume: %s", e)
 
 # ── Repeat modes ──────────────────────────────────────────────
 
@@ -247,7 +418,12 @@ def _next_trigger(
 
 
 def _trigger_alarm(reminder: dict[str, Any]) -> None:
-    """Write the alarm flag file the application polls to ring the alarm."""
+    """Write the alarm flag file and play the alarm sound in a background thread.
+
+    Mirrors xiaozhi-esp32 behaviour:
+      1. Write alarm_trigger.json (kept for backwards compatibility)
+      2. Spawn a background thread that plays alarm.wav 8x at max volume
+    """
     payload = {
         "id": reminder.get("id"),
         "title": reminder.get("title", "Reminder"),
@@ -259,9 +435,19 @@ def _trigger_alarm(reminder: dict[str, Any]) -> None:
         ALARM_FLAG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with ALARM_FLAG_FILE.open("w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False)
-        logger.info("Alarm triggered: %s", reminder.get("title"))
     except Exception as e:
         logger.error("Failed to write alarm flag: %s", e)
+
+    # Play alarm sound in background thread (non-blocking)
+    title = reminder.get("title", "Reminder")
+    thread = threading.Thread(
+        target=_play_alarm_sound,
+        args=(title,),
+        daemon=True,
+        name=f"AlarmSound-{title}",
+    )
+    thread.start()
+    logger.info("Alarm triggered: %s", title)
 
 
 def _cleanup_expired(reminders: list[dict[str, Any]]) -> None:

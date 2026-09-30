@@ -11,33 +11,27 @@ ScrollView {
 
     // 测试状态
     property bool cameraTesting: false
-    property bool cameraLoading: true
-    property var cameraList: []
     property string testResult: ""
 
     // 进入摄像头页时再扫描（启动阶段不扫 OpenCV，避免冷启动卡顿）
     Component.onCompleted: {
         if (settingsModel) {
             var list = settingsModel.getCameras()
-            root.cameraList = list
             if (list.length === 0) {
-                root.cameraLoading = true
                 settingsModel.refreshCameras()
             } else {
-                root.cameraLoading = false
+                cameraCombo.model = list
                 cameraCombo.currentIndex = settingsModel.selectedCameraIndex
             }
-        } else {
-            root.cameraLoading = false
         }
     }
 
     Connections {
         target: settingsModel
-        function onCamerasChanged() {
+        function onDevicesChanged() {
             if (settingsModel) {
-                root.cameraList = settingsModel.getCameras()
-                root.cameraLoading = false
+                cameraCombo.model = settingsModel.getCameras()
+                // model 设置后重新同步 currentIndex
                 cameraCombo.currentIndex = settingsModel.selectedCameraIndex
             }
         }
@@ -87,23 +81,31 @@ ScrollView {
                 XComboBox {
                     id: cameraCombo
                     Layout.fillWidth: true
-                    model: root.cameraList.length > 0 ? root.cameraList :
-                           [root.cameraLoading ? "Detecting cameras..." : "No camera detected"]
-                    enabled: root.cameraList.length > 0
-                    currentIndex: root.cameraList.length > 0 && settingsModel
-                                  ? settingsModel.selectedCameraIndex : 0
+                    currentIndex: settingsModel ? settingsModel.selectedCameraIndex : 0
                     onActivated: function(index) {
                         if (settingsModel) settingsModel.selectedCameraIndex = index
                     }
                     font.pixelSize: Theme.fontSizeSm
                 }
 
-                XButton {
-                    text: root.cameraTesting ? "Testing" : "Test"
-                    enabled: !root.cameraTesting && !root.cameraLoading && root.cameraList.length > 0
+                Button {
+                    text: root.cameraTesting ? "Testing..." : "Test"
+                    enabled: !root.cameraTesting
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
-                    textSize: Theme.fontSizeSm
+
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.pressed ? Theme.primaryPressed : (parent.hovered ? Theme.primaryHover : Theme.primary)) : Theme.textPlaceholder
+                        radius: Theme.radiusSm
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: Theme.fontSizeSm
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
 
                     onClicked: {
                         root.cameraTesting = true
@@ -112,12 +114,23 @@ ScrollView {
                     }
                 }
 
-                XButton {
+                Button {
                     text: "Refresh"
                     Layout.preferredWidth: 70
                     Layout.preferredHeight: 32
-                    textSize: Theme.fontSizeSm
-                    variant: "secondary"
+
+                    background: Rectangle {
+                        color: parent.pressed ? Theme.divider : (parent.hovered ? Theme.backgroundSecondary : Theme.backgroundHover)
+                        radius: Theme.radiusSm
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textSecondary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
 
                     onClicked: if (settingsModel) settingsModel.refreshCameras()
                 }
@@ -228,7 +241,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Vision Model (VL API)"
+                text: "Vision-Language Model (VL API)"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary
@@ -311,7 +324,7 @@ ScrollView {
             spacing: Theme.spacingMd
 
             Text {
-                text: "Vision Service (Q&A)"
+                text: "Vision Service (Image Q&A)"
                 font.pixelSize: Theme.fontSizeMd
                 font.weight: Font.Medium
                 color: Theme.textSecondary

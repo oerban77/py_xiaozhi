@@ -197,6 +197,7 @@ class McpServer:
         from src.mcp.tools.coding import register_coding_tools
         from src.mcp.tools.documents import register_documents_tools
         from src.mcp.tools.hardware import register_hardware_tools
+        from src.mcp.tools.indonesia_holiday import register_indonesia_holiday_tools
         from src.mcp.tools.kali import register_kali_tools
         from src.mcp.tools.news import register_news_tools
         from src.mcp.tools.prayer import register_prayer_tools
@@ -215,6 +216,7 @@ class McpServer:
             self.add_tool, pending_document_provider=pending_document_provider
         )
         register_hardware_tools(self.add_tool)
+        register_indonesia_holiday_tools(self.add_tool)
         register_kali_tools(self.add_tool)
         register_news_tools(self.add_tool)
         register_weather_tools(self.add_tool)

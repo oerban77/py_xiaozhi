@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from src.audio_codecs.audio_codec import AudioCodec
 from src.logging import get_logger
+from src.mcp.tools.reminder.service import is_alarm_playing
 from src.plugins.base import Plugin
 
 if TYPE_CHECKING:
@@ -156,6 +157,9 @@ class AudioPlugin(Plugin):
             if message.get("type") == "tts":
                 state = message.get("state")
                 if state == "start":
+                    if is_alarm_playing():
+                        logger.info("Skipping TTS start while alarm is playing")
+                        return
                     if self._music_parallel_enabled():
                         logger.debug("TTS started (parallel mode): music keeps playing with ducking")
                     else:
@@ -184,6 +188,10 @@ class AudioPlugin(Plugin):
         """
         Receive and play audio data.
         """
+        if is_alarm_playing():
+            logger.debug("Suppressing incoming TTS audio while local alarm is playing")
+            return
+
         if self.codec:
             try:
                 await self.codec.write_audio(data)
