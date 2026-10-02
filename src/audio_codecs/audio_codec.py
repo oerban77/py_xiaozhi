@@ -84,6 +84,7 @@ class AudioCodec:
         )
         self._tts_armed = False
         self._tts_started = False
+        self._music_muted = False
 
         # listeners (thread-safe)
         self._encoded_callback: Callable | None = None
@@ -307,6 +308,8 @@ class AudioCodec:
 
         tts = self._tts_fifo.pull(n)
         music = self._music_fifo.pull(n)
+        if self._music_muted:
+            music = None
 
         if tts is None and music is None:
             return None
@@ -474,6 +477,12 @@ class AudioCodec:
         count = self._music_fifo.clear()
         if count > 0:
             logger.info(f"Music queue cleared; discarded {count} samples")
+
+    def set_music_muted(self, muted: bool) -> None:
+        """Mute only music output while keeping TTS and the audio stream active."""
+        self._music_muted = bool(muted)
+        if self._music_muted:
+            self._music_fifo.clear()
 
     async def reinitialize_stream(self, is_input: bool = True):
         """Rebuild the audio stream (supports hot-plugging)

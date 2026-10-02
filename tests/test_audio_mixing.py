@@ -25,6 +25,7 @@ from src.audio_codecs.audio_codec import (  # noqa: E402
 from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
 from src.constants.constants import AudioConfig  # noqa: E402
 from src.core.event_bus import EventBus  # noqa: E402
+from src.constants.constants import DeviceState  # noqa: E402
 from src.mcp.tools.music.bus import MusicEventBridge  # noqa: E402
 from src.plugins.audio import AudioPlugin  # noqa: E402
 from src.plugins.audio import _is_explicit_music_stop_command  # noqa: E402
@@ -64,6 +65,54 @@ async def test_stt_stop_command_stops_music_through_event_bus():
     await plugin.on_incoming_json({"type": "stt", "text": "stop lagu"})
 
     assert engine.is_playing is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("release_on_tts_stop", [False, True])
+async def test_music_is_muted_during_listening_then_resumes(release_on_tts_stop):
+    event_bus = EventBus()
+    engine = SimpleNamespace(is_playing=True, paused=False, pause_source=None)
+
+    class PlayerStub:
+        async def pause(self, source):
+            engine.paused = True
+            engine.pause_source = source
+
+        async def resume(self):
+            engine.paused = False
+            engine.pause_source = None
+
+    bridge = MusicEventBridge(engine, PlayerStub())
+    bridge.set_event_bus(event_bus)
+
+    class CodecStub:
+        aec_active = False
+
+        def __init__(self):
+            self.music_muted = False
+
+        def is_tts_playing(self):
+            return False
+
+        def set_music_muted(self, muted):
+            self.music_muted = muted
+
+    codec = CodecStub()
+    config = SimpleNamespace(get_config=lambda _path, default=None: default)
+    plugin = AudioPlugin()
+    plugin.codec = codec
+    plugin._ctx = SimpleNamespace(event_bus=event_bus, get_config=lambda: config)
+
+    await plugin.on_device_state_changed(DeviceState.LISTENING)
+    assert codec.music_muted is True
+    assert engine.paused is True
+
+    if release_on_tts_stop:
+        await plugin.on_incoming_json({"type": "tts", "state": "stop"})
+    else:
+        await plugin.on_device_state_changed(DeviceState.IDLE)
+    assert codec.music_muted is False
+    assert engine.paused is False
 
 
 class TestPcmFifo:
@@ -121,6 +170,17 @@ class TestMixing:
         codec._music_fifo.push(np.full(n, 0.4, dtype=np.float32))
         out = codec._pull_mixed(n)
         assert np.allclose(out, 0.4)
+
+    def test_muted_music_does_not_mask_tts(self, codec):
+        n = codec._mix_chunk
+        codec._music_fifo.push(np.full(n, 0.4, dtype=np.float32))
+        codec._tts_fifo.push(np.full(n, 0.5, dtype=np.float32))
+        codec.set_music_muted(True)
+
+        out = codec._pull_mixed(n)
+
+        assert np.allclose(out, 0.5)
+        assert codec._music_fifo.size == 0
 
     def test_tts_only(self, codec):
         n = codec._mix_chunk

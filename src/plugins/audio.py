@@ -59,6 +59,7 @@ class AudioPlugin(Plugin):
         self.codec: AudioCodec | None = None
         self._send_sem = asyncio.Semaphore(MAX_CONCURRENT_AUDIO_SENDS)
         self._in_silence_period = False
+        self._music_muted_for_capture = False
 
     async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
         await super().setup(ctx, cmd)
@@ -154,6 +155,7 @@ class AudioPlugin(Plugin):
         from src.constants.constants import DeviceState
 
         if state == DeviceState.LISTENING:
+            await self._pause_music_for_capture()
             # Keep the microphone output suppressed while the speaker is still playing the
             # tail of the TTS audio. The server's tts "stop" arrives as soon as the last
             # frame has been streamed, which can be seconds before the local playback
@@ -170,6 +172,38 @@ class AudioPlugin(Plugin):
                     await asyncio.sleep(0.02)
             finally:
                 self._in_silence_period = False
+        elif state == DeviceState.IDLE:
+            await self._resume_music_after_capture()
+
+    async def _pause_music_for_capture(self) -> None:
+        if self._music_muted_for_capture or self._music_parallel_enabled():
+            return
+        if not self._ctx or not self._ctx.event_bus:
+            return
+
+        from src.core.event_bus import Events
+        from src.mcp.tools.music.events import MusicControlRequest
+
+        self.codec.set_music_muted(True)
+        self._music_muted_for_capture = True
+        await self._ctx.event_bus.emit(
+            Events.MUSIC_PAUSE_REQUEST, MusicControlRequest(source="tts")
+        )
+
+    async def _resume_music_after_capture(self) -> None:
+        if not self._music_muted_for_capture:
+            return
+        self._music_muted_for_capture = False
+        self.codec.set_music_muted(False)
+        if not self._ctx or not self._ctx.event_bus:
+            return
+
+        from src.core.event_bus import Events
+        from src.mcp.tools.music.events import MusicControlRequest
+
+        await self._ctx.event_bus.emit(
+            Events.MUSIC_RESUME_REQUEST, MusicControlRequest(source="tts")
+        )
 
     async def on_incoming_json(self, message) -> None:
         """
@@ -251,6 +285,7 @@ class AudioPlugin(Plugin):
 
     async def _resume_music_after_tts(self):
         """Resume music after TTS ends (in parallel mode this is only a fallback; most of the time nothing was actually paused)."""
+        was_muted_for_capture = self._music_muted_for_capture
         try:
             from src.core.event_bus import Events
             from src.mcp.tools.music.events import MusicControlRequest
@@ -262,6 +297,11 @@ class AudioPlugin(Plugin):
             )
         except Exception as e:
             logger.error(f"Failed to send music resume request: {e}", exc_info=True)
+        finally:
+            if was_muted_for_capture:
+                self._music_muted_for_capture = False
+                if self.codec:
+                    self.codec.set_music_muted(False)
 
     def register_resources(self, pool) -> None:
         codec = self.codec

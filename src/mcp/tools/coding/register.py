@@ -23,13 +23,41 @@ from .service import (
 def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
     """Register the coding tool set."""
 
+    async def select_workspace(args: dict) -> str:
+        from src.utils.workspace import set_workspace
+
+        ok, result = set_workspace(str((args or {}).get("path", "")))
+        if not ok:
+            return f"Could not set coding workspace: {result}"
+        return (
+            f"Active coding workspace: {result}. Use workspace-relative paths "
+            "for subsequent coding tools."
+        )
+
+    add_tool(
+        McpTool(
+            name="set_workspace",
+            description=(
+                "Select an existing project directory as the active coding workspace "
+                "when the user explicitly asks to analyze or use a different project "
+                "path. This selection persists. After selecting it, use relative paths "
+                "for read_file/search_text/list_dir/list_files; do not repeatedly pass "
+                "absolute paths to those tools."
+            ),
+            properties=PropertyList([Property("path", PropertyType.STRING)]),
+            callback=select_workspace,
+        )
+    )
+
     add_tool(
         McpTool(
             name="read_file",
             description=(
                 "Read a UTF-8 text file as line ranges. Returns the content with a "
                 "sha256 revision that apply_changes needs to modify the file. "
-                "Binary files are rejected."
+                "Binary files are rejected. Paths are relative to the active coding "
+                "workspace; if the user named another project directory, call "
+                "set_workspace once before reading it."
             ),
             properties=PropertyList(
                 [
@@ -47,7 +75,11 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
     add_tool(
         McpTool(
             name="list_dir",
-            description="List the entries of a directory, optionally recursively.",
+            description=(
+                "List the entries of a directory, optionally recursively. Paths are "
+                "relative to the active coding workspace; call set_workspace first "
+                "when the user explicitly names a different project directory."
+            ),
             properties=PropertyList(
                 [
                     Property("path", PropertyType.STRING, default_value="."),
@@ -66,7 +98,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             name="list_files",
             description=(
                 "Enumerate files under a directory filtered by glob patterns, "
-                "for example '*.py'."
+                "for example '*.py'. Paths are relative to the active coding "
+                "workspace; call set_workspace first when the user explicitly names "
+                "a different project directory."
             ),
             properties=PropertyList(
                 [
@@ -86,7 +120,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             name="search_text",
             description=(
                 "Search for text or a regular expression in the files under a "
-                "directory and return matching lines with file and line number."
+                "directory and return matching lines with file and line number. Paths "
+                "are relative to the active coding workspace; call set_workspace once "
+                "for a user-requested different project, then use relative paths."
             ),
             properties=PropertyList(
                 [

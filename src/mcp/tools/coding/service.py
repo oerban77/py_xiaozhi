@@ -130,23 +130,19 @@ def _resolve(path: str, root: Path, *, must_exist: bool = False) -> Path:
     if "\x00" in path:
         raise ToolFailure("INVALID_ARGUMENT", "path contains NUL bytes", category="security")
     if os.path.isabs(path):
-        raise ToolFailure(
-            "ABSOLUTE_PATH_DENIED",
-            f"Paths must be workspace-relative, not absolute: {path}",
-            category="security",
-        )
-    if Path(path).parts and Path(path).parts[0] == "..":
-        raise ToolFailure(
-            "PATH_OUTSIDE_WORKSPACE",
-            f"Path escapes the workspace: {path}",
-            category="security",
-        )
-
-    resolved = (root / path).resolve()
+        resolved = Path(path).resolve()
+    else:
+        if Path(path).parts and Path(path).parts[0] == "..":
+            raise ToolFailure(
+                "PATH_OUTSIDE_WORKSPACE",
+                f"Path escapes the workspace: {path}",
+                category="security",
+            )
+        resolved = (root / path).resolve()
     if not _is_within(root, resolved):
         raise ToolFailure(
-            "PATH_OUTSIDE_WORKSPACE",
-            f"Path escapes the workspace: {path}",
+            "WORKSPACE_MISMATCH",
+            f"Path is outside the active coding workspace: {path}. If the user explicitly requested this project, call set_workspace once with its directory, then use workspace-relative paths. Do not retry this path.",
             category="security",
         )
     # A symlink that points outside the tree is an escape too.
