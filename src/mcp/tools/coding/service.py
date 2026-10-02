@@ -21,8 +21,6 @@ Implemented (the subset that is meaningful for an on-device assistant):
 - ``git_show``         a commit's contents
 - ``git_blame``        per-line authorship
 
-the long-lived command pool (``write_stdin``/``read_output``/``kill_command``)
-and the MCP-protocol introspection tools (``server_info``,
 Deliberately not ported: ``view_image`` (the camera tool already covers it),
 interactive terminal sessions (``write_stdin``) and MCP-protocol introspection
 tools (``server_info``, ``check_exec_environment``, ``request_permissions``).
@@ -277,10 +275,20 @@ def _read_file(args: dict) -> str:
             f"Skipped {path.suffix} firmware artifact. Analyze source/config files instead.",
             category="validation",
         )
-    start_line = int(args.get("start_line") or 1)
-    end_line = int(args.get("end_line") or 0)
-    max_lines = int(args.get("max_lines") or 0)
-    max_bytes = int(args.get("max_bytes") or MAX_READ_BYTES)
+    try:
+        start_line = int(args.get("start_line", 1))
+        end_line = int(args.get("end_line", 0))
+        max_lines = int(args.get("max_lines", 0))
+        max_bytes = int(args.get("max_bytes", MAX_READ_BYTES))
+    except (TypeError, ValueError):
+        raise ToolFailure(
+            "INVALID_ARGUMENT", "read_file range limits must be integers."
+        ) from None
+    if start_line < 1 or end_line < 0 or max_lines < 0 or max_bytes < 1:
+        raise ToolFailure(
+            "INVALID_ARGUMENT",
+            "start_line must be >= 1; end_line and max_lines must be >= 0; max_bytes must be >= 1.",
+        )
     max_bytes = min(max_bytes, MAX_READ_BYTES)
     content, total_lines, revision, shown_lines = _read_file_window(
         path, start_line, end_line, max_lines, max_bytes
@@ -412,11 +420,24 @@ def _search_text(args: dict) -> str:
     use_regex = bool(args.get("regex"))
     case_sensitive = bool(args.get("case_sensitive"))
     glob_patterns = str(args.get("glob") or args.get("include_globs") or "")
-    context_lines = int(args.get("context_lines") or 0)
-    max_results = min(int(args.get("max_results") or MAX_SEARCH_RESULTS), MAX_SEARCH_RESULTS)
-    max_preview = int(args.get("max_preview_bytes") or MAX_PREVIEW_BYTES)
-    max_files = min(max(1, int(args.get("max_files") or MAX_SEARCH_FILES)), MAX_SEARCH_FILES)
-    file_offset = max(0, int(args.get("file_offset") or 0))
+    try:
+        context_lines = int(args.get("context_lines", 0))
+        max_results = int(args.get("max_results", MAX_SEARCH_RESULTS))
+        max_preview = int(args.get("max_preview_bytes", MAX_PREVIEW_BYTES))
+        max_files = int(args.get("max_files", MAX_SEARCH_FILES))
+        file_offset = int(args.get("file_offset", 0))
+    except (TypeError, ValueError):
+        raise ToolFailure(
+            "INVALID_ARGUMENT", "search limits and file_offset must be integers."
+        ) from None
+    if context_lines < 0 or max_results < 1 or max_preview < 1 or max_files < 1 or file_offset < 0:
+        raise ToolFailure(
+            "INVALID_ARGUMENT",
+            "context_lines/file_offset must be >= 0; max_results, max_preview_bytes and max_files must be >= 1.",
+        )
+    max_results = min(max_results, MAX_SEARCH_RESULTS)
+    max_preview = min(max_preview, MAX_PREVIEW_BYTES)
+    max_files = min(max_files, MAX_SEARCH_FILES)
 
     flags = 0 if case_sensitive else re.IGNORECASE
     needle = re.compile(query, flags) if use_regex else re.compile(re.escape(query), flags)

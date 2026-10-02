@@ -59,7 +59,10 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "workspace; if the user named another project directory, call "
                 "set_workspace once before reading it. Firmware artifacts with .bin "
                 "or .hex extensions are intentionally skipped; do not retry reading "
-                "them, analyze source/config files instead."
+                "them, analyze source/config files instead. If the returned banner "
+                "shows a line/byte limit, the result is partial: request the next "
+                "range before describing the whole file. Base code claims only on "
+                "the returned source text, not guessed surrounding code."
             ),
             properties=PropertyList(
                 [
@@ -129,7 +132,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "for a user-requested different project, then use relative paths. "
                 "Search skips .bin and .hex firmware artifacts, scans at most 100 "
                 "files and 16 MiB per call, and skips files larger than 1 MiB. "
-                "Continue a bounded search with the returned file_offset."
+                "Continue a bounded search with the returned file_offset. A no-match "
+                "result applies only to the files scanned in that batch; do not say "
+                "the workspace has no matches until all batches are searched."
             ),
             properties=PropertyList(
                 [
@@ -154,6 +159,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             name="apply_patch",
             description=(
                 "Apply a V4A patch to create, update, delete or move files. "
+                "Before patching, read the exact current file range and use its "
+                "actual text as context; do not invent nearby code. If a hunk fails, "
+                "reread the file before trying a revised patch. "
                 "The patch text must be wrapped in '*** Begin Patch' and "
                 "'*** End Patch'. Use '*** Add File: <path>' with '+' lines, "
                 "'*** Update File: <path>' with ' '/'-'/'+' hunks, "
@@ -177,7 +185,8 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Apply line-addressed file changes. 'changes' is a JSON array; each "
                 "entry has an action (create, write, edit, delete, move, copy), a "
                 "path, and for every action except create the sha256 revision that "
-                "read_file reported. 'edit' takes an array of edits: "
+                "read_file reported for that same current file. Never reuse a "
+                "revision after the file changes. 'edit' takes an array of edits: "
                 '{"op":"replace","start_line":n,"end_line":m,"content":"..."}, '
                 '{"op":"delete","start_line":n,"end_line":m}, '
                 '{"op":"insert_after","line":n,"content":"..."} or '
@@ -204,7 +213,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "run synchronously within the MCP timeout budget. For tests/builds "
                 "that may take longer, pass background=true; poll with job_id and "
                 "output_offset until status=completed. Pass cancel=true with job_id "
-                "to stop a running job."
+                "to stop a running job. Do not report a test/build as successful "
+                "while status is running; after completion, require exit_code=0 "
+                "before claiming it passed."
             ),
             properties=PropertyList(
                 [

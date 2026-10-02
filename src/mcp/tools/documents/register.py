@@ -61,7 +61,11 @@ def register_documents_tools(
                 "attached document. If the user asks to read, analyze, summarize, "
                 "explain, translate, or answer questions about an attached "
                 "document, call manage_document(action=read) FIRST, then answer "
-                "from the returned content.\n"
+                "from the returned content. For a request to read a numbered entry "
+                "(for example 'tokoh ke 2'), pass entry_number; return the extracted "
+                "source text faithfully and do not replace it with a summary or "
+                "conclusion. If the source text is unavailable, say so instead of "
+                "guessing.\n"
                 "Read, create, edit, delete or export a document.\n"
                 "Supports text formats (.txt .md .json .csv .log .ini .yaml .xml), "
                 ".docx and .xlsx (written with built-in OOXML, no extra deps), "
@@ -82,6 +86,9 @@ def register_documents_tools(
                 "- query: keyword to filter lines when reading\n"
                 "- page_start: first PDF page, 1-based (default 1)\n"
                 "- page_end: last PDF page, inclusive (default: up to 20 pages)\n"
+                "- entry_number: numbered PDF entry to return verbatim (default 0)\n"
+                "- entry_continue: continue an entry from page_start (default false)\n"
+                "- entry_char_offset: character offset within a long entry (default 0)\n"
                 "- chunk_index: 1-based 24,000-character chunk for non-PDF "
                 "documents (default 1); follow the continuation hint"
             ),
@@ -95,6 +102,9 @@ def register_documents_tools(
                     Property("query", PropertyType.STRING, default_value=""),
                     Property("page_start", PropertyType.INTEGER, default_value=1, min_value=1),
                     Property("page_end", PropertyType.INTEGER, default_value=0, min_value=0),
+                    Property("entry_number", PropertyType.INTEGER, default_value=0, min_value=0),
+                    Property("entry_continue", PropertyType.BOOLEAN, default_value=False),
+                    Property("entry_char_offset", PropertyType.INTEGER, default_value=0, min_value=0),
                     Property("chunk_index", PropertyType.INTEGER, default_value=1, min_value=1),
                 ]
             ),

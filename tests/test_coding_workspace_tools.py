@@ -73,6 +73,9 @@ def test_coding_tools_advertise_resumable_search_and_command_jobs():
     assert command_properties["background"].default_value is False
     assert command_properties["job_id"].default_value == ""
     assert command_properties["output_offset"].default_value == 0
+    assert "result is partial" in by_name["read_file"].description
+    assert "until all batches are searched" in by_name["search_text"].description
+    assert "exit_code=0" in by_name["exec_command"].description
 
 
 def test_firmware_artifacts_are_skipped_by_coding_analysis_tools(monkeypatch, tmp_path):
@@ -115,6 +118,47 @@ def test_read_file_streams_requested_range_and_keeps_revision(monkeypatch, tmp_p
     assert "second\r" in result
     assert coding_service.content_revision(text) in result
     assert "third" not in result
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"start_line": 0},
+        {"end_line": -1},
+        {"max_lines": -1},
+        {"max_bytes": 0},
+    ],
+)
+def test_read_file_rejects_invalid_ranges(monkeypatch, tmp_path, arguments):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "source.py").write_text("line\n", encoding="utf-8")
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    with pytest.raises(ToolFailure) as exc_info:
+        coding_service._read_file({"path": "source.py", **arguments})
+
+    assert exc_info.value.code == "INVALID_ARGUMENT"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"max_results": 0},
+        {"max_preview_bytes": 0},
+        {"max_files": 0},
+        {"file_offset": -1},
+    ],
+)
+def test_search_text_rejects_invalid_limits(monkeypatch, tmp_path, arguments):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    with pytest.raises(ToolFailure) as exc_info:
+        coding_service._search_text({"path": ".", "query": "needle", **arguments})
+
+    assert exc_info.value.code == "INVALID_ARGUMENT"
 
 
 def test_search_text_returns_cursor_for_next_file_batch(monkeypatch, tmp_path):

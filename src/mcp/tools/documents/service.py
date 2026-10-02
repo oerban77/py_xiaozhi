@@ -24,7 +24,9 @@ import json
 import os
 import re
 import shutil
+import time
 import zipfile
+from pathlib import Path
 from typing import Any, Callable
 from xml.sax.saxutils import escape
 
@@ -36,6 +38,9 @@ logger = get_logger()
 # Injected by McpServer.add_common_tools: yields (path, question) for a document
 # attached in the desktop chat, so document_manage can read it without a path.
 _PENDING_DOCUMENT_PROVIDER: Callable[[], tuple[str, str] | None] | None = None
+_LAST_READ_PDF_PATH: str | None = None
+_LAST_READ_PDF_AT = 0.0
+_PDF_CONTEXT_TTL_SECONDS = 30 * 60
 
 
 def set_pending_document_provider(
@@ -55,6 +60,22 @@ def _consume_pending_document() -> tuple[str, str] | None:
     except Exception as exc:  # noqa: BLE001 — never break the tool call
         logger.warning("pending document provider failed: %s", exc)
         return None
+
+
+def _parse_entry_number_query(query: object) -> int | None:
+    text = str(query or "")
+    match = re.search(
+        r"\b(?:tokoh|entry|nomor|no\.?)\s*(?:(?:ke|nomor|no\.?)\s*[.-]?\s*)?(\d{1,3})\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return int(match.group(1)) if match else None
+
+
+def _recent_pdf_context_path() -> str | None:
+    if not _LAST_READ_PDF_PATH or time.monotonic() - _LAST_READ_PDF_AT > _PDF_CONTEXT_TTL_SECONDS:
+        return None
+    return _LAST_READ_PDF_PATH if os.path.isfile(_LAST_READ_PDF_PATH) else None
 
 TEXT_EXTENSIONS = {
     ".txt",
@@ -146,6 +167,9 @@ _MAX_SEARCH_RESULTS = 200
 _PDF_MAX_PAGES_PER_READ = 20
 _MAX_DOCUMENT_CHARS_PER_READ = 24_000
 _PDF_MAX_CHARS_PER_READ = _MAX_DOCUMENT_CHARS_PER_READ
+_PDF_ENTRY_HEADING_RE = re.compile(
+    r"(?m)^\s*0*(\d{1,3})\.\s+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ0-9 ,.'()\-]*"
+)
 _DEFAULT_EXPLAIN_URL = "https://api.xiaozhi.me/vision/explain"
 
 
@@ -566,6 +590,149 @@ def _export_text_to_xlsx(path: str, output_path: str) -> str:
 # ── PDF (optional dependency) ────────────────────────────────
 
 
+def _extract_pdf_entry(
+    path: str,
+    entry_number: int,
+    page_start: int = 1,
+    *,
+    entry_continue: bool = False,
+    entry_char_offset: int = 0,
+) -> str:
+    import importlib.util
+
+    try:
+        page_start = max(1, int(page_start or 1))
+        entry_number = int(entry_number)
+        entry_char_offset = max(0, int(entry_char_offset or 0))
+    except (TypeError, ValueError):
+        return "entry_number, page_start and entry_char_offset must be integers."
+    if entry_number < 1:
+        return "entry_number must be a positive integer."
+
+    for module_name in ("pypdf", "PyPDF2"):
+        try:
+            if importlib.util.find_spec(module_name) is None:
+                continue
+            reader = __import__(module_name, fromlist=["PdfReader"]).PdfReader(path)
+            page_count = len(reader.pages)
+            if page_start > page_count:
+                return f"page_start {page_start} exceeds the document's {page_count} pages."
+
+            cached_pages: dict[int, str] = {}
+            if entry_continue:
+                entry_page = page_start
+                target_start = 0
+            else:
+                search_end = min(
+                    page_count, page_start + _PDF_MAX_PAGES_PER_READ - 1
+                )
+                entry_page = 0
+                target_start = 0
+                for page_number in range(page_start, search_end + 1):
+                    page_text = reader.pages[page_number - 1].extract_text() or ""
+                    cached_pages[page_number] = page_text
+                    for match in _PDF_ENTRY_HEADING_RE.finditer(page_text):
+                        if int(match.group(1)) == entry_number:
+                            entry_page = page_number
+                            target_start = match.start()
+                            break
+                    if entry_page:
+                        break
+                if not entry_page:
+                    if search_end < page_count:
+                        next_end = min(
+                            page_count,
+                            search_end + _PDF_MAX_PAGES_PER_READ,
+                        )
+                        return (
+                            f"Entry {entry_number} was not found on pages "
+                            f"{page_start}-{search_end}. Continue searching with "
+                            f"page_start={search_end + 1}, page_end={next_end}, "
+                            f"entry_number={entry_number}."
+                        )
+                    return (
+                        f"Entry {entry_number} was not found in pages "
+                        f"{page_start}-{search_end}. No other section text was returned."
+                    )
+
+            section_parts: list[str] = []
+            section_chars = 0
+            next_entry_found = False
+            last_page_read = entry_page - 1
+            last_page = min(
+                page_count,
+                entry_page + _PDF_MAX_PAGES_PER_READ - 1,
+            )
+            for page_number in range(entry_page, last_page + 1):
+                page_text = cached_pages.get(page_number)
+                if page_text is None:
+                    page_text = reader.pages[page_number - 1].extract_text() or ""
+                start_at = target_start if page_number == entry_page else 0
+                next_heading = None
+                for match in _PDF_ENTRY_HEADING_RE.finditer(page_text, start_at):
+                    if int(match.group(1)) > entry_number:
+                        next_heading = match
+                        break
+                end_at = next_heading.start() if next_heading else len(page_text)
+                page_part = page_text[start_at:end_at].strip()
+                if page_part:
+                    section_parts.append(page_part)
+                    section_chars += len(page_part) + (2 if len(section_parts) > 1 else 0)
+                last_page_read = page_number
+                if next_heading:
+                    next_entry_found = True
+                    break
+
+            section = "\n\n".join(section_parts)
+            if entry_char_offset >= len(section) and entry_char_offset:
+                return (
+                    f"entry_char_offset {entry_char_offset} exceeds the "
+                    f"{len(section)} characters extracted for entry {entry_number}."
+                )
+            text = section[
+                entry_char_offset : entry_char_offset + _PDF_MAX_CHARS_PER_READ
+            ]
+            notices = [
+                f"Verbatim source text for entry {entry_number}, "
+                f"pages {entry_page}-{last_page_read}."
+            ]
+
+            char_more = (
+                entry_char_offset + len(text) < len(section)
+            )
+            page_more = not next_entry_found and last_page_read < page_count
+            if char_more:
+                notices.append(
+                    f"Continue this entry with entry_number={entry_number}, "
+                    f"page_start={entry_page}, entry_continue=true, "
+                    f"entry_char_offset={entry_char_offset + len(text)}."
+                )
+            elif page_more:
+                next_start = last_page_read + 1
+                next_end = min(
+                    page_count, next_start + _PDF_MAX_PAGES_PER_READ - 1
+                )
+                notices.append(
+                    f"Entry {entry_number} continues. Continue with "
+                    f"entry_number={entry_number}, page_start={next_start}, "
+                    f"page_end={next_end}, entry_continue=true."
+                )
+            elif next_entry_found:
+                notices.append(
+                    f"Entry {entry_number} ends before the next numbered entry."
+                )
+            else:
+                notices.append("End of document.")
+            return text + "\n\n[" + " ".join(notices) + "]"
+        except Exception as exc:
+            logger.warning("PDF entry read (%s) failed: %s", module_name, exc)
+
+    return (
+        "Could not extract the requested numbered PDF entry. "
+        "Install pypdf for text-based PDF extraction."
+    )
+
+
 def _extract_pdf_text(
     path: str, page_start: int = 1, page_end: int = 0
 ) -> str:
@@ -659,7 +826,20 @@ def _read_pdf(
     *,
     page_start: int = 1,
     page_end: int = 0,
+    entry_number: int = 0,
+    entry_continue: bool = False,
+    entry_char_offset: int = 0,
 ) -> str:
+    requested_entry = entry_number or _parse_entry_number_query(query)
+    if requested_entry:
+        return _extract_pdf_entry(
+            path,
+            requested_entry,
+            page_start=page_start,
+            entry_continue=entry_continue,
+            entry_char_offset=entry_char_offset,
+        )
+
     text = _extract_pdf_text(path, page_start=page_start, page_end=page_end)
     if not query:
         return text
@@ -673,9 +853,12 @@ def _read_pdf(
     ]
     if matches:
         return "\n".join(matches[:10])
-    # No line matched: the LLM still needs the document content to answer the
-    # user's question, so fall back to the full extracted text.
-    return text
+    return (
+        f"No exact text match for {query!r} in PDF pages "
+        f"{page_start}-{page_end or page_start + _PDF_MAX_PAGES_PER_READ - 1}. "
+        "No unrelated PDF text was returned. Use entry_number for a numbered section "
+        "or provide a phrase that appears in the source."
+    )
 
 
 def _write_placeholder_binary(path: str) -> None:
@@ -980,6 +1163,8 @@ def _search_files(
 
 
 def _document_manage_sync(args: dict[str, Any]) -> str:
+    global _LAST_READ_PDF_PATH, _LAST_READ_PDF_AT
+
     action = str(args.get("action") or "").strip().lower()
     if action not in {"read", "create", "edit", "delete", "export"}:
         return "action must be one of: read, create, edit, delete, export"
@@ -999,6 +1184,28 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
         args["path"] = path_value
         if not args.get("query") and pending_question:
             args["query"] = pending_question
+
+        pasted_request_marker = "ini pesan/perintah pengguna. baca isinya"
+        if (
+            Path(str(path_value)).suffix.lower() == ".txt"
+            and pasted_request_marker in pending_question.lower()
+        ):
+            try:
+                request_text = _read_text(Path(str(path_value)))[:_MAX_DOCUMENT_CHARS_PER_READ]
+            except OSError:
+                request_text = ""
+            requested_entry = (
+                args.get("entry_number")
+                or _parse_entry_number_query(args.get("query"))
+                or _parse_entry_number_query(request_text)
+            )
+            previous_pdf = _recent_pdf_context_path()
+            if requested_entry and previous_pdf:
+                path_value = previous_pdf
+                pending_question = request_text or pending_question
+                args["path"] = path_value
+                args["query"] = pending_question
+                args["entry_number"] = int(requested_entry)
 
     path = _resolve_path(str(path_value))
     fmt = _guess_format(path, args.get("format"))
@@ -1103,12 +1310,19 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
         text = _filter_document_query(_read_xlsx(path), args.get("query"))
         return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt == "pdf":
-        return question_hint + _read_pdf(
+        result = _read_pdf(
             path,
             args.get("query"),
             page_start=args.get("page_start", 1),
             page_end=args.get("page_end", 0),
+            entry_number=args.get("entry_number", 0),
+            entry_continue=bool(args.get("entry_continue", False)),
+            entry_char_offset=args.get("entry_char_offset", 0),
         )
+        if result and not result.startswith(("File not found:", "No exact text match")):
+            _LAST_READ_PDF_PATH = path
+            _LAST_READ_PDF_AT = time.monotonic()
+        return question_hint + result
     if fmt in {"odt", "ods", "odp"}:
         text = _filter_document_query(_read_odt(path), args.get("query"))
         return question_hint + _chunk_extracted_text(text, chunk_index)
