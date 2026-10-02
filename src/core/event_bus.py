@@ -51,6 +51,7 @@ class Events:
     MUSIC_PROGRESS_UPDATE = "music_progress_update"  # Progress update
 
     # Music control commands (external control of MusicPlayer)
+    MUSIC_STOP_REQUEST = "music_stop_request"  # Immediate stop request
     MUSIC_PAUSE_REQUEST = "music_pause_request"  # Request pause (such as TTS)
     MUSIC_RESUME_REQUEST = "music_resume_request"  # Request restore
 

@@ -23,6 +23,35 @@ def test_main_callable_for_console_entrypoint():
     assert callable(main.main)
 
 
+@pytest.mark.asyncio
+async def test_tui_chat_input_navigates_history_and_restores_draft():
+    pytest.importorskip("textual")
+    from textual.app import App, ComposeResult
+
+    from src.ui.tui.app import ClipboardAttachmentInput
+
+    class InputHarness(App[None]):
+        def compose(self) -> ComposeResult:
+            yield ClipboardAttachmentInput(lambda _text: False, id="chat-input")
+
+    app = InputHarness()
+    async with app.run_test() as pilot:
+        chat_input = app.query_one("#chat-input", ClipboardAttachmentInput)
+        chat_input.add_history("first message")
+        chat_input.add_history("second message")
+        chat_input.value = "unsent draft"
+        chat_input.focus()
+
+        await pilot.press("up")
+        assert chat_input.value == "second message"
+        await pilot.press("up")
+        assert chat_input.value == "first message"
+        await pilot.press("down")
+        assert chat_input.value == "second message"
+        await pilot.press("down")
+        assert chat_input.value == "unsent draft"
+
+
 def test_parse_args_supports_starting_minimized():
     args = main.parse_args(["--start-minimized"])
     assert args.mode == "gui"

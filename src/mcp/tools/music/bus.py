@@ -56,6 +56,7 @@ class MusicEventBridge:
         self.event_bus = event_bus
         self.plugin_ctx = plugin_ctx
         if event_bus:
+            event_bus.on(Events.MUSIC_STOP_REQUEST, self._on_stop_request)
             event_bus.on(Events.MUSIC_PAUSE_REQUEST, self._on_pause_request)
             event_bus.on(Events.MUSIC_RESUME_REQUEST, self._on_resume_request)
             event_bus.on(Events.AUDIO_CODEC_CHANGED, self.on_audio_codec_changed)
@@ -67,6 +68,7 @@ class MusicEventBridge:
         try:
             from src.core.event_bus import Events
 
+            self.event_bus.off(Events.MUSIC_STOP_REQUEST, self._on_stop_request)
             self.event_bus.off(Events.MUSIC_PAUSE_REQUEST, self._on_pause_request)
             self.event_bus.off(Events.MUSIC_RESUME_REQUEST, self._on_resume_request)
             self.event_bus.off(Events.AUDIO_CODEC_CHANGED, self.on_audio_codec_changed)
@@ -80,6 +82,15 @@ class MusicEventBridge:
         self._engine.audio_codec = None
         self._engine.cancel_prefetch()
         logger.debug("MusicPlayer detached runtime bindings")
+
+    async def _on_stop_request(self, _data: Any = None) -> None:
+        if not self._engine.is_playing:
+            return
+        try:
+            logger.info("Immediate music stop request received")
+            await self._player.stop()
+        except Exception as e:
+            logger.error(f"Failed to handle music stop request: {e}", exc_info=True)
 
     async def emit_state_change(
         self,

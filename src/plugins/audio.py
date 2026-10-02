@@ -6,6 +6,7 @@ The AudioCodec is published via Events.AUDIO_CODEC_CHANGED instead of connecting
 
 import asyncio
 import os
+import re
 from typing import TYPE_CHECKING
 
 from src.audio_codecs.audio_codec import AudioCodec
@@ -23,6 +24,30 @@ MAX_CONCURRENT_AUDIO_SENDS = 4
 # are empty"; this cap only exists so a stalled/never-draining stream cannot mute the
 # microphone forever.
 _SILENCE_PERIOD_MAX_S = 3.0
+_MUSIC_STOP_ACTIONS = {"stop", "berhenti", "hentikan", "matikan", "akhiri", "sudahi"}
+_MUSIC_NOUNS = {"lagu", "lagunya", "musik", "musiknya", "music", "song", "songs"}
+
+
+def _is_explicit_music_stop_command(text: str) -> bool:
+    words = re.findall(r"[a-z0-9]+", (text or "").casefold())
+    if not words or words[0] in {"jangan", "belum", "bukan", "dont", "don't", "not"}:
+        return False
+
+    while words and words[0] in {"tolong", "please", "hey", "xiaozhi"}:
+        words.pop(0)
+    if len(words) < 2 or len(words) > 6:
+        return False
+
+    action_end = 1
+    if words[0] in {"turn", "shut"} and len(words) > 1 and words[1] in {"off", "down"}:
+        action_end = 2
+    elif words[0] not in _MUSIC_STOP_ACTIONS:
+        return False
+
+    return any(
+        word in _MUSIC_NOUNS and action_end <= index <= action_end + 2
+        for index, word in enumerate(words[action_end:], start=action_end)
+    )
 
 
 class AudioPlugin(Plugin):
@@ -154,6 +179,19 @@ class AudioPlugin(Plugin):
             return
 
         try:
+            if message.get("type") == "stt":
+                text = message.get("text", "")
+                if (
+                    self._ctx
+                    and self._ctx.event_bus
+                    and _is_explicit_music_stop_command(text)
+                ):
+                    from src.core.event_bus import Events
+
+                    logger.info("Recognized explicit music stop command locally")
+                    await self._ctx.event_bus.emit(Events.MUSIC_STOP_REQUEST)
+                return
+
             if message.get("type") == "tts":
                 state = message.get("state")
                 if state == "start":

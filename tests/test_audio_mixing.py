@@ -4,6 +4,8 @@
 背景：TTS 与音乐曾共用一条 FIFO，逐句 TTS 时帧交错导致"同时播放+断续"。
 """
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -23,6 +25,45 @@ from src.audio_codecs import stream_manager as stream_manager_module  # noqa: E4
 from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
 from src.constants.constants import AudioConfig  # noqa: E402
 from src.utils.audio_device import DeviceConfig  # noqa: E402
+from src.plugins.audio import _is_explicit_music_stop_command  # noqa: E402
+from src.plugins.audio import AudioPlugin  # noqa: E402
+from src.core.event_bus import EventBus  # noqa: E402
+from src.mcp.tools.music.bus import MusicEventBridge  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["stop lagu", "tolong matikan musiknya", "please stop the music", "turn off music"],
+)
+def test_explicit_music_stop_commands_are_detected(text):
+    assert _is_explicit_music_stop_command(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["jangan stop lagu", "lagu ini bagus", "cara menghentikan musik", "stop the conversation about music"],
+)
+def test_non_command_text_does_not_stop_music(text):
+    assert not _is_explicit_music_stop_command(text)
+
+
+@pytest.mark.asyncio
+async def test_stt_stop_command_stops_music_through_event_bus():
+    event_bus = EventBus()
+    engine = SimpleNamespace(is_playing=True)
+
+    class PlayerStub:
+        async def stop(self):
+            engine.is_playing = False
+
+    bridge = MusicEventBridge(engine, PlayerStub())
+    bridge.set_event_bus(event_bus)
+    plugin = AudioPlugin()
+    plugin._ctx = SimpleNamespace(event_bus=event_bus)
+
+    await plugin.on_incoming_json({"type": "stt", "text": "stop lagu"})
+
+    assert engine.is_playing is False
 
 
 class TestPcmFifo:

@@ -41,9 +41,45 @@ logger = get_logger()
 class ClipboardAttachmentInput(Input):
     """Chat input that turns terminal paste events into temporary attachments."""
 
+    BINDINGS = [
+        Binding("up", "history_previous", show=False, priority=True),
+        Binding("down", "history_next", show=False, priority=True),
+    ]
+
     def __init__(self, on_paste_attachment: Callable[[str], bool], **kwargs) -> None:
         self._on_paste_attachment = on_paste_attachment
+        self._history: list[str] = []
+        self._history_position: int | None = None
+        self._history_draft = ""
         super().__init__(**kwargs)
+
+    def add_history(self, text: str) -> None:
+        if text:
+            self._history.append(text)
+        self._history_position = None
+        self._history_draft = ""
+
+    def action_history_previous(self) -> None:
+        if not self._history:
+            return
+        if self._history_position is None:
+            self._history_draft = self.value
+            self._history_position = len(self._history)
+        if self._history_position > 0:
+            self._history_position -= 1
+            self.value = self._history[self._history_position]
+            self.cursor_position = len(self.value)
+
+    def action_history_next(self) -> None:
+        if self._history_position is None:
+            return
+        if self._history_position < len(self._history) - 1:
+            self._history_position += 1
+            self.value = self._history[self._history_position]
+        else:
+            self._history_position = None
+            self.value = self._history_draft
+        self.cursor_position = len(self.value)
 
     def _on_paste(self, event: Paste) -> None:
         if self._on_paste_attachment(event.text):
@@ -496,6 +532,8 @@ class XiaozhiTuiApp(App[None]):
     @on(Input.Submitted, "#cmd-input")
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = (event.value or "").strip()
+        if isinstance(event.input, ClipboardAttachmentInput):
+            event.input.add_history(text)
         event.input.value = ""
         if text:
             self._dispatch_command(text)
