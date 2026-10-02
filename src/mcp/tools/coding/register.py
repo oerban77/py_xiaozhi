@@ -127,7 +127,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "directory and return matching lines with file and line number. Paths "
                 "are relative to the active coding workspace; call set_workspace once "
                 "for a user-requested different project, then use relative paths. "
-                "Search skips .bin and .hex firmware artifacts."
+                "Search skips .bin and .hex firmware artifacts, scans at most 100 "
+                "files and 16 MiB per call, and skips files larger than 1 MiB. "
+                "Continue a bounded search with the returned file_offset."
             ),
             properties=PropertyList(
                 [
@@ -139,6 +141,8 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                     Property("context_lines", PropertyType.INTEGER, default_value=0, min_value=0),
                     Property("max_results", PropertyType.INTEGER, default_value=100, min_value=1),
                     Property("max_preview_bytes", PropertyType.INTEGER, default_value=512, min_value=1),
+                    Property("max_files", PropertyType.INTEGER, default_value=100, min_value=1, max_value=100),
+                    Property("file_offset", PropertyType.INTEGER, default_value=0, min_value=0),
                 ]
             ),
             callback=search_text,
@@ -196,15 +200,23 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             description=(
                 "Run a shell command in the workspace and return stdout, stderr and "
                 "the exit code. Destructive commands (format, rm -rf /, mkfs, "
-                "registry edits, user creation, shutdown) are refused."
+                "registry edits, user creation, shutdown) are refused. Short commands "
+                "run synchronously within the MCP timeout budget. For tests/builds "
+                "that may take longer, pass background=true; poll with job_id and "
+                "output_offset until status=completed. Pass cancel=true with job_id "
+                "to stop a running job."
             ),
             properties=PropertyList(
                 [
-                    Property("cmd", PropertyType.STRING),
+                    Property("cmd", PropertyType.STRING, default_value=""),
                     Property("workdir", PropertyType.STRING, default_value=""),
                     Property("timeout_ms", PropertyType.INTEGER, default_value=30000, min_value=1, max_value=120000),
                     Property("max_output_bytes", PropertyType.INTEGER, default_value=65536, min_value=1),
                     Property("stdin", PropertyType.STRING, default_value=""),
+                    Property("background", PropertyType.BOOLEAN, default_value=False),
+                    Property("job_id", PropertyType.STRING, default_value=""),
+                    Property("output_offset", PropertyType.INTEGER, default_value=0, min_value=0),
+                    Property("cancel", PropertyType.BOOLEAN, default_value=False),
                 ]
             ),
             callback=exec_command,

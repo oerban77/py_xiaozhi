@@ -21,12 +21,12 @@ Implemented (the subset that is meaningful for an on-device assistant):
 - ``git_show``         a commit's contents
 - ``git_blame``        per-line authorship
 
-Deliberately not ported: ``view_image`` (the camera tool already covers it),
 the long-lived command pool (``write_stdin``/``read_output``/``kill_command``)
 and the MCP-protocol introspection tools (``server_info``,
-``check_exec_environment``, ``request_permissions``) — py_xiaozhi is not a
-standalone MCP server, so session machinery and permission negotiation do not
-apply.
+Deliberately not ported: ``view_image`` (the camera tool already covers it),
+interactive terminal sessions (``write_stdin``) and MCP-protocol introspection
+tools (``server_info``, ``check_exec_environment``, ``request_permissions``).
+Long-running one-shot commands are supported through bounded background jobs.
 """
 
 from __future__ import annotations
@@ -38,8 +38,13 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -71,9 +76,31 @@ MAX_GIT_BYTES = 64 * 1024
 MAX_OUTPUT_BYTES = 64 * 1024
 DEFAULT_TIMEOUT_MS = 30_000
 MAX_TIMEOUT_MS = 120_000
+MAX_COMMAND_JOBS = 4
+MAX_COMMAND_JOB_OUTPUT_BYTES = 1024 * 1024
+COMMAND_JOB_RETENTION_SECONDS = 900
+MAX_SEARCH_FILES = 100
+MAX_SEARCH_FILE_BYTES = 1024 * 1024
+MAX_SEARCH_BATCH_BYTES = 16 * 1024 * 1024
 BINARY_PROBE_BYTES = 4096
 MAX_DEPTH = 8
 IGNORED_ANALYSIS_EXTENSIONS = {".bin", ".hex"}
+
+
+@dataclass
+class _CommandJob:
+    process: subprocess.Popen
+    started_at: float
+    output: bytearray = field(default_factory=bytearray)
+    output_base: int = 0
+    total_output: int = 0
+    readers_done: int = 0
+    completed_at: float | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+_COMMAND_JOBS: dict[str, _CommandJob] = {}
+_COMMAND_JOBS_LOCK = threading.Lock()
 
 # Commands that must never be run, whatever the arguments. The hardware tool
 # uses the same list; a coding assistant has no business running these either.
@@ -177,6 +204,63 @@ def _line_slice(text: str, start_line: int, end_line: int) -> tuple[str, int]:
     return "\n".join(selected), total
 
 
+def _read_file_window(
+    path: Path,
+    start_line: int,
+    end_line: int,
+    max_lines: int,
+    max_bytes: int,
+) -> tuple[str, int, str, int]:
+    digest = hashlib.sha256()
+    selected_lines: list[str] = []
+    selected_bytes = 0
+    truncated = False
+    total_lines = 0
+    line_limit = start_line + max_lines - 1 if max_lines > 0 else 0
+
+    with path.open("rb") as stream:
+        probe = stream.read(BINARY_PROBE_BYTES)
+        if b"\x00" in probe:
+            raise ToolFailure(
+                "BINARY_FILE", f"File is binary: {path}", category="validation"
+            )
+        stream.seek(0)
+        for line_number, raw_line in enumerate(stream, start=1):
+            line = raw_line.decode("utf-8", errors="replace")
+            digest.update(line.encode("utf-8"))
+            total_lines = line_number
+            if line_number < start_line:
+                continue
+            if end_line > 0 and line_number > end_line:
+                continue
+            if line_limit and line_number > line_limit:
+                continue
+            if truncated:
+                continue
+
+            if line.endswith("\n"):
+                line = line[:-1]
+            line_bytes = line.encode("utf-8")
+            separator_bytes = 1 if selected_lines else 0
+            available = max_bytes - selected_bytes - separator_bytes
+            if len(line_bytes) > available:
+                if available > 0:
+                    selected_lines.append(
+                        line_bytes[:available].decode("utf-8", errors="ignore")
+                    )
+                    selected_bytes += available + separator_bytes
+                truncated = True
+                continue
+
+            selected_lines.append(line)
+            selected_bytes += len(line_bytes) + separator_bytes
+
+    content = "\n".join(selected_lines)
+    if truncated:
+        content += f"\n... (truncated at {max_bytes} bytes)"
+    return content, total_lines, digest.hexdigest(), len(selected_lines)
+
+
 # ── read_file ─────────────────────────────────────────────────
 
 
@@ -193,24 +277,16 @@ def _read_file(args: dict) -> str:
             f"Skipped {path.suffix} firmware artifact. Analyze source/config files instead.",
             category="validation",
         )
-    text = _read_text(path)
     start_line = int(args.get("start_line") or 1)
     end_line = int(args.get("end_line") or 0)
     max_lines = int(args.get("max_lines") or 0)
     max_bytes = int(args.get("max_bytes") or MAX_READ_BYTES)
+    max_bytes = min(max_bytes, MAX_READ_BYTES)
+    content, total_lines, revision, shown_lines = _read_file_window(
+        path, start_line, end_line, max_lines, max_bytes
+    )
 
-    total_bytes = len(text.encode("utf-8"))
-    revision = content_revision(text)
-    content, total_lines = _line_slice(text, start_line, end_line)
-
-    if max_lines > 0:
-        allowed = content.split("\n")[:max_lines]
-        content = "\n".join(allowed)
-    if len(content.encode("utf-8")) > max_bytes:
-        content = content.encode("utf-8")[:max_bytes].decode("utf-8", errors="ignore")
-        content += f"\n... (truncated at {max_bytes} bytes)"
-
-    shown_end = start_line + len(content.split("\n")) - 1
+    shown_end = start_line + shown_lines - 1
     banner = (
         f"[Showing lines {start_line}-{shown_end} of {total_lines} "
         f"revision={revision}]"
@@ -337,19 +413,23 @@ def _search_text(args: dict) -> str:
     case_sensitive = bool(args.get("case_sensitive"))
     glob_patterns = str(args.get("glob") or args.get("include_globs") or "")
     context_lines = int(args.get("context_lines") or 0)
-    max_results = int(args.get("max_results") or MAX_SEARCH_RESULTS)
+    max_results = min(int(args.get("max_results") or MAX_SEARCH_RESULTS), MAX_SEARCH_RESULTS)
     max_preview = int(args.get("max_preview_bytes") or MAX_PREVIEW_BYTES)
+    max_files = min(max(1, int(args.get("max_files") or MAX_SEARCH_FILES)), MAX_SEARCH_FILES)
+    file_offset = max(0, int(args.get("file_offset") or 0))
 
     flags = 0 if case_sensitive else re.IGNORECASE
     needle = re.compile(query, flags) if use_regex else re.compile(re.escape(query), flags)
 
     globs = [p.strip() for p in glob_patterns.replace(",", "\n").split("\n") if p.strip()]
-    results: list[str] = []
-    scanned = 0
-
+    files: list[Path] = []
+    candidate_index = 0
+    more_files = False
     for dirpath, dirnames, filenames in os.walk(path):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in {".git", "__pycache__"}]
-        for name in filenames:
+        dirnames[:] = sorted(
+            d for d in dirnames if not d.startswith(".") and d not in {".git", "__pycache__"}
+        )
+        for name in sorted(filenames):
             if globs and not any(fnmatch.fnmatch(name, pat) for pat in globs):
                 continue
             full = Path(dirpath, name)
@@ -357,27 +437,66 @@ def _search_text(args: dict) -> str:
                 continue
             if full.is_symlink() and not _is_within(root, full.resolve()):
                 continue
-            try:
-                text = _read_text(full)
-            except (ToolFailure, OSError):
+            if candidate_index < file_offset:
+                candidate_index += 1
                 continue
+            if len(files) >= max_files:
+                more_files = True
+                break
+            files.append(full)
+            candidate_index += 1
+        if more_files:
+            break
+
+    results: list[str] = []
+    scanned = 0
+    scanned_bytes = 0
+    skipped_large = 0
+    stopped_for_budget = False
+    results_limited = False
+    for full in files:
+        try:
+            size = full.stat().st_size
+            if size > MAX_SEARCH_FILE_BYTES:
+                skipped_large += 1
+                scanned += 1
+                continue
+            if scanned_bytes + size > MAX_SEARCH_BATCH_BYTES:
+                stopped_for_budget = True
+                break
+            text = _read_text(full)
+        except (ToolFailure, OSError):
             scanned += 1
-            lines = text.split("\n")
-            relative = str(full.relative_to(root))
-            for index, line in enumerate(lines):
-                if needle.search(line):
-                    start = max(0, index - context_lines)
-                    end = min(len(lines), index + context_lines + 1)
-                    excerpt = "\n".join(lines[start:end])[:max_preview]
-                    results.append(
-                        f"{relative}:{index + 1}: {excerpt}"
-                    )
-                    if len(results) >= max_results:
-                        results.append(f"... (stopped after {max_results} matches in {scanned} files)")
-                        return "\n".join(results)
+            continue
+        scanned += 1
+        scanned_bytes += size
+        lines = text.split("\n")
+        relative = str(full.relative_to(root))
+        for index, line in enumerate(lines):
+            if needle.search(line):
+                start = max(0, index - context_lines)
+                end = min(len(lines), index + context_lines + 1)
+                excerpt = "\n".join(lines[start:end])[:max_preview]
+                results.append(f"{relative}:{index + 1}: {excerpt}")
+                if len(results) >= max_results:
+                    results_limited = True
+                    break
+        if len(results) >= max_results:
+            break
+
+    next_offset = file_offset + scanned
+    has_more = stopped_for_budget or more_files or scanned < len(files)
     if not results:
-        return f"(no matches for {query!r} under {rel})"
-    return "\n".join(results)
+        body = f"(no matches for {query!r} in {scanned} files)"
+    else:
+        body = "\n".join(results)
+    if skipped_large:
+        body += f"\n... skipped {skipped_large} file(s) larger than {MAX_SEARCH_FILE_BYTES} bytes"
+    if has_more:
+        body += f"\n... search batch limit reached; continue with file_offset={next_offset}"
+    if results_limited:
+        body += "\n... result limit reached; narrow the query or search a smaller path."
+    return body
 
 
 # ── apply_patch ───────────────────────────────────────────────
@@ -768,7 +887,205 @@ def _apply_changes(args: dict) -> str:
 # ── exec_command ──────────────────────────────────────────────
 
 
+def _capture_job_output(job: _CommandJob, stream) -> None:
+    try:
+        while True:
+            chunk = stream.read(8192)
+            if not chunk:
+                break
+            with job.lock:
+                job.output.extend(chunk)
+                job.total_output += len(chunk)
+                overflow = len(job.output) - MAX_COMMAND_JOB_OUTPUT_BYTES
+                if overflow > 0:
+                    del job.output[:overflow]
+                    job.output_base += overflow
+    finally:
+        try:
+            stream.close()
+        except OSError:
+            pass
+        with job.lock:
+            job.readers_done += 1
+
+
+def _prune_command_jobs() -> None:
+    now = time.monotonic()
+    with _COMMAND_JOBS_LOCK:
+        for job_id, job in list(_COMMAND_JOBS.items()):
+            if job.process.poll() is not None and job.completed_at is None:
+                with job.lock:
+                    if job.readers_done == 2:
+                        job.completed_at = now
+            if job.completed_at is not None and now - job.completed_at > COMMAND_JOB_RETENTION_SECONDS:
+                _COMMAND_JOBS.pop(job_id, None)
+        completed = sorted(
+            (
+                (job.completed_at or now, job_id)
+                for job_id, job in _COMMAND_JOBS.items()
+                if job.process.poll() is not None
+            )
+        )
+        while len(_COMMAND_JOBS) > 64 and completed:
+            _, job_id = completed.pop(0)
+            _COMMAND_JOBS.pop(job_id, None)
+
+
+def _start_command_job(command: str, cwd: Path, stdin_text: str) -> str:
+    _prune_command_jobs()
+    with _COMMAND_JOBS_LOCK:
+        active = sum(job.process.poll() is None for job in _COMMAND_JOBS.values())
+        if active >= MAX_COMMAND_JOBS:
+            return f"status=busy\nAt most {MAX_COMMAND_JOBS} background commands may run at once."
+
+        process_options = {}
+        if os.name == "nt":
+            process_options["creationflags"] = getattr(
+                subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+            )
+        else:
+            process_options["start_new_session"] = True
+        process = subprocess.Popen(
+            command,
+            cwd=str(cwd),
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
+            **process_options,
+        )
+        job = _CommandJob(process=process, started_at=time.monotonic())
+        job_id = uuid.uuid4().hex[:16]
+        _COMMAND_JOBS[job_id] = job
+
+    for stream in (process.stdout, process.stderr):
+        threading.Thread(
+            target=_capture_job_output,
+            args=(job, stream),
+            daemon=True,
+        ).start()
+
+    def feed_stdin() -> None:
+        try:
+            if stdin_text:
+                process.stdin.write(stdin_text.encode("utf-8"))
+                process.stdin.flush()
+        except (BrokenPipeError, OSError):
+            pass
+        finally:
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+
+    threading.Thread(target=feed_stdin, daemon=True).start()
+    return json.dumps(
+        {
+            "job_id": job_id,
+            "status": "running",
+            "output_offset": 0,
+            "message": "Poll exec_command with job_id and output_offset to collect output.",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _terminate_command_job(job: _CommandJob) -> None:
+    process = job.process
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            try:
+                process.kill()
+            except OSError:
+                pass
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+
+
+def _poll_command_job(args: dict) -> str:
+    job_id = str(args.get("job_id") or "").strip()
+    with _COMMAND_JOBS_LOCK:
+        job = _COMMAND_JOBS.get(job_id)
+    if job is None:
+        return f"status=not_found\nNo active or retained command job: {job_id}"
+
+    if bool(args.get("cancel")) and job.process.poll() is None:
+        _terminate_command_job(job)
+
+    try:
+        requested_offset = max(0, int(args.get("output_offset") or 0))
+        max_output = min(
+            max(1, int(args.get("max_output_bytes") or MAX_OUTPUT_BYTES)),
+            MAX_OUTPUT_BYTES,
+        )
+    except (TypeError, ValueError):
+        return "status=invalid_argument\noutput_offset and max_output_bytes must be integers."
+
+    return_code = job.process.poll()
+    with job.lock:
+        if return_code is not None and job.readers_done == 2 and job.completed_at is None:
+            job.completed_at = time.monotonic()
+        if requested_offset > job.total_output:
+            return f"status=invalid_argument\noutput_offset exceeds {job.total_output}."
+        start_offset = max(requested_offset, job.output_base)
+        start_index = start_offset - job.output_base
+        end_index = min(len(job.output), start_index + max_output)
+        output = bytes(job.output[start_index:end_index])
+        next_offset = start_offset + len(output)
+        dropped = max(0, job.output_base - requested_offset)
+        readers_done = job.readers_done
+        total_output = job.total_output
+        completed = return_code is not None and readers_done == 2
+
+    payload = {
+        "job_id": job_id,
+        "status": "completed" if completed else "running",
+        "exit_code": return_code if completed else None,
+        "output": output.decode("utf-8", errors="replace"),
+        "output_offset": next_offset,
+        "total_output_bytes": total_output,
+    }
+    if dropped:
+        payload["warning"] = f"{dropped} earlier output bytes were dropped from the bounded buffer."
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _sync_command_timeout_ms(requested_ms: int) -> int:
+    try:
+        from src.utils.config_manager import get_config
+
+        call_timeout = float(get_config().get_config("MCP_TOOLS.CALL_TIMEOUT", 45))
+    except Exception:
+        call_timeout = 45.0
+    if call_timeout <= 0:
+        return min(requested_ms, MAX_TIMEOUT_MS)
+    remaining_ms = max(1, int(call_timeout * 1000) - 5000)
+    return min(requested_ms, MAX_TIMEOUT_MS, remaining_ms)
+
+
 def _exec_command(args: dict) -> str:
+    job_id = str(args.get("job_id") or "").strip()
+    if job_id:
+        return _poll_command_job(args)
+
     command = str(args.get("cmd", "")).strip()
     if not command:
         raise ToolFailure("INVALID_ARGUMENT", "cmd is required", category="validation")
@@ -783,9 +1100,16 @@ def _exec_command(args: dict) -> str:
     workdir = str(args.get("workdir") or args.get("cwd") or "")
     cwd = _resolve(workdir or ".", root, must_exist=True) if workdir else root
     timeout_ms = min(int(args.get("timeout_ms") or DEFAULT_TIMEOUT_MS), MAX_TIMEOUT_MS)
-    max_output = int(args.get("max_output_bytes") or MAX_OUTPUT_BYTES)
+    max_output = min(
+        max(1, int(args.get("max_output_bytes") or MAX_OUTPUT_BYTES)),
+        MAX_OUTPUT_BYTES,
+    )
     stdin_text = str(args.get("stdin") or "")
 
+    if bool(args.get("background")):
+        return _start_command_job(command, cwd, stdin_text)
+
+    timeout_ms = _sync_command_timeout_ms(timeout_ms)
     try:
         result = subprocess.run(
             command,
@@ -800,8 +1124,8 @@ def _exec_command(args: dict) -> str:
     except subprocess.TimeoutExpired:
         return (
             "status=timeout\n"
-            f"Command exceeded the {timeout_ms} ms budget and was terminated.\n"
-            "Reduce the scope of the command or raise timeout_ms."
+            f"Command exceeded the effective {timeout_ms} ms MCP-safe budget.\n"
+            "Retry with background=true and poll using the returned job_id."
         )
     except OSError as exc:
         return f"status=failed\nexit_code=-1\n{exc}"
@@ -809,10 +1133,7 @@ def _exec_command(args: dict) -> str:
     stdout = (result.stdout or "")[:max_output]
     stderr = (result.stderr or "")[:max_output]
     status = "exited" if result.returncode == 0 else "failed"
-    parts = [
-        f"status={status}",
-        f"exit_code={result.returncode}",
-    ]
+    parts = [f"status={status}", f"exit_code={result.returncode}"]
     if stdout:
         parts.append(f"--- stdout ---\n{stdout.rstrip()}")
     if stderr:
