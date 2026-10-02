@@ -364,6 +364,53 @@ ScrollView {
             color: Theme.divider
         }
 
+        // TUI 启动设置（仅 Windows）
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingMd
+            visible: settingsModel ? settingsModel.tuiStartWithWindowsSupported : false
+
+            Text {
+                text: "TUI Startup"
+                font.pixelSize: Theme.fontSizeMd
+                font.weight: Font.Medium
+                color: Theme.textSecondary
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Start with Windows"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 140
+                }
+
+                XSwitch {
+                    checked: settingsModel ? settingsModel.tuiStartWithWindows : false
+                    onToggled: if (settingsModel) settingsModel.tuiStartWithWindows = checked
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "Launch TUI mode in a minimized terminal window after sign-in. Requires 'xiaozhi-tui' in PATH."
+                font.pixelSize: Theme.fontSizeXs
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+        }
+
+        // 分隔线
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.divider
+            visible: settingsModel ? settingsModel.tuiStartWithWindowsSupported : false
+        }
+
         // 提示信息
         Text {
             Layout.fillWidth: true

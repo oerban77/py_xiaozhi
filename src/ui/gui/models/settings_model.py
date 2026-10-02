@@ -190,6 +190,24 @@ class SettingsModel(
                 encoding="utf-8",
             )
             os.replace(tmp_path, self._config_path)
+            startup_warning = ""
+            if self._get_startWithWindowsSupported():
+                try:
+                    from src.utils.windows_startup import set_windows_startup_enabled
+
+                    set_windows_startup_enabled(self._get_startWithWindows())
+                except Exception as e:
+                    startup_warning = f"; Windows startup update failed: {e}"
+                    logger.error(startup_warning, exc_info=True)
+            tui_startup_warning = ""
+            if SettingsShortcutsMixin._get_tuiStartWithWindowsSupported():
+                try:
+                    from src.utils.windows_startup import set_tui_startup_enabled
+
+                    set_tui_startup_enabled(self._get_tuiStartWithWindows())
+                except Exception as e:
+                    tui_startup_warning = f"; TUI startup update failed: {e}"
+                    logger.error(tui_startup_warning, exc_info=True)
             try:
                 self._config_manager.reload_config()
             except Exception as e:
@@ -197,10 +215,13 @@ class SettingsModel(
             logger.info("Settings saved")
             self._snapshot_mcp_disabled()
             if mcp_changed:
-                self.statusMessage.emit("Configuration saved (MCP tools changed; will reconnect to update)")
+                self.statusMessage.emit(
+                    "Configuration saved (MCP tools changed; will reconnect to update)"
+                    f"{startup_warning}{tui_startup_warning}"
+                )
                 self.mcpToolsNeedReconnect.emit()
             else:
-                self.statusMessage.emit("Configuration saved")
+                self.statusMessage.emit(f"Configuration saved{startup_warning}{tui_startup_warning}")
             self.configSaved.emit()
         except Exception as e:
             logger.error(f"Failed to save config: {e}", exc_info=True)
@@ -218,6 +239,28 @@ class SettingsModel(
         logger.info("Settings reloaded")
 
     # ========== QML Properties (implementations live in each mixin) ==========
+    startWithWindows = Property(
+        bool,
+        SettingsSystemOptionsMixin._get_startWithWindows,
+        SettingsSystemOptionsMixin._set_startWithWindows,
+        notify=settingsChanged,
+    )
+    startWithWindowsSupported = Property(
+        bool,
+        SettingsSystemOptionsMixin._get_startWithWindowsSupported,
+        notify=settingsChanged,
+    )
+    tuiStartWithWindows = Property(
+        bool,
+        SettingsShortcutsMixin._get_tuiStartWithWindows,
+        SettingsShortcutsMixin._set_tuiStartWithWindows,
+        notify=settingsChanged,
+    )
+    tuiStartWithWindowsSupported = Property(
+        bool,
+        SettingsShortcutsMixin._get_tuiStartWithWindowsSupported,
+        notify=settingsChanged,
+    )
     clientId = Property(str, SettingsSystemOptionsMixin._get_clientId, SettingsSystemOptionsMixin._set_clientId, notify=settingsChanged)
     deviceId = Property(str, SettingsSystemOptionsMixin._get_deviceId, SettingsSystemOptionsMixin._set_deviceId, notify=settingsChanged)
     codingWorkspace = Property(

@@ -54,12 +54,6 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 kind="workspace",
                 help="Workspace folder for coding tools; empty uses the app launch folder",
             ),
-            SettingField(
-                "CODING.WORKSPACE",
-                "Coding Workspace",
-                kind="workspace",
-                help="Absolute folder for coding tools; empty uses the app launch folder",
-            ),
             SettingField("AEC_OPTIONS.ENABLED", "Echo Cancellation", kind="bool"),
             SettingField("AEC_OPTIONS.MUSIC_PARALLEL", "Parallel Music", kind="bool"),
             SettingField("AEC_OPTIONS.FRAME_DELAY", "AEC Delay Frames", kind="int"),
@@ -226,9 +220,6 @@ def load_setting_values() -> dict[str, str]:
             if f.kind == "workspace":
                 values[f.path] = str(cfg.get_config(f.path, "") or "")
                 continue
-            if f.kind == "workspace":
-                values[f.path] = str(cfg.get_config(f.path, "") or "")
-                continue
             raw = cfg.get_config(f.path, "")
             if f.kind == "mcp_tools":
                 values[f.path] = json.dumps(raw or [], ensure_ascii=False)
@@ -287,11 +278,6 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
                     )
 
                     updates.update(apply_device_selection(values[f.path]))
-                    continue
-                if f.kind == "workspace":
-                    from src.utils.workspace import normalize_workspace
-
-                    updates[f.path] = normalize_workspace(values[f.path])
                     continue
                 if f.kind == "workspace":
                     from src.utils.workspace import normalize_workspace

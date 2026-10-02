@@ -21,6 +21,53 @@ ScrollView {
             color: Theme.textPrimary
         }
 
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingMd
+            visible: settingsModel ? settingsModel.startWithWindowsSupported : false
+
+            Text {
+                text: "Startup"
+                font.pixelSize: Theme.fontSizeMd
+                font.weight: Font.Medium
+                color: Theme.textSecondary
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                rowSpacing: Theme.spacingSm
+                columnSpacing: Theme.spacingLg
+
+                Text {
+                    text: "Start with Windows"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 140
+                }
+                XSwitch {
+                    checked: settingsModel ? settingsModel.startWithWindows : false
+                    onToggled: if (settingsModel) settingsModel.startWithWindows = checked
+                }
+
+                Text {
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    text: "Launch in the background and show an icon in the system tray after sign-in."
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.divider
+            visible: settingsModel ? settingsModel.startWithWindowsSupported : false
+        }
+
         // 基本信息区域
         ColumnLayout {
             Layout.fillWidth: true

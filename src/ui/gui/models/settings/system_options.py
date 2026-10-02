@@ -4,6 +4,17 @@
 class SettingsSystemOptionsMixin:
     # ========== System options ==========
 
+    def _get_startWithWindows(self) -> bool:
+        return bool(self._get_value("SYSTEM_OPTIONS.START_WITH_WINDOWS", False))
+
+    def _set_startWithWindows(self, value: bool):
+        self._set_value("SYSTEM_OPTIONS.START_WITH_WINDOWS", bool(value))
+
+    def _get_startWithWindowsSupported(self) -> bool:
+        from src.utils.windows_startup import is_windows_startup_supported
+
+        return is_windows_startup_supported()
+
     # CLIENT_ID
     def _get_clientId(self) -> str:
         return self._get_value("SYSTEM_OPTIONS.CLIENT_ID", "")

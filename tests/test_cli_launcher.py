@@ -23,6 +23,43 @@ def test_main_callable_for_console_entrypoint():
     assert callable(main.main)
 
 
+def test_parse_args_supports_starting_minimized():
+    args = main.parse_args(["--start-minimized"])
+    assert args.mode == "gui"
+    assert args.start_minimized is True
+
+
+def test_tui_workspace_setting_persists_new_directory(monkeypatch, tmp_path):
+    from src.ui.tui import settings_data
+
+    workspace = tmp_path / "coding-project"
+    workspace.mkdir()
+
+    class ConfigStub:
+        updates = None
+
+        def update_configs(self, updates):
+            self.updates = updates
+            return True
+
+    config = ConfigStub()
+    monkeypatch.setattr(settings_data, "get_config", lambda: config)
+
+    workspace_fields = [
+        field
+        for _, fields in settings_data.SETTING_SECTIONS
+        for field in fields
+        if field.path == "CODING.WORKSPACE"
+    ]
+    ok, message = settings_data.save_settings(
+        {"CODING.WORKSPACE": str(workspace)}
+    )
+
+    assert len(workspace_fields) == 1
+    assert ok, message
+    assert config.updates == {"CODING.WORKSPACE": str(workspace.resolve())}
+
+
 def test_mode_shortcut_entrypoints_exist():
     assert callable(main.main_cli)
     assert callable(main.main_gui)

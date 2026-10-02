@@ -75,3 +75,15 @@ class SettingsShortcutsMixin:
     def _set_shortcutWindowKey(self, value: str):
         self._set_value("SHORTCUTS.WINDOW_TOGGLE.key", value)
 
+    # TUI startup (Windows only)
+    def _get_tuiStartWithWindows(self) -> bool:
+        return bool(self._get_value("SHORTCUTS.TUI_START_WITH_WINDOWS", False))
+
+    def _set_tuiStartWithWindows(self, value: bool):
+        self._set_value("SHORTCUTS.TUI_START_WITH_WINDOWS", bool(value))
+
+    def _get_tuiStartWithWindowsSupported(self) -> bool:
+        from src.utils.windows_startup import is_windows_startup_supported
+
+        return is_windows_startup_supported()
+

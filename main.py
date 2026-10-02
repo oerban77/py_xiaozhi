@@ -153,6 +153,11 @@ def parse_args(argv=None):
         action="store_true",
         help="Skip the activation flow and start the app directly (debug only)",
     )
+    parser.add_argument(
+        "--start-minimized",
+        action="store_true",
+        help="Start the GUI minimized to the system tray",
+    )
 
     args = parser.parse_args(argv)
 
@@ -256,6 +261,8 @@ def main(argv=None) -> int:
     else:
         args = parse_args(argv)
 
+    os.environ["XIAOZHI_START_MINIMIZED"] = "1" if args.start_minimized else "0"
+
     from src.utils.config_manager import initialize_config  # noqa: E402
 
     initialize_config()
@@ -274,8 +281,6 @@ def main(argv=None) -> int:
     exit_code = 1
     try:
         # Detect a Wayland environment and configure the Qt platform plugin
-        import os
-
         is_wayland = (
             os.environ.get("WAYLAND_DISPLAY")
             or os.environ.get("XDG_SESSION_TYPE") == "wayland"

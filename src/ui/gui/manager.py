@@ -1,6 +1,7 @@
 """GUI ViewManager: composes the QmlAppHost / main interface / settings controller to implement ViewPort."""
 
 import asyncio
+import os
 
 from PySide6.QtCore import QObject, Slot
 
@@ -63,9 +64,10 @@ class GuiViewManager(QObject):
             }
         )
         self._host.load_main()
-        # Cold start: only show, do not steal the foreground, to avoid pushing aside the Space of another full-screen app on macOS
-        self._host.show_root(activate=False)
-        self._setup_tray()
+        tray_ready = self._setup_tray()
+        if os.environ.get("XIAOZHI_START_MINIMIZED") != "1" or not tray_ready:
+            # Cold start: do not steal the foreground from another full-screen app.
+            self._host.show_root(activate=False)
         self._main.set_neutral_emotion()
         await self._refresh_muted()
         logger.info("GuiViewManager: GUI started")
@@ -79,12 +81,12 @@ class GuiViewManager(QObject):
         self._host.shutdown()
         logger.info("GuiViewManager: closed")
 
-    def _setup_tray(self) -> None:
+    def _setup_tray(self) -> bool:
         root = self._host.root_window()
         if root is None:
-            return
+            return False
         self._tray_service = TrayService(root)
-        self._tray_service.setup(
+        return self._tray_service.setup(
             on_show=self._host.show_root,
             on_quit=self._request_quit,
         )
