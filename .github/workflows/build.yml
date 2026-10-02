@@ -49,7 +49,7 @@ jobs:
           echo "Selected platforms: $SELECTED"
 
           # Full matrix; mac x64 builds the Intel package on the arm runner via Rosetta
-          ALL='[
+          ALL_PLATFORMS='[
             {"os":"macos-latest","platform":"macos-arm64","artifact":"installer/*.dmg","mac_arch":"arm64"},
             {"os":"macos-latest","platform":"macos-x64","artifact":"installer/*.dmg","mac_arch":"x64"},
             {"os":"windows-latest","platform":"windows-x64","artifact":"installer/*.exe","mac_arch":""},
@@ -58,14 +58,15 @@ jobs:
           ]'
 
           if [ "$SELECTED" = "all" ]; then
-            MATRIX="$ALL"
+            PLATFORMS="$ALL_PLATFORMS"
           else
-            MATRIX="$(echo "$ALL" | jq -c --arg p "$SELECTED" '[.[] | select(.platform == $p)]')"
+            PLATFORMS="$(echo "$ALL_PLATFORMS" | jq -c --arg p "$SELECTED" '[.[] | select(.platform == $p)]')"
           fi
 
+          MATRIX="$(echo "$PLATFORMS" | jq -c '[.[] as $platform | ["gui", "terminal"][] as $mode | $platform + {mode: $mode}]')"
           COUNT="$(echo "$MATRIX" | jq 'length')"
-          echo "Will build $COUNT platform(s):"
-          echo "$MATRIX" | jq -r '.[] | "  - \(.platform) (\(.os))"'
+          echo "Will build $COUNT package(s):"
+          echo "$MATRIX" | jq -r '.[] | "  - \(.platform)-\(.mode) (\(.os))"'
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
           echo "build_count=$COUNT" >> "$GITHUB_OUTPUT"
 
@@ -78,7 +79,7 @@ jobs:
         include: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
-    name: Build (${{ matrix.platform }})
+    name: Build (${{ matrix.platform }}-${{ matrix.mode }})
 
     steps:
       - name: Checkout
@@ -166,14 +167,18 @@ jobs:
       - name: Install Python dependencies
         shell: bash
         run: |
+          EXTRA_ARGS=()
+          if [ "${{ matrix.mode }}" = "terminal" ]; then
+            EXTRA_ARGS+=(--extra tui)
+          fi
           if [ "${{ runner.os }}" = "macOS" ] && [ "${{ matrix.mac_arch }}" = "x64" ]; then
             echo "Using x86_64 Python: $PY_X64"
             file "$PY_X64"
             arch -x86_64 "$PY_X64" -c "import platform; print(platform.machine(), platform.platform())"
             # uv uses this interpreter to resolve/install x86_64 wheels
-            uv sync --python "$PY_X64" --extra gui --group dev
+            uv sync --python "$PY_X64" --extra gui "${EXTRA_ARGS[@]}" --group dev
           else
-            uv sync --extra gui --group dev
+            uv sync --extra gui "${EXTRA_ARGS[@]}" --group dev
           fi
 
       - name: Install unifypy
@@ -289,6 +294,35 @@ jobs:
           print(f"pyinstaller.target_architecture = {cfg['pyinstaller']['target_architecture']}")
           PY
 
+      - name: Configure GUI or terminal package
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          mode = "${{ matrix.mode }}"
+          cfg = json.loads(Path("build.json").read_text(encoding="utf-8"))
+          package_name = f"{cfg['name']}-{mode}"
+          cfg["name"] = package_name
+          cfg.setdefault("pyinstaller", {})["windowed"] = mode == "gui"
+          if mode == "gui":
+              cfg["pyinstaller"]["hidden_import"] = [
+                  name for name in cfg["pyinstaller"].get("hidden_import", [])
+                  if name != "textual"
+              ]
+          macos = cfg.setdefault("platforms", {}).get("macos", {})
+          if macos.get("bundle_identifier"):
+              macos["bundle_identifier"] = f"{macos['bundle_identifier']}.{mode}"
+          linux = cfg["platforms"].get("linux", {}).get("deb", {})
+          if linux.get("package"):
+              linux["package"] = package_name
+
+          output = Path(f"build-{mode}.json")
+          output.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          print(f"Configured {mode} package: windowed={cfg['pyinstaller']['windowed']}, config={output}")
+          PY
+
       - name: Build package
         shell: bash
         env:
@@ -301,6 +335,7 @@ jobs:
           # mac x64: put .venv/bin on PATH so unifypy finds the x86_64 pyinstaller;
           # run the venv's x86_64 python -m unifypy and the core goes through Rosetta automatically.
           export PATH="${PWD}/.venv/bin:${PATH}"
+          BUILD_CONFIG="build-${{ matrix.mode }}.json"
           if [ "${{ runner.os }}" = "macOS" ] && [ "${{ matrix.mac_arch }}" = "x64" ]; then
             VENV_PY="${PWD}/.venv/bin/python"
             file "$VENV_PY"
@@ -308,13 +343,13 @@ jobs:
             pyinstaller --version || true
             "$VENV_PY" -c "import PyInstaller, platform; print(PyInstaller.__version__, platform.machine())"
             "$VENV_PY" -m unifypy . \
-              --config build.json \
+              --config "$BUILD_CONFIG" \
               --app-version ${{ steps.version.outputs.version }} \
               --verbose \
               --clean
           else
             uv run --no-sync unifypy . \
-              --config build.json \
+              --config "$BUILD_CONFIG" \
               --app-version ${{ steps.version.outputs.version }} \
               --verbose \
               --clean
@@ -365,7 +400,7 @@ jobs:
             ext="${f##*.}"
             base="${f%.*}"
             name="$(basename "$base")"
-            cp "$f" "dist/release/${name}-${{ matrix.platform }}.${ext}"
+            cp "$f" "dist/release/${name}-${{ matrix.platform }}-${{ matrix.mode }}.${ext}"
           done
           ls -lh dist/release
 

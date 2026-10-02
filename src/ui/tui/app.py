@@ -25,7 +25,7 @@ from textual.widgets import (
 )
 
 from src.constants.system import SystemConstants
-from src.logging import get_logger
+from src.logging import get_logger, load_logging_config
 from src.ui.tui.settings_data import (
     SETTING_SECTIONS,
     load_setting_values,
@@ -322,6 +322,7 @@ class XiaozhiTuiApp(App[None]):
         self._on_settings_saved = on_settings_saved
         self._log_handler_installed = False
         self._tui_log_handler = None
+        self._status_widgets_ready = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -342,6 +343,7 @@ class XiaozhiTuiApp(App[None]):
 
     def on_mount(self) -> None:
         self.query_one("#cmd-input", Input).focus()
+        self._status_widgets_ready = True
         self._install_log_handler()
         self._refresh_status_widgets()
         self.write_log(
@@ -350,39 +352,59 @@ class XiaozhiTuiApp(App[None]):
         )
 
     def watch_status_text(self, _value: str) -> None:
-        self._refresh_status_widgets()
+        self._refresh_status_line()
 
     def watch_connected(self, _value: bool) -> None:
-        self._refresh_status_widgets()
+        self._refresh_meta_line()
 
     def watch_auto_mode(self, _value: bool) -> None:
-        self._refresh_status_widgets()
+        self._refresh_meta_line()
 
     def watch_chat_text(self, _value: str) -> None:
-        self._refresh_status_widgets()
+        self._refresh_chat_line()
 
     def watch_music_line(self, _value: str) -> None:
-        self._refresh_status_widgets()
+        self._refresh_music_line()
 
     def watch_emotion(self, _value: str) -> None:
-        self._refresh_status_widgets()
+        self._refresh_meta_line()
 
     def _refresh_status_widgets(self) -> None:
         try:
-            conn = "Connected" if self.connected else "Disconnected"
-            mode = "Auto" if self.auto_mode else "Manual"
-            self.query_one("#status-line", Static).update(f"Status: {self.status_text}")
-            self.query_one("#meta-line", Static).update(
-                f"Connection: {conn} | Mode: {mode} | Emotion: {self.emotion}"
-            )
-            self.query_one("#chat-line", Static).update(
-                f"Conversation: {self.chat_text or '—'}"
-            )
-            self.query_one("#music-line", Static).update(
-                f"Music: {self.music_line or '—'}"
-            )
+            self._refresh_status_line()
+            self._refresh_meta_line()
+            self._refresh_chat_line()
+            self._refresh_music_line()
         except Exception:
             pass
+
+    def _refresh_status_line(self) -> None:
+        if not self._status_widgets_ready:
+            return
+        self.query_one("#status-line", Static).update(f"Status: {self.status_text}")
+
+    def _refresh_meta_line(self) -> None:
+        if not self._status_widgets_ready:
+            return
+        conn = "Connected" if self.connected else "Disconnected"
+        mode = "Auto" if self.auto_mode else "Manual"
+        self.query_one("#meta-line", Static).update(
+            f"Connection: {conn} | Mode: {mode} | Emotion: {self.emotion}"
+        )
+
+    def _refresh_chat_line(self) -> None:
+        if not self._status_widgets_ready:
+            return
+        self.query_one("#chat-line", Static).update(
+            f"Conversation: {self.chat_text or '—'}"
+        )
+
+    def _refresh_music_line(self) -> None:
+        if not self._status_widgets_ready:
+            return
+        self.query_one("#music-line", Static).update(
+            f"Music: {self.music_line or '—'}"
+        )
 
     def write_log(self, message: str) -> None:
         try:
@@ -469,7 +491,8 @@ class XiaozhiTuiApp(App[None]):
                 "%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S"
             )
         )
-        handler.setLevel(logging.INFO)
+        configured_level = load_logging_config().level.upper()
+        handler.setLevel(getattr(logging, configured_level, logging.INFO))
         root = logging.getLogger()
         for h in list(root.handlers):
             if isinstance(h, logging.StreamHandler) and not isinstance(
