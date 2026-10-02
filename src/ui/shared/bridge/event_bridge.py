@@ -129,12 +129,14 @@ class EventBridge(QObject):
             from src.ui.shared.clipboard_attachments import save_pasted_image
 
             path = None
+            is_image = False
             if mime.hasImage():
                 image = mime.imageData()
                 if isinstance(image, QPixmap):
                     image = image.toImage()
                 if image is not None and not image.isNull():
                     path = save_pasted_image(image)
+                    is_image = True
             elif mime.hasUrls():
                 local_files = [url.toLocalFile() for url in mime.urls() if url.isLocalFile()]
                 if local_files:
@@ -143,12 +145,18 @@ class EventBridge(QObject):
                     candidate = Path(local_files[0])
                     if candidate.is_file():
                         path = candidate
+                        from src.mcp.tools.documents.service import IMAGE_EXTENSIONS
+
+                        is_image = candidate.suffix.lower() in IMAGE_EXTENSIONS
             if path is None:
                 return {}
             return {
                 "path": str(path),
                 "name": path.name,
-                "useDocumentTool": True,
+                # Images are analyzed by the take_photo camera tool (vision),
+                # not by the document tool (OCR). Only non-image files use the
+                # document tool.
+                "useDocumentTool": not is_image,
             }
         except Exception as e:
             logger.warning("Could not create clipboard attachment: %s", e, exc_info=True)

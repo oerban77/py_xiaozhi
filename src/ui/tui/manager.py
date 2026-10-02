@@ -111,9 +111,18 @@ class TuiViewManager:
 
             path = cmd.strip()[len("/attachment ") :].strip()
             if path:
+                from pathlib import Path
+
+                from src.mcp.tools.documents.service import IMAGE_EXTENSIONS
+
+                # Images are analyzed by the take_photo camera tool (vision),
+                # not by the document tool (OCR).
+                is_image = Path(path).suffix.lower() in IMAGE_EXTENSIONS
                 self._safe_emit(
                     Events.UI_SEND_ATTACHMENT,
-                    UISendAttachmentRequest(path=path, use_document_tool=True),
+                    UISendAttachmentRequest(
+                        path=path, use_document_tool=not is_image
+                    ),
                 )
             return
         command_parts = cmd.strip().split(maxsplit=1)

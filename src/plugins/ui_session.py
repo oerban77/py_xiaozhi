@@ -164,6 +164,63 @@ class SessionActions:
             sent = await self._cmd.send_wake_word_detected(text)
         return sent is not False
 
+    @staticmethod
+    def _should_use_document_tool_for_image(question: str, use_document_tool: bool) -> bool:
+        """Prefer OCR/document flow for text-heavy images; use vision for scene/object photos."""
+        if use_document_tool:
+            return True
+
+        q = (question or "").strip().lower()
+        if not q:
+            return False
+
+        text_keywords = (
+            "ocr",
+            "read text",
+            "baca teks",
+            "baca tulisan",
+            "baca kuitansi",
+            "baca struk",
+            "baca slip",
+            "baca nota",
+            "cek struk",
+            "cek kuitansi",
+            "cek nota",
+            "extract text",
+            "what is written",
+            "what does it say",
+            "struk",
+            "receipt",
+            "bank note",
+            "invoice",
+            "nota",
+            "kuitansi",
+            "slip",
+            "transfer",
+            "nomor rekening",
+            "rekening",
+            "kode",
+            "read the text",
+            "text on the image",
+            "text in this image",
+            "tulisan",
+            "nomor",
+            "transaksi",
+            "dokumen",
+            "total bayar",
+            "jumlah pembayaran",
+            "jumlah transfer",
+            "faktur",
+            "bukti pembayaran",
+            "bukti transfer",
+            "saldo",
+            "nominal",
+            "norek",
+            "no rekening",
+            "no. rekening",
+        )
+        return any(keyword in q for keyword in text_keywords)
+
     async def send_attachment_from_event(self, data) -> None:
         use_document_tool = False
         if hasattr(data, "path"):
@@ -194,36 +251,58 @@ class SessionActions:
             )
 
             extension = path.suffix.lower()
-            if extension in IMAGE_EXTENSIONS and not use_document_tool:
+            if extension in IMAGE_EXTENSIONS:
                 kind = "image"
                 image_question = (question or "").strip() or "analisa"
-                if self._pending_image_setter is not None:
-                    self._pending_image_setter(str(path), image_question)
-                    if not await self.send_text("analisa gambar"):
-                        self._pending_image_setter("", "")
+                prefer_document = self._should_use_document_tool_for_image(
+                    image_question, use_document_tool
+                )
+                if prefer_document:
+                    kind = "document"
+                    if self._pending_document_setter is not None:
+                        self._pending_document_setter(str(path), image_question)
+                        prompt = "baca lampiran"
+                        if not await self.send_text(prompt):
+                            self._pending_document_setter("", "")
+                            await self._set_attachment_status(
+                                "Gagal mengirim permintaan baca dokumen"
+                            )
+                            return
                         await self._set_attachment_status(
-                            "Gagal mengirim permintaan analisis gambar"
+                            "Dokumen dikirim ke asisten untuk dibaca"
                         )
                         return
-                    await self._set_attachment_status(
-                        "Gambar dikirim ke asisten untuk dianalisis"
-                    )
-                    return
-                if self._image_analyzer is not None:
-                    if not await self._ensure_listen_session():
-                        await self._set_attachment_status(
-                            "Could not connect to the vision service"
-                        )
-                        return
-                    extracted = await self._image_analyzer(
-                        str(path), image_question
+                    extracted = await document_manage(
+                        {"action": "read", "path": str(path), "query": image_question}
                     )
                 else:
-                    extracted = await image_read(
-                        {"path": str(path), "question": image_question}
-                    )
-                    if extracted.startswith("Image: "):
-                        extracted = extracted.partition("\n")[2]
+                    if self._pending_image_setter is not None:
+                        self._pending_image_setter(str(path), image_question)
+                        if not await self.send_text("analisa gambar"):
+                            self._pending_image_setter("", "")
+                            await self._set_attachment_status(
+                                "Gagal mengirim permintaan analisis gambar"
+                            )
+                            return
+                        await self._set_attachment_status(
+                            "Gambar dikirim ke asisten untuk dianalisis"
+                        )
+                        return
+                    if self._image_analyzer is not None:
+                        if not await self._ensure_listen_session():
+                            await self._set_attachment_status(
+                                "Could not connect to the vision service"
+                            )
+                            return
+                        extracted = await self._image_analyzer(
+                            str(path), image_question
+                        )
+                    else:
+                        extracted = await image_read(
+                            {"path": str(path), "question": image_question}
+                        )
+                        if extracted.startswith("Image: "):
+                            extracted = extracted.partition("\n")[2]
             elif (
                 extension in TEXT_EXTENSIONS
                 or extension in BINARY_EXTENSIONS

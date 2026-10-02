@@ -1549,7 +1549,7 @@ async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
 
 
 @pytest.mark.asyncio
-async def test_pasted_image_attachment_uses_document_manage(tmp_path):
+async def test_pasted_image_attachment_uses_camera_tool(tmp_path):
     from src.plugins.ui_session import SessionActions
     from src.ui.shared.events import UISendAttachmentRequest
 
@@ -1583,11 +1583,99 @@ async def test_pasted_image_attachment_uses_document_manage(tmp_path):
         UISendAttachmentRequest(
             path=str(image_path),
             question="describe this",
-            use_document_tool=True,
+            use_document_tool=False,
         )
     )
 
-    assert documents == [(str(image_path), "describe this")]
+    assert images == [(str(image_path), "describe this")]
+    assert documents == []
+    assert sent == ["analisa gambar"]
+
+
+@pytest.mark.asyncio
+async def test_image_attachment_with_text_question_uses_document_ocr(tmp_path):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    image_path = tmp_path / "receipt.png"
+    image_path.write_bytes(b"receipt image")
+    documents = []
+    images = []
+    sent = []
+
+    class Context:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class Commands:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+            return True
+
+    session = SessionActions(
+        Context(),
+        Commands(),
+        None,
+        pending_image_setter=lambda *args: images.append(args),
+        pending_document_setter=lambda *args: documents.append(args),
+    )
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(
+            path=str(image_path),
+            question="baca teks pada struk ini",
+            use_document_tool=False,
+        )
+    )
+
+    assert documents == [(str(image_path), "baca teks pada struk ini")]
+    assert images == []
+    assert sent == ["baca lampiran"]
+
+
+@pytest.mark.asyncio
+async def test_image_attachment_with_receipt_like_question_uses_document_ocr(tmp_path):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    image_path = tmp_path / "kuitansi.png"
+    image_path.write_bytes(b"receipt image")
+    documents = []
+    images = []
+    sent = []
+
+    class Context:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class Commands:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+            return True
+
+    session = SessionActions(
+        Context(),
+        Commands(),
+        None,
+        pending_image_setter=lambda *args: images.append(args),
+        pending_document_setter=lambda *args: documents.append(args),
+    )
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(
+            path=str(image_path),
+            question="cek kuitansi transfer ini, ada nominal berapa?",
+            use_document_tool=False,
+        )
+    )
+
+    assert documents == [(str(image_path), "cek kuitansi transfer ini, ada nominal berapa?")]
     assert images == []
     assert sent == ["baca lampiran"]
 
@@ -1662,6 +1750,85 @@ def test_event_bridge_converts_attachment_url_to_local_path(monkeypatch, tmp_pat
     assert isinstance(emitted[0][1], UISendAttachmentRequest)
     assert Path(emitted[0][1].path) == file_path
     assert emitted[0][1].question == "Describe it"
+
+
+def test_paste_clipboard_image_uses_camera_tool_not_document(monkeypatch, tmp_path):
+    """Pasted images must be analyzed by take_photo (vision), not OCR document tool."""
+    from src.ui.shared.bridge.event_bridge import EventBridge
+
+    image_path = tmp_path / "pasted.png"
+    image_path.write_bytes(b"clipboard image")
+
+    class _FakeImage:
+        def isNull(self):
+            return False
+
+    class _Mime:
+        def hasImage(self):
+            return True
+
+        def hasUrls(self):
+            return False
+
+        def imageData(self):
+            return _FakeImage()
+
+    class _Clipboard:
+        def mimeData(self):
+            return _Mime()
+
+    monkeypatch.setattr(
+        "src.ui.shared.bridge.event_bridge.QGuiApplication.clipboard",
+        lambda: _Clipboard(),
+    )
+    monkeypatch.setattr(
+        "src.ui.shared.clipboard_attachments.save_pasted_image",
+        lambda image: image_path,
+    )
+
+    bridge = EventBridge(EventBus())
+    result = bridge.onPasteClipboard()
+
+    assert result["path"] == str(image_path)
+    assert result["useDocumentTool"] is False
+
+
+def test_paste_clipboard_file_uses_document_tool(monkeypatch, tmp_path):
+    """Pasted non-image files must still use the document tool."""
+    from src.ui.shared.bridge.event_bridge import EventBridge
+
+    file_path = tmp_path / "notes.txt"
+    file_path.write_text("hello", encoding="utf-8")
+
+    class _Mime:
+        def hasImage(self):
+            return False
+
+        def hasUrls(self):
+            return True
+
+        def urls(self):
+            from PySide6.QtCore import QUrl
+
+            return [QUrl.fromLocalFile(str(file_path))]
+
+        def imageData(self):
+            return None
+
+    class _Clipboard:
+        def mimeData(self):
+            return _Mime()
+
+    monkeypatch.setattr(
+        "src.ui.shared.bridge.event_bridge.QGuiApplication.clipboard",
+        lambda: _Clipboard(),
+    )
+
+    bridge = EventBridge(EventBus())
+    result = bridge.onPasteClipboard()
+
+    assert result["path"] == str(file_path)
+    assert result["useDocumentTool"] is True
 
 
 def test_image_read_prefers_vision_description_over_ocr(monkeypatch):
