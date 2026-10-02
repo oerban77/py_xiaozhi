@@ -170,15 +170,17 @@ jobs:
           EXTRA_ARGS=()
           if [ "${{ matrix.mode }}" = "terminal" ]; then
             EXTRA_ARGS+=(--extra tui)
+          else
+            EXTRA_ARGS+=(--extra gui)
           fi
           if [ "${{ runner.os }}" = "macOS" ] && [ "${{ matrix.mac_arch }}" = "x64" ]; then
             echo "Using x86_64 Python: $PY_X64"
             file "$PY_X64"
             arch -x86_64 "$PY_X64" -c "import platform; print(platform.machine(), platform.platform())"
             # uv uses this interpreter to resolve/install x86_64 wheels
-            uv sync --python "$PY_X64" --extra gui "${EXTRA_ARGS[@]}" --group dev
+            uv sync --python "$PY_X64" "${EXTRA_ARGS[@]}" --group dev
           else
-            uv sync --extra gui "${EXTRA_ARGS[@]}" --group dev
+            uv sync "${EXTRA_ARGS[@]}" --group dev
           fi
 
       - name: Install unifypy
@@ -313,7 +315,10 @@ jobs:
               ]
           else:
               hidden_imports = cfg["pyinstaller"].setdefault("hidden_import", [])
-              hidden_imports.append("textual.widgets._tab_pane")
+              cfg["pyinstaller"]["hidden_import"] = [
+                name for name in hidden_imports if name != "qasync"
+              ]
+              cfg["pyinstaller"]["hidden_import"].append("textual.widgets._tab_pane")
           macos = cfg.setdefault("platforms", {}).get("macos", {})
           if macos.get("bundle_identifier"):
               macos["bundle_identifier"] = f"{macos['bundle_identifier']}.{mode}"

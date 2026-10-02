@@ -1,4 +1,5 @@
 import asyncio
+import os
 import threading
 import time
 from pathlib import Path
@@ -93,7 +94,17 @@ class WakeWordDetector:
             return False
 
     def _load_config(self, config: ConfigManager):
-        self._num_threads = config.get_config("WAKE_WORD_OPTIONS.NUM_THREADS", 4)
+        try:
+            configured_threads = int(
+                config.get_config("WAKE_WORD_OPTIONS.NUM_THREADS", 2)
+            )
+        except (TypeError, ValueError):
+            configured_threads = 2
+        cpu_count = os.cpu_count() or 1
+        self._num_threads = min(
+            max(1, configured_threads),
+            max(1, cpu_count // 2),
+        )
         self._provider = config.get_config("WAKE_WORD_OPTIONS.PROVIDER", "cpu")
         self._max_active_paths = config.get_config("WAKE_WORD_OPTIONS.MAX_ACTIVE_PATHS", 2)
         self._keywords_score = config.get_config("WAKE_WORD_OPTIONS.KEYWORDS_SCORE", 1.8)

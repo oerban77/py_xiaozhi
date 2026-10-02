@@ -79,7 +79,7 @@ class ConfigManager:
         "WAKE_WORD_OPTIONS": {
             "USE_WAKE_WORD": True,
             "MODEL_PATH": "models/en",
-            "NUM_THREADS": 5,
+            "NUM_THREADS": 2,
             "PROVIDER": "cpu",
             "MAX_ACTIVE_PATHS": 2,
             "KEYWORDS_SCORE": 1.8,
