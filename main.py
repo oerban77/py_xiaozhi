@@ -114,7 +114,7 @@ def _configure_gui_console_visibility(mode: str) -> None:
         _free_console()
 
 
-def parse_args(argv=None):
+def parse_args(argv=None, *, default_mode="gui"):
     """Parse the command-line arguments."""
     from src.constants.system import SystemConstants
 
@@ -160,7 +160,7 @@ def parse_args(argv=None):
         dest="mode_flag",
         choices=["gui", "cli", "tui", "gpio"],
         default=None,
-        help="Run mode (default gui): gui / cli / tui (full-screen terminal) / gpio (Linux only)",
+        help=f"Run mode (default {default_mode}): gui / cli / tui (full-screen terminal) / gpio (Linux only)",
     )
     parser.add_argument(
         "--protocol",
@@ -203,7 +203,7 @@ def parse_args(argv=None):
     if selected_flags:
         args.mode = selected_flags[0]
     else:
-        args.mode = args.mode_flag or args.mode_positional or "gui"
+        args.mode = args.mode_flag or args.mode_positional or default_mode
     return args
 
 
@@ -275,12 +275,12 @@ def _mode_override_argv(argv=None, *, forced_mode: str | None = None):
     return [f"--{normalized}", *base]
 
 
-def main(argv=None) -> int:
+def main(argv=None, *, default_mode="gui") -> int:
     """Application entry point for installed console scripts and direct execution."""
     if isinstance(argv, argparse.Namespace):
         args = argv
     else:
-        args = parse_args(argv)
+        args = parse_args(argv, default_mode=default_mode)
 
     _configure_gui_console_visibility(args.mode)
 

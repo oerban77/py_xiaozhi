@@ -314,6 +314,7 @@ jobs:
                   if name != "textual"
               ]
           else:
+              cfg["entry"] = "terminal_entry.py"
               hidden_imports = cfg["pyinstaller"].setdefault("hidden_import", [])
               cfg["pyinstaller"]["hidden_import"] = [
                 name for name in hidden_imports if name != "qasync"

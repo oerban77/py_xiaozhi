@@ -19,6 +19,19 @@ def test_parse_args_supports_mode_selection(argv, expected_mode):
     assert args.mode == expected_mode
 
 
+@pytest.mark.parametrize(
+    ("argv", "expected_mode"),
+    [([], "tui"), (["--cli"], "cli"), (["--mode", "cli"], "cli")],
+)
+def test_terminal_default_mode_can_be_overridden(argv, expected_mode):
+    args = main.parse_args(argv, default_mode="tui")
+    assert args.mode == expected_mode
+
+
+def test_default_mode_remains_gui():
+    assert main.parse_args([]).mode == "gui"
+
+
 def test_main_callable_for_console_entrypoint():
     assert callable(main.main)
 
