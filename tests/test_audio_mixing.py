@@ -16,19 +16,19 @@ try:
 except Exception:
     pass
 
+from src.audio_codecs import stream_manager as stream_manager_module  # noqa: E402
 from src.audio_codecs.audio_buffer import PcmFifo  # noqa: E402
 from src.audio_codecs.audio_codec import (  # noqa: E402
     _MUSIC_DUCK_GAIN,
     AudioCodec,
 )
-from src.audio_codecs import stream_manager as stream_manager_module  # noqa: E402
 from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
 from src.constants.constants import AudioConfig  # noqa: E402
-from src.utils.audio_device import DeviceConfig  # noqa: E402
-from src.plugins.audio import _is_explicit_music_stop_command  # noqa: E402
-from src.plugins.audio import AudioPlugin  # noqa: E402
 from src.core.event_bus import EventBus  # noqa: E402
 from src.mcp.tools.music.bus import MusicEventBridge  # noqa: E402
+from src.plugins.audio import AudioPlugin  # noqa: E402
+from src.plugins.audio import _is_explicit_music_stop_command  # noqa: E402
+from src.utils.audio_device import DeviceConfig  # noqa: E402
 
 
 @pytest.mark.parametrize(
