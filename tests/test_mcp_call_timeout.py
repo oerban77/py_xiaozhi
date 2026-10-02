@@ -32,6 +32,11 @@ def test_document_tool_is_registered_as_manage_document(monkeypatch):
     assert "manage_document" in names
     assert "document_manage" not in names
 
+    document_tool = next(tool for tool in tools if tool.name == "manage_document")
+    properties = {prop.name: prop for prop in document_tool.properties.properties}
+    assert properties["page_start"].default_value == 1
+    assert properties["page_end"].default_value == 0
+
 
 def _capture() -> tuple[list, callable]:
     """An async send callback that records every reply sent over the wire."""

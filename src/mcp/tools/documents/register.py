@@ -66,7 +66,10 @@ def register_documents_tools(
                 "Supports text formats (.txt .md .json .csv .log .ini .yaml .xml), "
                 ".docx and .xlsx (written with built-in OOXML, no extra deps), "
                 ".pptx (slide text) and .pdf (text extraction via the optional "
-                "pypdf package).\n"
+                "pypdf package). PDFs are read in chunks of at most 20 pages "
+                "and 24,000 characters; all other document and image text is "
+                "returned in chunks of at most 24,000 characters. Use the "
+                "continuation parameters to read the next chunk.\n"
                 "Parameters:\n"
                 "- action: read | create | edit | delete | export (required)\n"
                 "- path: document path, absolute or relative to cwd. When the "
@@ -76,7 +79,11 @@ def register_documents_tools(
                 "- data: structured data (dict/list) to build json/csv/markdown/xlsx\n"
                 "- format: override detection: text|markdown|json|csv|docx|xlsx\n"
                 "- output: output path for export\n"
-                "- query: keyword to filter lines when reading"
+                "- query: keyword to filter lines when reading\n"
+                "- page_start: first PDF page, 1-based (default 1)\n"
+                "- page_end: last PDF page, inclusive (default: up to 20 pages)\n"
+                "- chunk_index: 1-based 24,000-character chunk for non-PDF "
+                "documents (default 1); follow the continuation hint"
             ),
             PropertyList(
                 [
@@ -86,6 +93,9 @@ def register_documents_tools(
                     Property("format", PropertyType.STRING, default_value=""),
                     Property("output", PropertyType.STRING, default_value=""),
                     Property("query", PropertyType.STRING, default_value=""),
+                    Property("page_start", PropertyType.INTEGER, default_value=1, min_value=1),
+                    Property("page_end", PropertyType.INTEGER, default_value=0, min_value=0),
+                    Property("chunk_index", PropertyType.INTEGER, default_value=1, min_value=1),
                 ]
             ),
             document_manage,

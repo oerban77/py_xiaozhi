@@ -143,7 +143,9 @@ _TEXT_FORMATS = {
 }
 
 _MAX_SEARCH_RESULTS = 200
-_MAX_READ_BYTES = 256 * 1024
+_PDF_MAX_PAGES_PER_READ = 20
+_MAX_DOCUMENT_CHARS_PER_READ = 24_000
+_PDF_MAX_CHARS_PER_READ = _MAX_DOCUMENT_CHARS_PER_READ
 _DEFAULT_EXPLAIN_URL = "https://api.xiaozhi.me/vision/explain"
 
 
@@ -183,6 +185,64 @@ def _ensure_parent(path: str) -> None:
 def _read_text(path: str) -> str:
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
+
+
+def _parse_chunk_index(value: object) -> int | None:
+    try:
+        chunk_index = int(value or 1)
+    except (TypeError, ValueError):
+        return None
+    return chunk_index if chunk_index >= 1 else None
+
+
+def _format_document_chunk(text: str, chunk_index: int, has_more: bool) -> str:
+    if has_more:
+        notice = (
+            f"Read chunk {chunk_index}. Continue with chunk_index={chunk_index + 1}."
+        )
+    else:
+        notice = f"Read chunk {chunk_index}; end of document."
+    return f"{text}\n\n[{notice}]" if text else f"[{notice}]"
+
+
+def _read_text_chunk(path: str, chunk_index: int) -> tuple[str, bool]:
+    chars_to_skip = (chunk_index - 1) * _MAX_DOCUMENT_CHARS_PER_READ
+    if chars_to_skip >= os.path.getsize(path):
+        return "", False
+
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        while chars_to_skip:
+            skipped = f.read(min(chars_to_skip, _MAX_DOCUMENT_CHARS_PER_READ))
+            if not skipped:
+                return "", False
+            chars_to_skip -= len(skipped)
+        text = f.read(_MAX_DOCUMENT_CHARS_PER_READ)
+        has_more = bool(f.read(1))
+    return text, has_more
+
+
+def _chunk_extracted_text(text: str, chunk_index: int) -> str:
+    total_chunks = max(
+        1,
+        (len(text) + _MAX_DOCUMENT_CHARS_PER_READ - 1)
+        // _MAX_DOCUMENT_CHARS_PER_READ,
+    )
+    if chunk_index > total_chunks:
+        return f"Chunk {chunk_index} exceeds the document's {total_chunks} chunks."
+
+    start = (chunk_index - 1) * _MAX_DOCUMENT_CHARS_PER_READ
+    end = start + _MAX_DOCUMENT_CHARS_PER_READ
+    return _format_document_chunk(
+        text[start:end], chunk_index, has_more=chunk_index < total_chunks
+    )
+
+
+def _filter_document_query(text: str, query: object) -> str:
+    query_text = str(query or "").strip().lower()
+    if not query_text:
+        return text
+    matches = [line.strip() for line in text.splitlines() if query_text in line.lower()]
+    return "\n".join(matches[:10]) if matches else text
 
 
 def _write_text(path: str, content: str) -> None:
@@ -506,21 +566,80 @@ def _export_text_to_xlsx(path: str, output_path: str) -> str:
 # ── PDF (optional dependency) ────────────────────────────────
 
 
-def _extract_pdf_text(path: str) -> str:
+def _extract_pdf_text(
+    path: str, page_start: int = 1, page_end: int = 0
+) -> str:
     import importlib.util
+
+    try:
+        page_start = max(1, int(page_start or 1))
+        page_end = int(page_end or 0)
+    except (TypeError, ValueError):
+        return "PDF page_start and page_end must be integers."
 
     for module_name in ("pypdf", "PyPDF2"):
         try:
             if importlib.util.find_spec(module_name) is None:
                 continue
             reader = __import__(module_name, fromlist=["PdfReader"]).PdfReader(path)
+            page_count = len(reader.pages)
+            if page_count == 0:
+                return "The PDF file has no pages."
+            if page_start > page_count:
+                return f"PDF page_start {page_start} exceeds the document's {page_count} pages."
+            if page_end and page_end < page_start:
+                return "PDF page_end must be greater than or equal to page_start."
+
+            last_page = min(
+                page_count,
+                page_end if page_end else page_start + _PDF_MAX_PAGES_PER_READ - 1,
+                page_start + _PDF_MAX_PAGES_PER_READ - 1,
+            )
             text_parts = []
-            for page in reader.pages:
+            chars_used = 0
+            text_truncated = False
+            last_page_read = page_start - 1
+            for page_number in range(page_start, last_page + 1):
+                if chars_used >= _PDF_MAX_CHARS_PER_READ:
+                    text_truncated = True
+                    break
+                page = reader.pages[page_number - 1]
                 text = page.extract_text() or ""
-                if text.strip():
-                    text_parts.append(text.strip())
+                text = text.strip()
+                last_page_read = page_number
+                if not text:
+                    continue
+                separator = "\n\n" if text_parts else ""
+                remaining = _PDF_MAX_CHARS_PER_READ - chars_used - len(separator)
+                if len(text) > remaining:
+                    if remaining > 0:
+                        text_parts.append(separator + text[:remaining])
+                        chars_used += len(separator) + remaining
+                    text_truncated = True
+                    break
+                text_parts.append(separator + text)
+                chars_used += len(separator) + len(text)
             if text_parts:
-                return "\n\n".join(text_parts)
+                result = "".join(text_parts)
+                notices = []
+                if text_truncated:
+                    notices.append(
+                        f"Text truncated at {_PDF_MAX_CHARS_PER_READ:,} characters."
+                    )
+                if last_page_read < page_count:
+                    next_start = last_page_read + 1
+                    next_end = min(
+                        page_count, next_start + _PDF_MAX_PAGES_PER_READ - 1
+                    )
+                    notices.append(
+                        f"Read pages {page_start}-{last_page_read} of {page_count}. "
+                        f"Continue with page_start={next_start}, page_end={next_end}."
+                    )
+                else:
+                    notices.append(
+                        f"Read pages {page_start}-{last_page_read} of {page_count}."
+                    )
+                return result + "\n\n[" + " ".join(notices) + "]"
         except Exception as exc:
             logger.warning("PDF read (%s) failed: %s", module_name, exc)
 
@@ -534,8 +653,14 @@ def _extract_pdf_text(path: str) -> str:
     return "The PDF file is empty."
 
 
-def _read_pdf(path: str, query: str | None = None) -> str:
-    text = _extract_pdf_text(path)
+def _read_pdf(
+    path: str,
+    query: str | None = None,
+    *,
+    page_start: int = 1,
+    page_end: int = 0,
+) -> str:
+    text = _extract_pdf_text(path, page_start=page_start, page_end=page_end)
     if not query:
         return text
     query_text = str(query).strip().lower()
@@ -960,37 +1085,42 @@ def _document_manage_sync(args: dict[str, Any]) -> str:
         file_name = os.path.basename(str(path_value))
         question_hint = f"[Attached file: {file_name} | User question: {pending_question}]\n\n"
 
+    chunk_index = _parse_chunk_index(args.get("chunk_index", 1))
+    if chunk_index is None:
+        return question_hint + "chunk_index must be a positive integer."
+
     if fmt in _TEXT_FORMATS:
-        query = args.get("query")
-        text = _read_text(path)
-        if len(text) > _MAX_READ_BYTES:
-            text = text[:_MAX_READ_BYTES] + f"\n... (truncated at {_MAX_READ_BYTES} bytes)"
-        if query:
-            query_text = str(query).strip().lower()
-            matches = [
-                line.strip() for line in text.splitlines() if query_text in line.lower()
-            ]
-            if matches:
-                return question_hint + "\n".join(matches[:10])
-            # No line matched: the LLM still needs the document content to answer
-            # the user's question, so fall back to the full text.
-            return question_hint + text
-        return question_hint + text
+        text, has_more = _read_text_chunk(path, chunk_index)
+        if not text and chunk_index > 1:
+            return question_hint + f"Chunk {chunk_index} is beyond the end of the file."
+        text = _filter_document_query(text, args.get("query"))
+        return question_hint + _format_document_chunk(text, chunk_index, has_more)
 
     if fmt == "docx":
-        return question_hint + _read_docx(path)
+        text = _filter_document_query(_read_docx(path), args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt == "xlsx":
-        return question_hint + _read_xlsx(path)
+        text = _filter_document_query(_read_xlsx(path), args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt == "pdf":
-        return question_hint + _read_pdf(path, args.get("query"))
+        return question_hint + _read_pdf(
+            path,
+            args.get("query"),
+            page_start=args.get("page_start", 1),
+            page_end=args.get("page_end", 0),
+        )
     if fmt in {"odt", "ods", "odp"}:
-        return question_hint + _read_odt(path)
+        text = _filter_document_query(_read_odt(path), args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt in {"doc", "xls", "ppt"}:
-        return question_hint + _read_legacy_office(path)
+        text = _filter_document_query(_read_legacy_office(path), args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt == "pptx":
-        return question_hint + _read_pptx(path)
+        text = _filter_document_query(_read_pptx(path), args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     if fmt == "image":
-        return question_hint + _read_image(path, args.get("query"))
+        text = _read_image(path, args.get("query"))
+        return question_hint + _chunk_extracted_text(text, chunk_index)
     return f"Document available. Detected format: {fmt}"
 
 
