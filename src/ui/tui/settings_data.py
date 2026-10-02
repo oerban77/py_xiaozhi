@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,15 +18,15 @@ class SettingField:
 
     path: str
     label: str
-    kind: str = "str"  # str | int | bool | choice | audio_input | audio_output | camera_device
+    kind: str = "str"  # str | int | float | bool | choice | password | device | wake_word | mcp_tools
     choices: tuple[str, ...] = ()
     help: str = ""
 
 
-# First release: System / Audio / Camera / Wake Word
+# Editable settings mirrored from the GUI tabs.
 SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
     (
-        "System",
+        "System Options",
         [
             SettingField(
                 "SYSTEM_OPTIONS.NETWORK.OTA_VERSION_URL",
@@ -47,10 +48,30 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 "Client ID",
                 help="Client-Id",
             ),
+            SettingField("AEC_OPTIONS.ENABLED", "Echo Cancellation", kind="bool"),
+            SettingField("AEC_OPTIONS.MUSIC_PARALLEL", "Parallel Music", kind="bool"),
+            SettingField("AEC_OPTIONS.FRAME_DELAY", "AEC Delay Frames", kind="int"),
+            SettingField("AEC_OPTIONS.ENABLE_PREPROCESS", "Noise Suppression", kind="bool"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.WEBSOCKET_ACCESS_TOKEN", "WebSocket Token", kind="password"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.AUTHORIZATION_URL", "Authorization URL"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.ACTIVATION_VERSION", "Activation Version", kind="choice", choices=("v1", "v2")),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.endpoint", "MQTT Endpoint"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.client_id", "MQTT Client ID"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.username", "MQTT Username"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.password", "MQTT Password", kind="password"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.publish_topic", "MQTT Publish Topic"),
+            SettingField("SYSTEM_OPTIONS.NETWORK.MQTT_INFO.subscribe_topic", "MQTT Subscribe Topic"),
+            SettingField("PATHS.CACHE_DIR", "Cache Directory", help="Empty uses the default"),
+            SettingField("PATHS.LOG_DIR", "Log Directory", help="Empty uses the default"),
+            SettingField("PATHS.MUSIC_CACHE_DIR", "Music Cache Directory", help="Empty uses the default"),
+            SettingField("PATHS.KEYWORDS_DIR", "Wake Word Directory", help="Empty uses the default"),
+            SettingField("MCP_PLUGINS.DIR", "MCP Plugin Directory", help="Empty uses the default"),
+            SettingField("WEB_SEARCH.SEARCH_ENGINE", "Search Engine", kind="choice", choices=("anysearch", "gnews")),
+            SettingField("WEB_SEARCH.ANYSEARCH_URL", "Anysearch URL", help="Empty uses the public endpoint"),
         ],
     ),
     (
-        "Audio",
+        "Audio Devices",
         [
             SettingField(
                 "AUDIO_DEVICES.input_device_name",
@@ -99,6 +120,7 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 "Height",
                 kind="int",
             ),
+            SettingField("CAMERA.fps", "Frame Rate", kind="int"),
             SettingField(
                 "CAMERA.jpeg_max_side",
                 "Max JPEG side",
@@ -106,6 +128,11 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 choices=("320", "640", "1024", "1280", "1920"),
                 help="Maximum image edge sent for analysis; larger images use more bandwidth",
             ),
+            SettingField("CAMERA.Local_VL_url", "VL API URL"),
+            SettingField("CAMERA.VLapi_key", "VL API Key", kind="password"),
+            SettingField("CAMERA.models", "VL Model"),
+            SettingField("CAMERA.explain_url", "Vision Service URL"),
+            SettingField("CAMERA.explain_token", "Vision Service Token", kind="password"),
         ],
     ),
     (
@@ -119,14 +146,49 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
             SettingField(
                 "WAKE_WORD_OPTIONS.WAKE_WORD",
                 "Wake Word",
-                help="e.g.: Hello Xiaozhi",
+                kind="wake_word",
             ),
-            SettingField(
-                "WAKE_WORD_OPTIONS.WAKE_WORD_LANG",
-                "Language",
-                kind="choice",
-                choices=("zh", "en"),
-            ),
+            SettingField("WAKE_WORD_OPTIONS.NUM_THREADS", "Threads", kind="int"),
+            SettingField("WAKE_WORD_OPTIONS.KEYWORDS_SCORE", "Keyword Score", kind="float"),
+            SettingField("WAKE_WORD_OPTIONS.KEYWORDS_THRESHOLD", "Keyword Threshold", kind="float"),
+        ],
+    ),
+    (
+        "MCP Tools",
+        [
+            SettingField("MCP_TOOLS.PAGINATION_ENABLED", "Enable MCP Pagination", kind="bool"),
+            SettingField("SMART_HOME.MQTT.BROKER", "Smart Home Broker"),
+            SettingField("SMART_HOME.MQTT.PORT", "Smart Home Port", kind="int"),
+            SettingField("SMART_HOME.MQTT.USERNAME", "Smart Home Username"),
+            SettingField("SMART_HOME.MQTT.PASSWORD", "Smart Home Password", kind="password"),
+            SettingField("MCP_TOOLS.DISABLED", "Enabled Tools", kind="mcp_tools"),
+        ],
+    ),
+    (
+        "Shortcuts",
+        [
+            SettingField("SHORTCUTS.ENABLED", "Enable Global Shortcuts", kind="bool"),
+            SettingField("SHORTCUTS.MANUAL_PRESS.modifier", "Hold to Talk Modifier", kind="choice", choices=("ctrl", "alt", "shift", "cmd")),
+            SettingField("SHORTCUTS.MANUAL_PRESS.key", "Hold to Talk Key"),
+            SettingField("SHORTCUTS.AUTO_TOGGLE.modifier", "Auto Conversation Modifier", kind="choice", choices=("ctrl", "alt", "shift", "cmd")),
+            SettingField("SHORTCUTS.AUTO_TOGGLE.key", "Auto Conversation Key"),
+            SettingField("SHORTCUTS.ABORT.modifier", "Interrupt Modifier", kind="choice", choices=("ctrl", "alt", "shift", "cmd")),
+            SettingField("SHORTCUTS.ABORT.key", "Interrupt Key"),
+            SettingField("SHORTCUTS.MODE_TOGGLE.modifier", "Switch Mode Modifier", kind="choice", choices=("ctrl", "alt", "shift", "cmd")),
+            SettingField("SHORTCUTS.MODE_TOGGLE.key", "Switch Mode Key"),
+            SettingField("SHORTCUTS.WINDOW_TOGGLE.modifier", "Show/Hide Modifier", kind="choice", choices=("ctrl", "alt", "shift", "cmd")),
+            SettingField("SHORTCUTS.WINDOW_TOGGLE.key", "Show/Hide Key"),
+        ],
+    ),
+    (
+        "Music",
+        [
+            SettingField("MUSIC.SEARCH_URL", "Search API URL", help="Empty uses the default API"),
+            SettingField("MUSIC.URL_API", "Direct Link API URL", help="Empty uses the default API"),
+            SettingField("MUSIC.URL_API_KEY", "Direct Link API Key", kind="password"),
+            SettingField("MUSIC.OPUS_CATALOG_URL", "Opus Catalog URL"),
+            SettingField("MUSIC.OPUS_STREAM_BASE", "Opus Stream Base"),
+            SettingField("MUSIC.DEFAULT_QUALITY", "Default Quality", kind="choice", choices=("128k", "320k")),
         ],
     ),
 ]
@@ -150,7 +212,9 @@ def load_setting_values() -> dict[str, str]:
                     values[f.path] = str(index)
                 continue
             raw = cfg.get_config(f.path, "")
-            if f.kind == "bool":
+            if f.kind == "mcp_tools":
+                values[f.path] = json.dumps(raw or [], ensure_ascii=False)
+            elif f.kind == "bool":
                 values[f.path] = "true" if bool(raw) else "false"
             elif raw is None:
                 values[f.path] = ""
@@ -166,6 +230,10 @@ def parse_field_value(field: SettingField, text: str) -> Any:
         if s == "":
             return 0
         return int(s)
+    if field.kind == "float":
+        if s == "":
+            return 0.0
+        return float(s)
     if field.kind == "bool":
         return s.lower() in ("1", "true", "yes", "on", "yes")
     if field.kind == "choice":
@@ -189,6 +257,7 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
     """
     cfg = get_config()
     updates: dict[str, Any] = {}
+    wake_word_file: tuple[str, str] | None = None
     try:
         for _section, fields in SETTING_SECTIONS:
             for f in fields:
@@ -199,12 +268,61 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
 
                     updates.update(apply_device_selection(values[f.path]))
                     continue
+                if f.kind == "mcp_tools":
+                    from src.mcp.tool_catalog import normalize_disabled
+
+                    updates[f.path] = normalize_disabled(json.loads(values[f.path] or "[]"))
+                    continue
+                if f.kind in ("audio_input", "audio_output"):
+                    prefix = "input" if f.kind == "audio_input" else "output"
+                    try:
+                        selected = json.loads(values[f.path]) if values[f.path] else None
+                    except (TypeError, ValueError):
+                        selected = None
+                    if selected and selected.get("configured"):
+                        updates[f.path] = selected.get("raw_name", "")
+                        continue
+                    if selected:
+                        updates.update({
+                            f"AUDIO_DEVICES.{prefix}_device_id": selected.get("index"),
+                            f"AUDIO_DEVICES.{prefix}_device_name": selected.get("raw_name", ""),
+                            f"AUDIO_DEVICES.{prefix}_sample_rate": selected.get("sample_rate"),
+                            f"AUDIO_DEVICES.{prefix}_channels": min(
+                                int(selected.get("channels", 0)), 1 if prefix == "input" else 2
+                            ),
+                        })
+                    else:
+                        updates.update({
+                            f"AUDIO_DEVICES.{prefix}_device_id": None,
+                            f"AUDIO_DEVICES.{prefix}_device_name": None,
+                            f"AUDIO_DEVICES.{prefix}_sample_rate": None,
+                            f"AUDIO_DEVICES.{prefix}_channels": None,
+                        })
+                    continue
+                if f.kind == "wake_word":
+                    wake_word = values[f.path].strip()
+                    if not wake_word:
+                        return False, "Wake word cannot be empty"
+                    from src.audio_processing.keyword_converters import convert_wake_word
+
+                    keyword_line, language, model_path = convert_wake_word(wake_word)
+                    updates["WAKE_WORD_OPTIONS.WAKE_WORD"] = wake_word
+                    updates["WAKE_WORD_OPTIONS.WAKE_WORD_LANG"] = language
+                    updates["WAKE_WORD_OPTIONS.MODEL_PATH"] = model_path
+                    wake_word_file = (language, keyword_line)
+                    continue
                 updates[f.path] = parse_field_value(f, values[f.path])
         if not updates:
             return True, "No changes"
         ok = cfg.update_configs(updates)
         if not ok:
             return False, "Save failed (write error)"
+        if wake_word_file:
+            from src.utils.resource_finder import get_keywords_dir
+
+            language, keyword_line = wake_word_file
+            keywords_path = get_keywords_dir() / f"{language}_keywords.txt"
+            keywords_path.write_text(keyword_line + "\n", encoding="utf-8")
         logger.info(f"TUI saved {len(updates)} config item(s)")
         return True, f"Saved {len(updates)} item(s)"
     except Exception as e:

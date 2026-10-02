@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
 
 from textual import on
@@ -13,6 +14,7 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
+    Checkbox,
     Footer,
     Header,
     Input,
@@ -35,7 +37,7 @@ from src.ui.tui.settings_data import (
 logger = get_logger()
 
 
-class SettingsScreen(ModalScreen[bool]):
+class SettingsScreen(ModalScreen[tuple[bool, bool]]):
     """Configuration editing overlay; returns True when saved."""
 
     BINDINGS = [
@@ -100,9 +102,22 @@ class SettingsScreen(ModalScreen[bool]):
     def __init__(self) -> None:
         super().__init__()
         self._values = load_setting_values()
-        self._audio_selection_values: dict[str, dict[str, str]] = {}
+        self._audio_selection_values: dict[str, dict[str, dict]] = {}
         self._audio_devices = {"input": [], "output": []}
         self._camera_devices = []
+        self._mcp_tool_rows = []
+        self._mcp_tool_ids: dict[str, str] = {}
+        try:
+            disabled = json.loads(self._values.get("MCP_TOOLS.DISABLED", "[]"))
+        except (TypeError, ValueError):
+            disabled = []
+        self._mcp_disabled_before = set(disabled if isinstance(disabled, list) else [])
+        try:
+            from src.mcp.tool_catalog import full_catalog_rows
+
+            self._mcp_tool_rows = full_catalog_rows(extra_disabled=list(self._mcp_disabled_before))
+        except Exception as e:
+            logger.warning(f"Failed to load MCP tool catalog for TUI settings: {e}")
         try:
             from src.utils.audio_utils import list_audio_devices
 
@@ -151,6 +166,26 @@ class SettingsScreen(ModalScreen[bool]):
                     with TabPane(section_name):
                         with VerticalScroll():
                             for f in fields:
+                                if f.kind == "mcp_tools":
+                                    yield Static(
+                                        "Checked tools are exposed to the assistant. Changes apply after reconnect.",
+                                        classes="settings-help",
+                                    )
+                                    grouped: dict[str, list[dict]] = {}
+                                    for row in self._mcp_tool_rows:
+                                        grouped.setdefault(row.get("groupLabel") or row.get("group") or "Other", []).append(row)
+                                    for group_label, rows in grouped.items():
+                                        yield Label(group_label, classes="settings-group-title")
+                                        for row in rows:
+                                            tool_id = f"mcp-tool-{len(self._mcp_tool_ids)}"
+                                            self._mcp_tool_ids[tool_id] = row["name"]
+                                            yield Checkbox(
+                                                f"{row.get('label') or row['name']} ({row['name']})",
+                                                value=row["name"] not in self._mcp_disabled_before,
+                                                id=tool_id,
+                                                classes="mcp-tool-row",
+                                            )
+                                    continue
                                 with Horizontal(classes="field-row"):
                                     yield Label(f.label, classes="field-label")
                                     current = self._values.get(f.path, "")
@@ -190,10 +225,18 @@ class SettingsScreen(ModalScreen[bool]):
                                             id=widget_id,
                                             classes="field-input",
                                         )
+                                    elif f.kind == "bool":
+                                        yield Checkbox(
+                                            "",
+                                            value=current.lower() in ("1", "true", "yes", "on"),
+                                            id=widget_id,
+                                            classes="field-input",
+                                        )
                                     else:
                                         yield Input(
                                             value=current,
                                             placeholder=placeholder,
+                                            password=f.kind == "password",
                                             id=widget_id,
                                             classes="field-input",
                                         )
@@ -206,18 +249,18 @@ class SettingsScreen(ModalScreen[bool]):
         self, path: str, kind: str, current: str
     ) -> tuple[list[tuple[str, str]], str]:
         options = [("System default", "")]
-        values: dict[str, str] = {}
+        values: dict[str, dict] = {}
         selected = ""
         for device in self._audio_devices.get(kind, []):
             raw_name = str(device.get("raw_name") or device.get("name") or "")
             token = f"{kind}:{device.get('index', len(values))}"
-            values[token] = raw_name
+            values[token] = dict(device)
             options.append((str(device.get("name") or raw_name), token))
             if raw_name == current and not selected:
                 selected = token
         if current and not selected:
             token = f"{kind}:configured"
-            values[token] = current
+            values[token] = {"raw_name": current, "configured": True}
             options.append((f"Configured: {current} (not detected)", token))
             selected = token
         self._audio_selection_values[path] = values
@@ -229,14 +272,25 @@ class SettingsScreen(ModalScreen[bool]):
             for f in fields:
                 wid = f"fld-{f.path.replace('.', '-')}"
                 try:
+                    if f.kind == "mcp_tools":
+                        disabled = [
+                            name
+                            for widget_id, name in self._mcp_tool_ids.items()
+                            if not self.query_one(f"#{widget_id}", Checkbox).value
+                        ]
+                        out[f.path] = json.dumps(disabled, ensure_ascii=False)
+                        continue
                     widget = self.query_one(f"#{wid}")
                     if isinstance(widget, Select):
                         selection = str(widget.value or "")
                         if f.kind in ("audio_input", "audio_output"):
-                            selection = self._audio_selection_values.get(f.path, {}).get(
-                                selection, ""
-                            )
+                            selection = json.dumps(
+                                self._audio_selection_values.get(f.path, {}).get(selection),
+                                ensure_ascii=False,
+                            ) if selection else ""
                         out[f.path] = selection
+                    elif isinstance(widget, Checkbox):
+                        out[f.path] = "true" if widget.value else "false"
                     else:
                         out[f.path] = widget.value
                 except Exception:
@@ -245,10 +299,10 @@ class SettingsScreen(ModalScreen[bool]):
 
     @on(Button.Pressed, "#btn-cancel")
     def on_cancel_btn(self) -> None:
-        self.dismiss(False)
+        self.dismiss((False, False))
 
     def action_cancel(self) -> None:
-        self.dismiss(False)
+        self.dismiss((False, False))
 
     @on(Button.Pressed, "#btn-save")
     def on_save_btn(self) -> None:
@@ -259,7 +313,17 @@ class SettingsScreen(ModalScreen[bool]):
         except Exception:
             pass
         if ok:
-            self.dismiss(True)
+            try:
+                from src.mcp.tool_catalog import normalize_disabled
+                from src.utils.config_manager import get_config
+
+                disabled_after = set(
+                    normalize_disabled(get_config().get_config("MCP_TOOLS.DISABLED", []) or [])
+                )
+                mcp_changed = disabled_after != self._mcp_disabled_before
+            except Exception:
+                mcp_changed = False
+            self.dismiss((True, mcp_changed))
 
 
 class XiaozhiTuiApp(App[None]):
@@ -315,7 +379,7 @@ class XiaozhiTuiApp(App[None]):
     def __init__(
         self,
         on_command: Callable[[str], None] | None = None,
-        on_settings_saved: Callable[[], None] | None = None,
+        on_settings_saved: Callable[[bool], None] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -455,12 +519,13 @@ class XiaozhiTuiApp(App[None]):
         )
 
     def action_open_settings(self) -> None:
-        def _done(saved: bool | None) -> None:
+        def _done(result: tuple[bool, bool] | None) -> None:
+            saved, mcp_tools_changed = result or (False, False)
             if saved:
                 self.write_log("[green]Configuration saved; hot-applying...[/]")
                 if self._on_settings_saved:
                     try:
-                        self._on_settings_saved()
+                        self._on_settings_saved(mcp_tools_changed)
                     except Exception as e:
                         logger.error(f"Settings save callback failed: {e}", exc_info=True)
                         self.write_log(f"[red]Hot-apply failed: {e}[/]")

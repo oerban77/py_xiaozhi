@@ -115,9 +115,11 @@ class TuiViewManager:
         else:
             self._safe_emit(Events.UI_SEND_TEXT, {"text": cmd})
 
-    def _on_settings_saved(self) -> None:
+    def _on_settings_saved(self, mcp_tools_changed: bool = False) -> None:
         """Notify runtime hot-reload after settings are saved."""
         self._safe_emit(Events.CONFIG_CHANGED)
+        if mcp_tools_changed:
+            self._safe_emit(Events.PROTOCOL_RECONNECT_REQUEST)
 
     def _safe_emit(self, event: str, data=None):
         """Safely emit EventBus events."""
