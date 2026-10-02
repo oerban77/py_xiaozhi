@@ -1,6 +1,7 @@
 """EventBus bridge - bidirectional conversion between Python signals and QML signals."""
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
+from PySide6.QtGui import QGuiApplication, QPixmap
 
 from src.core.event_bus import EventBus, Events
 from src.logging import get_logger
@@ -99,7 +100,10 @@ class EventBridge(QObject):
             self._emit_event(Events.UI_SEND_TEXT, UISendTextRequest(text=text))
 
     @Slot(str, str)
-    def onSendAttachment(self, path: str, question: str):
+    @Slot(str, str, bool)
+    def onSendAttachment(
+        self, path: str, question: str, use_document_tool: bool = False
+    ):
         """Analyze a user-selected local file, then send its extracted content."""
         from PySide6.QtCore import QUrl
 
@@ -110,8 +114,51 @@ class EventBridge(QObject):
 
             self._emit_event(
                 Events.UI_SEND_ATTACHMENT,
-                UISendAttachmentRequest(path=local_path, question=question),
+                UISendAttachmentRequest(
+                    path=local_path,
+                    question=question,
+                    use_document_tool=use_document_tool,
+                ),
             )
+
+    @Slot(result="QVariantMap")
+    def onPasteClipboard(self) -> dict:
+        """Save pasted clipboard content as a temporary attachment for chat."""
+        try:
+            mime = QGuiApplication.clipboard().mimeData()
+            from src.ui.shared.clipboard_attachments import (
+                save_pasted_image,
+                save_pasted_text,
+            )
+
+            path = None
+            if mime.hasImage():
+                image = mime.imageData()
+                if isinstance(image, QPixmap):
+                    image = image.toImage()
+                if image is not None and not image.isNull():
+                    path = save_pasted_image(image)
+            elif mime.hasUrls():
+                local_files = [url.toLocalFile() for url in mime.urls() if url.isLocalFile()]
+                if local_files:
+                    from pathlib import Path
+
+                    candidate = Path(local_files[0])
+                    if candidate.is_file():
+                        path = candidate
+            elif mime.hasText() and mime.text().strip():
+                path = save_pasted_text(mime.text())
+
+            if path is None:
+                return {}
+            return {
+                "path": str(path),
+                "name": path.name,
+                "useDocumentTool": True,
+            }
+        except Exception as e:
+            logger.warning("Could not create clipboard attachment: %s", e, exc_info=True)
+            return {}
 
     async def _on_attachment_status(self, status):
         self.attachmentStatusChanged.emit(str(status or ""))

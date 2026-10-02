@@ -83,6 +83,27 @@ ScrollView {
                     }
                 }
 
+                Text {
+                    text: "Coding Workspace"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 100
+                }
+                TextField {
+                    id: codingWorkspaceField
+                    Layout.fillWidth: true
+                    text: settingsModel ? settingsModel.codingWorkspace : ""
+                    onEditingFinished: if (settingsModel) settingsModel.codingWorkspace = text
+                    placeholderText: "Empty uses the app launch folder"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: codingWorkspaceField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
+
             }
         }
 

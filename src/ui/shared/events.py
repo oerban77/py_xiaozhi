@@ -16,3 +16,4 @@ class UISendAttachmentRequest:
 
     path: str
     question: str = ""
+    use_document_tool: bool = False

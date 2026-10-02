@@ -20,6 +20,7 @@ AppWindow {
     property string attachmentPath: ""
     property string attachmentName: ""
     property string attachmentStatus: ""
+    property bool attachmentUseDocument: false
 
     FileDialog {
         id: attachmentDialog
@@ -36,6 +37,7 @@ AppWindow {
             root.attachmentName = decodeURIComponent(
                 fileUrl.substring(fileUrl.lastIndexOf("/") + 1)
             )
+            root.attachmentUseDocument = false
             root.attachmentStatus = ""
         }
     }
@@ -431,6 +433,21 @@ AppWindow {
                                         leftPadding: 4
                                         rightPadding: 4
 
+                                        Keys.priority: Keys.BeforeItem
+                                        Keys.onPressed: function(event) {
+                                            var pasteModifier = Qt.ControlModifier | Qt.MetaModifier
+                                            if (event.key === Qt.Key_V && (event.modifiers & pasteModifier)) {
+                                                var pasted = eventBridge ? eventBridge.onPasteClipboard() : ({})
+                                                if (pasted && pasted.path) {
+                                                    root.attachmentPath = pasted.path
+                                                    root.attachmentName = pasted.name
+                                                    root.attachmentUseDocument = !!pasted.useDocumentTool
+                                                    root.attachmentStatus = "Clipboard attached temporarily"
+                                                    event.accepted = true
+                                                }
+                                            }
+                                        }
+
                                         Text {
                                             anchors.fill: parent
                                             text: "Type a message..."
@@ -497,7 +514,9 @@ AppWindow {
         if (attachmentPath.length > 0 && eventBridge) {
             attachmentStatus = "Analyzing attachment..."
             attachmentStatusTimer.stop()
-            eventBridge.onSendAttachment(attachmentPath, text)
+            eventBridge.onSendAttachment(
+                attachmentPath, text, attachmentUseDocument
+            )
             clearAttachment()
             textInput.text = ""
         } else if (text.length > 0 && eventBridge) {
@@ -509,5 +528,6 @@ AppWindow {
     function clearAttachment() {
         attachmentPath = ""
         attachmentName = ""
+        attachmentUseDocument = false
     }
 }

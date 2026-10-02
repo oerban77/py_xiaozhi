@@ -10,6 +10,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.events import Paste
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import (
@@ -35,6 +36,20 @@ from src.ui.tui.settings_data import (
 )
 
 logger = get_logger()
+
+
+class ClipboardAttachmentInput(Input):
+    """Chat input that turns terminal paste events into temporary attachments."""
+
+    def __init__(self, on_paste_attachment: Callable[[str], bool], **kwargs) -> None:
+        self._on_paste_attachment = on_paste_attachment
+        super().__init__(**kwargs)
+
+    def _on_paste(self, event: Paste) -> None:
+        if self._on_paste_attachment(event.text):
+            event.stop()
+            return
+        super()._on_paste(event)
 
 
 class SettingsScreen(ModalScreen[tuple[bool, bool]]):
@@ -398,9 +413,10 @@ class XiaozhiTuiApp(App[None]):
             yield Static("Music: —", id="music-line")
         yield RichLog(id="log-panel", highlight=True, markup=True, max_lines=500)
         with Horizontal(id="input-row"):
-            yield Input(
+            yield ClipboardAttachmentInput(
+                self._handle_clipboard_paste,
                 placeholder=(
-                    "Type text to send | r Conversation | x+Enter / F3 Interrupt | s Settings | q Quit | h Help"
+                    "Type text | paste attaches temporary text/image | /workspace [path] | r Talk | x/F3 Interrupt | s Settings | q Quit"
                 ),
                 id="cmd-input",
             )
@@ -484,6 +500,38 @@ class XiaozhiTuiApp(App[None]):
         if text:
             self._dispatch_command(text)
 
+    def _handle_clipboard_paste(self, text: str) -> bool:
+        path = None
+        try:
+            if text:
+                from src.ui.shared.clipboard_attachments import save_pasted_text
+
+                path = save_pasted_text(text)
+            else:
+                from PIL import ImageGrab
+
+                clipboard = ImageGrab.grabclipboard()
+                if hasattr(clipboard, "save") and hasattr(clipboard, "size"):
+                    from src.ui.shared.clipboard_attachments import save_pasted_image
+
+                    path = save_pasted_image(clipboard)
+                elif isinstance(clipboard, list):
+                    from pathlib import Path
+
+                    path = next(
+                        (Path(item) for item in clipboard if Path(item).is_file()),
+                        None,
+                    )
+        except Exception as e:
+            logger.warning("Could not read pasted clipboard content: %s", e)
+            return False
+
+        if path is None:
+            return False
+        self.write_log(f"[cyan]Clipboard attached:[/] {path.name}; sending to document_manage")
+        self._dispatch_command(f"/attachment {path}")
+        return True
+
     def _dispatch_command(self, text: str) -> None:
         raw = text.strip()
         key = raw.lower()
@@ -513,6 +561,7 @@ class XiaozhiTuiApp(App[None]):
             "  r -> start/stop the conversation\n"
             "  x -> interrupt (Enter)\n"
             "  F3 -> interrupt immediately\n"
+            "  /workspace [path] -> show or switch coding workspace\n"
             "  s / F2 -> Settings\n"
             "  q / Ctrl+C -> Quit\n"
             "  h / F1 -> Help"

@@ -48,6 +48,18 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 "Client ID",
                 help="Client-Id",
             ),
+            SettingField(
+                "CODING.WORKSPACE",
+                "Coding Workspace",
+                kind="workspace",
+                help="Workspace folder for coding tools; empty uses the app launch folder",
+            ),
+            SettingField(
+                "CODING.WORKSPACE",
+                "Coding Workspace",
+                kind="workspace",
+                help="Absolute folder for coding tools; empty uses the app launch folder",
+            ),
             SettingField("AEC_OPTIONS.ENABLED", "Echo Cancellation", kind="bool"),
             SettingField("AEC_OPTIONS.MUSIC_PARALLEL", "Parallel Music", kind="bool"),
             SettingField("AEC_OPTIONS.FRAME_DELAY", "AEC Delay Frames", kind="int"),
@@ -211,6 +223,12 @@ def load_setting_values() -> dict[str, str]:
                 else:
                     values[f.path] = str(index)
                 continue
+            if f.kind == "workspace":
+                values[f.path] = str(cfg.get_config(f.path, "") or "")
+                continue
+            if f.kind == "workspace":
+                values[f.path] = str(cfg.get_config(f.path, "") or "")
+                continue
             raw = cfg.get_config(f.path, "")
             if f.kind == "mcp_tools":
                 values[f.path] = json.dumps(raw or [], ensure_ascii=False)
@@ -264,9 +282,21 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
                 if f.path not in values:
                     continue
                 if f.kind == "camera_device":
-                    from src.mcp.tools.camera.capture_backend import apply_device_selection
+                    from src.mcp.tools.camera.capture_backend import (
+                        apply_device_selection,
+                    )
 
                     updates.update(apply_device_selection(values[f.path]))
+                    continue
+                if f.kind == "workspace":
+                    from src.utils.workspace import normalize_workspace
+
+                    updates[f.path] = normalize_workspace(values[f.path])
+                    continue
+                if f.kind == "workspace":
+                    from src.utils.workspace import normalize_workspace
+
+                    updates[f.path] = normalize_workspace(values[f.path])
                     continue
                 if f.kind == "mcp_tools":
                     from src.mcp.tool_catalog import normalize_disabled
@@ -303,7 +333,9 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
                     wake_word = values[f.path].strip()
                     if not wake_word:
                         return False, "Wake word cannot be empty"
-                    from src.audio_processing.keyword_converters import convert_wake_word
+                    from src.audio_processing.keyword_converters import (
+                        convert_wake_word,
+                    )
 
                     keyword_line, language, model_path = convert_wake_word(wake_word)
                     updates["WAKE_WORD_OPTIONS.WAKE_WORD"] = wake_word

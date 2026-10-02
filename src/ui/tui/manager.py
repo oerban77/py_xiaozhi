@@ -106,6 +106,28 @@ class TuiViewManager:
     def _handle_command(self, cmd: str):
         """Handle user commands."""
         cmd_lower = cmd.lower().strip()
+        if cmd_lower.startswith("/attachment "):
+            from src.ui.shared.events import UISendAttachmentRequest
+
+            path = cmd.strip()[len("/attachment ") :].strip()
+            if path:
+                self._safe_emit(
+                    Events.UI_SEND_ATTACHMENT,
+                    UISendAttachmentRequest(path=path, use_document_tool=True),
+                )
+            return
+        command_parts = cmd.strip().split(maxsplit=1)
+        if command_parts and command_parts[0].lower() == "/workspace":
+            from src.utils.workspace import get_workspace_root, set_workspace
+
+            if len(command_parts) == 1:
+                message = f"Active workspace: {get_workspace_root()}"
+            else:
+                ok, result = set_workspace(command_parts[1])
+                message = f"Workspace changed: {result}" if ok else result
+            if self._app is not None:
+                self._app.write_log(message)
+            return
         if cmd_lower == "r":
             self._safe_emit(Events.UI_MANUAL_TOGGLE)
         elif cmd_lower == "x":

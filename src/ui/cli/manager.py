@@ -69,6 +69,18 @@ class CliViewManager:
         """Handle user commands - unified entry point."""
         cmd_lower = cmd.lower()
 
+        command_parts = cmd.strip().split(maxsplit=1)
+        if command_parts and command_parts[0].lower() == "/workspace":
+            from src.utils.workspace import get_workspace_root, set_workspace
+
+            if len(command_parts) == 1:
+                message = f"Active workspace: {get_workspace_root()}"
+            else:
+                ok, result = set_workspace(command_parts[1])
+                message = f"Workspace changed: {result}" if ok else result
+            self._display.update_text(message)
+            return
+
         if cmd_lower == "r":
             # start/stop conversation
             self._safe_emit(Events.UI_MANUAL_TOGGLE)

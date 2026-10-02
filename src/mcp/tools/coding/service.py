@@ -108,17 +108,11 @@ def is_command_safe(command: str) -> bool:
 def _workspace_root() -> Path:
     """The root all relative paths resolve against."""
     try:
-        from src.utils.config_manager import get_config
+        from src.utils.workspace import get_workspace_root
 
-        cfg = get_config()
-        configured = (cfg.get_config("CODING", {}) or {}).get("WORKSPACE", "")
-        if configured:
-            root = Path(configured).expanduser()
-            if root.is_dir():
-                return root.resolve()
+        return get_workspace_root()
     except Exception:
-        pass
-    return Path.cwd().resolve()
+        return Path.cwd().resolve()
 
 
 def _is_within(root: Path, target: Path) -> bool:

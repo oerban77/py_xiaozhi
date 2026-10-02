@@ -171,6 +171,9 @@ class ConfigManager:
             "SEARCH_ENGINE": "anysearch",
             "ANYSEARCH_URL": "",
         },
+        "CODING": {
+            "WORKSPACE": "",
+        },
         "AUDIO_DEVICES": {
             "input_device_id": None,
             "input_device_name": None,

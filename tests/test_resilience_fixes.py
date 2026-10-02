@@ -1549,6 +1549,50 @@ async def test_image_attachment_queues_for_camera_mcp_and_sends_short_trigger(
 
 
 @pytest.mark.asyncio
+async def test_pasted_image_attachment_uses_document_manage(tmp_path):
+    from src.plugins.ui_session import SessionActions
+    from src.ui.shared.events import UISendAttachmentRequest
+
+    image_path = tmp_path / "pasted.png"
+    image_path.write_bytes(b"clipboard image")
+    documents = []
+    images = []
+    sent = []
+
+    class Context:
+        def is_speaking(self):
+            return False
+
+        def is_listening(self):
+            return True
+
+    class Commands:
+        async def send_wake_word_detected(self, text):
+            sent.append(text)
+            return True
+
+    session = SessionActions(
+        Context(),
+        Commands(),
+        None,
+        pending_image_setter=lambda *args: images.append(args),
+        pending_document_setter=lambda *args: documents.append(args),
+    )
+
+    await session.send_attachment_from_event(
+        UISendAttachmentRequest(
+            path=str(image_path),
+            question="describe this",
+            use_document_tool=True,
+        )
+    )
+
+    assert documents == [(str(image_path), "describe this")]
+    assert images == []
+    assert sent == ["baca lampiran"]
+
+
+@pytest.mark.asyncio
 async def test_document_attachment_queues_question_and_sends_read_trigger(tmp_path):
     from src.plugins.ui_session import SessionActions
     from src.ui.shared.events import UISendAttachmentRequest

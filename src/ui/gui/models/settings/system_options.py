@@ -18,6 +18,12 @@ class SettingsSystemOptionsMixin:
     def _set_deviceId(self, value: str):
         self._set_value("SYSTEM_OPTIONS.DEVICE_ID", value)
 
+    def _get_codingWorkspace(self) -> str:
+        return self._get_value("CODING.WORKSPACE", "")
+
+    def _set_codingWorkspace(self, value: str):
+        self._set_value("CODING.WORKSPACE", value.strip() if value else "")
+
     # OTA_VERSION_URL
     def _get_otaUrl(self) -> str:
         return self._get_value("SYSTEM_OPTIONS.NETWORK.OTA_VERSION_URL", "")

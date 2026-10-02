@@ -447,7 +447,7 @@ class CLIDisplay:
 
     def show_help(self):
         """Show help."""
-        self._dash_text = "Commands: r=Start/Stop | x=Interrupt | q=Quit | h=Help | other=Send text"
+        self._dash_text = "Commands: /workspace [path] | r=Start/Stop | x=Interrupt | q=Quit | h=Help"
         self._schedule_render()
 
     # ========== Log handling ============

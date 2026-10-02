@@ -136,12 +136,15 @@ class SessionActions:
         return sent is not False
 
     async def send_attachment_from_event(self, data) -> None:
+        use_document_tool = False
         if hasattr(data, "path"):
             path_value = data.path
             question = data.question
+            use_document_tool = bool(getattr(data, "use_document_tool", False))
         elif isinstance(data, dict):
             path_value = data.get("path", "")
             question = data.get("question", "")
+            use_document_tool = bool(data.get("use_document_tool", False))
         else:
             logger.warning("Invalid send-attachment data: %s", type(data))
             await self._set_attachment_status("Invalid attachment")
@@ -162,7 +165,7 @@ class SessionActions:
             )
 
             extension = path.suffix.lower()
-            if extension in IMAGE_EXTENSIONS:
+            if extension in IMAGE_EXTENSIONS and not use_document_tool:
                 kind = "image"
                 image_question = (question or "").strip() or "analisa"
                 if self._pending_image_setter is not None:
@@ -192,7 +195,11 @@ class SessionActions:
                     )
                     if extracted.startswith("Image: "):
                         extracted = extracted.partition("\n")[2]
-            elif extension in TEXT_EXTENSIONS or extension in BINARY_EXTENSIONS:
+            elif (
+                extension in TEXT_EXTENSIONS
+                or extension in BINARY_EXTENSIONS
+                or extension in IMAGE_EXTENSIONS
+            ):
                 kind = "document"
                 if self._pending_document_setter is not None:
                     self._pending_document_setter(str(path), question or "")

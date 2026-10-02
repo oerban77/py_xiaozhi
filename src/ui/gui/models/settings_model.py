@@ -172,6 +172,10 @@ class SettingsModel(
         """Save the config to the file and have the running ConfigManager reload it from disk."""
         try:
             from src.mcp.tool_catalog import normalize_disabled
+            from src.utils.workspace import normalize_workspace
+
+            coding = self._config.setdefault("CODING", {})
+            coding["WORKSPACE"] = normalize_workspace(coding.get("WORKSPACE", ""))
 
             new_disabled = normalize_disabled(
                 self._get_value("MCP_TOOLS.DISABLED", []) or []
@@ -216,6 +220,9 @@ class SettingsModel(
     # ========== QML Properties (implementations live in each mixin) ==========
     clientId = Property(str, SettingsSystemOptionsMixin._get_clientId, SettingsSystemOptionsMixin._set_clientId, notify=settingsChanged)
     deviceId = Property(str, SettingsSystemOptionsMixin._get_deviceId, SettingsSystemOptionsMixin._set_deviceId, notify=settingsChanged)
+    codingWorkspace = Property(
+        str, SettingsSystemOptionsMixin._get_codingWorkspace, SettingsSystemOptionsMixin._set_codingWorkspace, notify=settingsChanged
+    )
     otaUrl = Property(str, SettingsSystemOptionsMixin._get_otaUrl, SettingsSystemOptionsMixin._set_otaUrl, notify=settingsChanged)
     websocketUrl = Property(
         str, SettingsSystemOptionsMixin._get_websocketUrl, SettingsSystemOptionsMixin._set_websocketUrl, notify=settingsChanged
