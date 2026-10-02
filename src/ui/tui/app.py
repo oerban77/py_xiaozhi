@@ -39,7 +39,7 @@ logger = get_logger()
 
 
 class ClipboardAttachmentInput(Input):
-    """Chat input that turns terminal paste events into temporary attachments."""
+    """Chat input that attaches pasted images or files while keeping text inline."""
 
     BINDINGS = [
         Binding("up", "history_previous", show=False, priority=True),
@@ -541,11 +541,7 @@ class XiaozhiTuiApp(App[None]):
     def _handle_clipboard_paste(self, text: str) -> bool:
         path = None
         try:
-            if text:
-                from src.ui.shared.clipboard_attachments import save_pasted_text
-
-                path = save_pasted_text(text)
-            else:
+            if not text:
                 from PIL import ImageGrab
 
                 clipboard = ImageGrab.grabclipboard()

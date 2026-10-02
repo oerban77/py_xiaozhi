@@ -52,6 +52,17 @@ async def test_tui_chat_input_navigates_history_and_restores_draft():
         assert chat_input.value == "unsent draft"
 
 
+def test_tui_pasted_text_stays_in_chat_input():
+    from src.ui.tui.app import XiaozhiTuiApp
+
+    app = XiaozhiTuiApp.__new__(XiaozhiTuiApp)
+    app._dispatch_command = lambda _command: pytest.fail(
+        "Pasted text should not be dispatched as an attachment"
+    )
+
+    assert app._handle_clipboard_paste("pasted text from another source") is False
+
+
 def test_parse_args_supports_starting_minimized():
     args = main.parse_args(["--start-minimized"])
     assert args.mode == "gui"

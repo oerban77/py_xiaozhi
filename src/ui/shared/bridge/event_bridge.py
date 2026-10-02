@@ -123,13 +123,10 @@ class EventBridge(QObject):
 
     @Slot(result="QVariantMap")
     def onPasteClipboard(self) -> dict:
-        """Save pasted clipboard content as a temporary attachment for chat."""
+        """Attach pasted clipboard images or files; leave text in the input."""
         try:
             mime = QGuiApplication.clipboard().mimeData()
-            from src.ui.shared.clipboard_attachments import (
-                save_pasted_image,
-                save_pasted_text,
-            )
+            from src.ui.shared.clipboard_attachments import save_pasted_image
 
             path = None
             if mime.hasImage():
@@ -146,9 +143,6 @@ class EventBridge(QObject):
                     candidate = Path(local_files[0])
                     if candidate.is_file():
                         path = candidate
-            elif mime.hasText() and mime.text().strip():
-                path = save_pasted_text(mime.text())
-
             if path is None:
                 return {}
             return {
