@@ -9,6 +9,12 @@ import time
 import traceback
 from pathlib import Path
 
+from src.bootstrap.container import ServiceContainer
+from src.constants.system import SystemConstants
+from src.logging import get_logger
+
+logger = get_logger()
+
 # --- Crash diagnostics -------------------------------------------------------
 # A windowed (console-less) build dies silently on a fatal error, so install the
 # faulthandler and an excepthook that always leaves a traceback on disk. The log
@@ -87,7 +93,7 @@ os.environ["QT_API"] = "pyside6"
 os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
 
 
-def parse_args():
+def parse_args(argv=None):
     """Parse the command-line arguments."""
     from src.constants.system import SystemConstants
 
@@ -97,10 +103,42 @@ def parse_args():
     # - cli: command-line mode, terminal interaction (lightweight, good for headless/SSH)
     # - tui: full-screen TUI (Textual) with config editing; requires uv sync --extra tui
     # - gpio: GPIO button mode, Linux only (Raspberry Pi), controlled by physical buttons
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--gui",
+        dest="gui_flag",
+        action="store_true",
+        help="Launch in graphical GUI mode",
+    )
+    mode_group.add_argument(
+        "--cli",
+        dest="cli_flag",
+        action="store_true",
+        help="Launch in command-line mode without GUI",
+    )
+    mode_group.add_argument(
+        "--tui",
+        dest="tui_flag",
+        action="store_true",
+        help="Launch in full-screen terminal mode",
+    )
+    mode_group.add_argument(
+        "--gpio",
+        dest="gpio_flag",
+        action="store_true",
+        help="Launch in GPIO button mode (Linux only)",
+    )
+    parser.add_argument(
+        "mode_positional",
+        nargs="?",
+        choices=["gui", "cli", "tui", "gpio"],
+        help="Shortcut mode: gui | cli | tui | gpio",
+    )
     parser.add_argument(
         "--mode",
+        dest="mode_flag",
         choices=["gui", "cli", "tui", "gpio"],
-        default="gui",
+        default=None,
         help="Run mode (default gui): gui / cli / tui (full-screen terminal) / gpio (Linux only)",
     )
     parser.add_argument(
@@ -115,29 +153,32 @@ def parse_args():
         action="store_true",
         help="Skip the activation flow and start the app directly (debug only)",
     )
-    return parser.parse_args()
 
+    args = parser.parse_args(argv)
 
-# Parse the arguments first, then initialize the config and logging (ConfigManager must not be a lazy singleton)
-_args = parse_args()
+    selected_flags = [
+        mode_name
+        for mode_name, is_set in (
+            ("gui", args.gui_flag),
+            ("cli", args.cli_flag),
+            ("tui", args.tui_flag),
+            ("gpio", args.gpio_flag),
+        )
+        if is_set
+    ]
 
-from src.utils.config_manager import initialize_config  # noqa: E402
+    if selected_flags and args.mode_flag:
+        parser.error("Use either --gui/--cli/--tui/--gpio or --mode, not both.")
+    if selected_flags and args.mode_positional:
+        parser.error("Use either the positional MODE argument or the mode flags, not both.")
+    if args.mode_flag and args.mode_positional:
+        parser.error("Use either the positional MODE argument or --mode, not both.")
 
-initialize_config()
-
-from src.logging import load_logging_config, setup_logging  # noqa: E402
-
-# CLI/TUI mode disables console log output (the interface takes over)
-setup_logging(
-    enable_console=(_args.mode not in ("cli", "tui")),
-    config=load_logging_config(),
-)
-
-from src.bootstrap.container import ServiceContainer  # noqa: E402
-from src.constants.system import SystemConstants  # noqa: E402
-from src.logging import get_logger  # noqa: E402
-
-logger = get_logger()
+    if selected_flags:
+        args.mode = selected_flags[0]
+    else:
+        args.mode = args.mode_flag or args.mode_positional or "gui"
+    return args
 
 
 async def handle_activation(mode: str) -> bool:
@@ -195,12 +236,43 @@ async def start_app(mode: str, protocol: str, skip_activation: bool) -> int:
 _container = None
 
 
-if __name__ == "__main__":
+def _mode_override_argv(argv=None, *, forced_mode: str | None = None):
+    """Create a command-line argument list that forces the selected mode."""
+    if forced_mode is None:
+        return list(argv) if argv is not None else None
+
+    normalized = str(forced_mode).lower()
+    if normalized not in {"gui", "cli", "tui", "gpio"}:
+        raise ValueError(f"Unsupported forced mode: {forced_mode!r}")
+
+    base = [] if argv is None else list(argv)
+    return [f"--{normalized}", *base]
+
+
+def main(argv=None) -> int:
+    """Application entry point for installed console scripts and direct execution."""
+    if isinstance(argv, argparse.Namespace):
+        args = argv
+    else:
+        args = parse_args(argv)
+
+    from src.utils.config_manager import initialize_config  # noqa: E402
+
+    initialize_config()
+
+    from src.logging import load_logging_config, setup_logging  # noqa: E402
+
+    # CLI/TUI mode disables console log output (the interface takes over)
+    setup_logging(
+        enable_console=(args.mode not in ("cli", "tui")),
+        config=load_logging_config(),
+    )
+
+    global logger
+    logger = get_logger()
+
     exit_code = 1
     try:
-        # Use the already parsed arguments
-        args = _args
-
         # Detect a Wayland environment and configure the Qt platform plugin
         import os
 
@@ -242,7 +314,7 @@ if __name__ == "__main__":
                     "  python main.py --mode tui   # requires uv sync --extra tui\n"
                     f"(original error: {e})"
                 )
-                sys.exit(1)
+                return 1
 
             qt_app = QApplication.instance() or QApplication(sys.argv)
             qt_app.setQuitOnLastWindowClosed(False)
@@ -251,7 +323,6 @@ if __name__ == "__main__":
             asyncio.set_event_loop(loop)
             logger.info("Created the PySide6 + qasync event loop")
 
-            # Set up SIGINT handling - request shutdown via the TaskManager
             shutdown_state = {"requested": False}
 
             def handle_sigint(*_):
@@ -260,12 +331,10 @@ if __name__ == "__main__":
                 shutdown_state["requested"] = True
                 logger.info("SIGINT received, shutting down...")
 
-                # Request a graceful shutdown via the TaskManager
                 try:
                     if _container and _container.tasks:
                         _container.tasks.request_shutdown()
                     else:
-                        # The container is not ready yet; quit Qt directly
                         if loop.is_running():
                             loop.call_soon_threadsafe(qt_app.quit)
                 except Exception:
@@ -279,14 +348,12 @@ if __name__ == "__main__":
                         start_app(args.mode, args.protocol, args.skip_activation)
                     )
             except RuntimeError as e:
-                # Catch qasync's "Event loop stopped before Future completed" error
                 if "Event loop stopped before Future completed" in str(e):
                     logger.debug("The event loop terminated normally")
                     exit_code = 0
                 else:
                     raise
         else:
-            # CLI / TUI / GPIO: standard asyncio
             if args.mode == "tui":
                 try:
                     import textual  # noqa: F401
@@ -298,14 +365,12 @@ if __name__ == "__main__":
                         "On a headless machine / over SSH, keep using: python main.py --mode cli\n"
                         f"(original error: {e})"
                     )
-                    sys.exit(1)
+                    return 1
 
-            # CLI / GPIO mode: standard asyncio; SIGINT asks the TaskManager to shut down
             shutdown_state = {"requested": False}
 
             def handle_sigint_cli(*_):
                 if shutdown_state["requested"]:
-                    # A second Ctrl+C: force quit
                     logger.warning("SIGINT received again; forcing exit")
                     os._exit(130)
                 shutdown_state["requested"] = True
@@ -326,8 +391,31 @@ if __name__ == "__main__":
         exit_code = 0
     except Exception as e:
         logger.error(f"The application exited with an error: {e}", exc_info=True)
-        # A windowed build can hide this; make sure the traceback reaches the crash log
         _write_crash_log(type(e), e, e.__traceback__)
         exit_code = 1
     finally:
-        sys.exit(exit_code)
+        return exit_code
+
+
+def main_cli(argv=None) -> int:
+    """Console entry point for CLI/headless mode."""
+    return main(_mode_override_argv(argv, forced_mode="cli"))
+
+
+def main_gui(argv=None) -> int:
+    """Console entry point for GUI mode."""
+    return main(_mode_override_argv(argv, forced_mode="gui"))
+
+
+def main_tui(argv=None) -> int:
+    """Console entry point for TUI mode."""
+    return main(_mode_override_argv(argv, forced_mode="tui"))
+
+
+def main_gpio(argv=None) -> int:
+    """Console entry point for GPIO mode."""
+    return main(_mode_override_argv(argv, forced_mode="gpio"))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

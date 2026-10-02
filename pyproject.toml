@@ -101,6 +101,10 @@ tui = [
 
 [project.scripts]
 xiaozhi = "main:main"
+xiaozhi-cli = "main:main_cli"
+xiaozhi-gui = "main:main_gui"
+xiaozhi-tui = "main:main_tui"
+xiaozhi-gpio = "main:main_gpio"
 
 [project.urls]
 Homepage = "https://github.com/huangjunsen0406/py-xiaozhi"

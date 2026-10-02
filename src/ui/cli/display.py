@@ -200,93 +200,111 @@ class CLIDisplay:
         await self._render_dashboard(full=True)
         await self._render_input_area()
 
+    def build_dashboard_lines(self, width: int = 78) -> list[str]:
+        """Build a compact, modern dashboard layout for the CLI status panel."""
+
+        def trunc(s: str, limit: int = 28) -> str:
+            if s is None:
+                return "—"
+            s = str(s).strip()
+            return s if len(s) <= limit else s[: limit - 1] + "…"
+
+        def status_badge(status: str) -> str:
+            status = (status or "Idle").strip()
+            spinner = ["◐", "◓", "◑", "◒"]
+            if "Speaking" in status:
+                return f"{spinner[self._status_anim_index % len(spinner)]} {status}"
+            if "Listening" in status:
+                return f"{spinner[self._status_anim_index % len(spinner)]} {status}"
+            if "Idle" in status:
+                return f"● {status}"
+            if "Disconnected" in status.lower():
+                return f"○ {status}"
+            return f"● {status}"
+
+        self._status_anim_index = getattr(self, "_status_anim_index", 0) + 1
+        mode_text = "Auto" if self._dash_auto_mode else "Manual"
+        conn_text = "Connected" if self._dash_connected else "Disconnected"
+        inner_width = max(18, min(max(18, width - 2), 78))
+        title = f" {SystemConstants.APP_DISPLAY_NAME} "
+        status_text = status_badge(self._dash_status)
+        conversation_limit = max(1, inner_width - 15)
+        conversation_text = trunc(self._dash_text, conversation_limit) if self._dash_text else "—"
+
+        def content_row(text: str) -> str:
+            content_width = inner_width - 2
+            content = text[:content_width].ljust(content_width)
+            return f"│ {content} │"
+
+        lines = [
+            "╭" + "─" * inner_width + "╮",
+            "│" + title.center(inner_width) + "│",
+            "├" + "─" * inner_width + "┤",
+            content_row(f"Status: {status_text}"),
+            content_row(f"Connection: {conn_text} | Mode: {mode_text}"),
+            content_row(f"Emotion: {trunc(self._dash_emotion)}"),
+            content_row(f"Conversation: {conversation_text}"),
+            content_row(f"Music: {trunc(self._dash_music) if self._dash_music else '—'}"),
+            "╰" + "─" * inner_width + "╯",
+        ]
+
+        return lines
+
     async def _render_dashboard(self, full: bool = False):
         """Render the dashboard."""
 
-        def trunc(s: str, limit: int = 60) -> str:
-            return s if len(s) <= limit else s[: limit - 1] + "…"
-
-        # Build the status lines
-        mode_text = "Auto" if self._dash_auto_mode else "Manual"
-        conn_text = "Connected" if self._dash_connected else "Disconnected"
-
-        lines = [
-            f"Status: {trunc(self._dash_status)}",
-            f"Connection: {conn_text} | Mode: {mode_text}",
-            f"Emotion: {self._dash_emotion}",
-            f"Conversation: {trunc(self._dash_text)}",
-            f"Music: {trunc(self._dash_music) if self._dash_music else '—'}",
-        ]
-
-        # Log lines are not shown (logs are still intercepted, just not displayed in the interface)
-
         if not self._use_ansi:
-            print(f"\r{lines[0]}        ", end="", flush=True)
+            mode_text = "Auto" if self._dash_auto_mode else "Manual"
+            conn_text = "Connected" if self._dash_connected else "Disconnected"
+            print(
+                f"\rStatus: {self._dash_status} | {conn_text} | {mode_text} | Emotion: {self._dash_emotion}     ",
+                end="",
+                flush=True,
+            )
             return
 
         cols, rows = self._term_size()
         usable_rows = max(5, rows - self._input_area_lines)
+        display_width = max(20, min(cols, 82))
+        body = self.build_dashboard_lines(width=display_width)
+        body_rows = len(body)
 
-        # Style helper
         def style(s: str, *names: str) -> str:
             if not self._use_ansi:
                 return s
             prefix = "".join(self._ansi.get(n, "") for n in names)
             return f"{prefix}{s}{self._ansi['reset']}"
 
-        title = style(f" {SystemConstants.APP_DISPLAY_NAME} ", "bold", "cyan")
-
-        # Frame
-        top_bar = "┌" + ("─" * (max(2, cols - 2))) + "┐"
-        title_line = "│" + title.center(max(2, cols - 2) + 14) + "│"  # +14 compensates for the ANSI codes
-        sep_line = "├" + ("─" * (max(2, cols - 2))) + "┤"
-        bottom_bar = "└" + ("─" * (max(2, cols - 2))) + "┘"
-
-        # Content area
-        body_rows = max(1, usable_rows - 4)
-        body = []
-        for i in range(body_rows):
-            if i < len(lines):
-                text = lines[i]
-                if i == 0:
-                    text = style(text, "green")
-                elif i == 1:
-                    text = style(text, "cyan")
-                elif "INFO" in text or "DEBUG" in text:
-                    text = style(text, "dim")
-                elif "ERROR" in text or "WARNING" in text:
-                    text = style(text, "yellow")
+        styled_lines = []
+        for index, line in enumerate(body):
+            plain_line = line[: max(1, min(len(line), cols))]
+            if index in (0, 1, 2, len(body) - 1):
+                styled_lines.append(style(plain_line, "cyan"))
+            elif index == 3:
+                styled_lines.append(style(plain_line, "green"))
+            elif index == 4:
+                styled_lines.append(style(plain_line, "magenta"))
+            elif index in (5, 6, 7):
+                styled_lines.append(style(plain_line, "yellow"))
             else:
-                text = ""
-            body.append("│" + text.ljust(max(2, cols - 2))[: max(2, cols - 2)] + "│")
+                styled_lines.append(plain_line)
 
         # Save the cursor
         sys.stdout.write("\x1b7")
 
-        # Clear the old area
-        total_rows = 4 + body_rows
+        total_rows = body_rows
         rows_to_clear = max(self._last_drawn_rows, total_rows)
         for i in range(rows_to_clear):
             self._goto(1 + i, 1)
             sys.stdout.write("\x1b[2K")
 
-        # Draw
-        self._goto(1, 1)
-        sys.stdout.write("\x1b[2K" + top_bar[:cols])
-        self._goto(2, 1)
-        sys.stdout.write("\x1b[2K" + title_line[:cols])
-        self._goto(3, 1)
-        sys.stdout.write("\x1b[2K" + sep_line[:cols])
-
-        for idx in range(body_rows):
-            self._goto(4 + idx, 1)
+        for idx, line in enumerate(styled_lines):
+            self._goto(idx + 1, 1)
             sys.stdout.write("\x1b[2K")
-            sys.stdout.write(body[idx][:cols])
+            sys.stdout.write(line[: max(2, min(len(line), cols))])
 
-        self._goto(4 + body_rows, 1)
-        sys.stdout.write("\x1b[2K" + bottom_bar[:cols])
-
-        # Restore the cursor
+        self._goto(total_rows + 1, 1)
+        sys.stdout.write("\x1b[2K")
         sys.stdout.write("\x1b8")
         sys.stdout.flush()
 

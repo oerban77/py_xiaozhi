@@ -21,6 +21,7 @@ from src.audio_codecs.audio_codec import (  # noqa: E402
 )
 from src.audio_codecs import stream_manager as stream_manager_module  # noqa: E402
 from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
+from src.constants.constants import AudioConfig  # noqa: E402
 from src.utils.audio_device import DeviceConfig  # noqa: E402
 
 
@@ -127,6 +128,38 @@ class TestMixing:
         codec._tts_fifo.clear()
         # TTS 清空不影响音乐
         assert codec._music_fifo.size == n
+
+    @pytest.mark.asyncio
+    async def test_music_writer_waits_for_backlog_to_drain(self, monkeypatch):
+        codec = AudioCodec.__new__(AudioCodec)
+        codec._is_closing = False
+        codec._closed = True
+        codec.stream_manager = None
+        target = int(AudioConfig.OUTPUT_SAMPLE_RATE * 0.30)
+
+        class DelayedDrain:
+            size = target + 1
+            pushed = False
+
+            def push(self, _samples):
+                self.pushed = True
+
+        fifo = DelayedDrain()
+        codec._music_fifo = fifo
+        sleeps = 0
+
+        async def fake_sleep(_seconds):
+            nonlocal sleeps
+            sleeps += 1
+            if sleeps == 105:
+                fifo.size = target
+
+        monkeypatch.setattr("src.audio_codecs.audio_codec.asyncio.sleep", fake_sleep)
+
+        await codec.write_pcm_direct(np.zeros(480, dtype=np.float32))
+
+        assert fifo.pushed
+        assert sleeps == 105
 
 
 def test_output_stream_uses_host_selected_blocksize(monkeypatch):

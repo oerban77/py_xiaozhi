@@ -22,6 +22,12 @@ class SettingsCameraOptionsMixin:
     def _set_frameHeight(self, value: int):
         self._set_value("CAMERA.frame_height", value)
 
+    def _get_jpegMaxSide(self) -> int:
+        return self._get_value("CAMERA.jpeg_max_side", 1024)
+
+    def _set_jpegMaxSide(self, value: int):
+        self._set_value("CAMERA.jpeg_max_side", value)
+
     def _get_fps(self) -> int:
         return self._get_value("CAMERA.fps", 30)
 

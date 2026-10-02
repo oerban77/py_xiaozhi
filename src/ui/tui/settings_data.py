@@ -17,7 +17,7 @@ class SettingField:
 
     path: str
     label: str
-    kind: str = "str"  # str | int | bool | choice
+    kind: str = "str"  # str | int | bool | choice | audio_input | audio_output | camera_device
     choices: tuple[str, ...] = ()
     help: str = ""
 
@@ -54,12 +54,14 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
         [
             SettingField(
                 "AUDIO_DEVICES.input_device_name",
-                "Input Device Name",
+                "Input Device",
+                kind="audio_input",
                 help="Match the microphone by name (the ID changes after hot-plugging)",
             ),
             SettingField(
                 "AUDIO_DEVICES.output_device_name",
-                "Output Device Name",
+                "Output Device",
+                kind="audio_output",
                 help="Match speakers/headphones by name",
             ),
             SettingField(
@@ -82,22 +84,10 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
         "Camera",
         [
             SettingField(
-                "CAMERA.backend",
-                "Capture Backend",
-                kind="choice",
-                choices=("auto", "opencv", "picamera2"),
-                help="auto tries OpenCV first, then Pi CSI on failure",
-            ),
-            SettingField(
-                "CAMERA.device",
-                "Device Path",
-                help="e.g. /dev/video0; when non-empty it takes precedence over index",
-            ),
-            SettingField(
-                "CAMERA.camera_index",
-                "device index",
-                kind="int",
-                help="OpenCV numeric index",
+                "CAMERA.selected_device",
+                "Camera Device",
+                kind="camera_device",
+                help="Detected camera devices",
             ),
             SettingField(
                 "CAMERA.frame_width",
@@ -108,6 +98,13 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
                 "CAMERA.frame_height",
                 "Height",
                 kind="int",
+            ),
+            SettingField(
+                "CAMERA.jpeg_max_side",
+                "Max JPEG side",
+                kind="choice",
+                choices=("320", "640", "1024", "1280", "1920"),
+                help="Maximum image edge sent for analysis; larger images use more bandwidth",
             ),
         ],
     ),
@@ -141,6 +138,17 @@ def load_setting_values() -> dict[str, str]:
     values: dict[str, str] = {}
     for _section, fields in SETTING_SECTIONS:
         for f in fields:
+            if f.kind == "camera_device":
+                backend = str(cfg.get_config("CAMERA.backend", "auto") or "auto")
+                device = str(cfg.get_config("CAMERA.device", "") or "").strip()
+                index = cfg.get_config("CAMERA.camera_index", 0)
+                if backend == "picamera2":
+                    values[f.path] = "picamera2"
+                elif device:
+                    values[f.path] = device
+                else:
+                    values[f.path] = str(index)
+                continue
             raw = cfg.get_config(f.path, "")
             if f.kind == "bool":
                 values[f.path] = "true" if bool(raw) else "false"
@@ -164,9 +172,7 @@ def parse_field_value(field: SettingField, text: str) -> Any:
         if field.choices and s not in field.choices:
             # Still writes the user value; upper layers validate and show prompts
             return s
-        if field.path.endswith("opus_output_sample_rate") or field.path.endswith(
-            "frame_duration"
-        ):
+        if field.path.endswith(("opus_output_sample_rate", "frame_duration", "jpeg_max_side")):
             try:
                 return int(s)
             except ValueError:
@@ -187,6 +193,11 @@ def save_settings(values: dict[str, str]) -> tuple[bool, str]:
         for _section, fields in SETTING_SECTIONS:
             for f in fields:
                 if f.path not in values:
+                    continue
+                if f.kind == "camera_device":
+                    from src.mcp.tools.camera.capture_backend import apply_device_selection
+
+                    updates.update(apply_device_selection(values[f.path]))
                     continue
                 updates[f.path] = parse_field_value(f, values[f.path])
         if not updates:

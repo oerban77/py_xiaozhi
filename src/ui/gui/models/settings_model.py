@@ -442,6 +442,9 @@ class SettingsModel(
     frameHeight = Property(
         int, SettingsCameraOptionsMixin._get_frameHeight, SettingsCameraOptionsMixin._set_frameHeight, notify=settingsChanged
     )
+    jpegMaxSide = Property(
+        int, SettingsCameraOptionsMixin._get_jpegMaxSide, SettingsCameraOptionsMixin._set_jpegMaxSide, notify=settingsChanged
+    )
     fps = Property(int, SettingsCameraOptionsMixin._get_fps, SettingsCameraOptionsMixin._set_fps, notify=settingsChanged)
     vlApiUrl = Property(str, SettingsCameraOptionsMixin._get_vlApiUrl, SettingsCameraOptionsMixin._set_vlApiUrl, notify=settingsChanged)
     vlApiKey = Property(str, SettingsCameraOptionsMixin._get_vlApiKey, SettingsCameraOptionsMixin._set_vlApiKey, notify=settingsChanged)

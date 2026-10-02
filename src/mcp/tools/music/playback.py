@@ -82,6 +82,7 @@ class PlaybackEngine:
         self.api_url: str | None = None
         # True while the current source is a length-prefixed Opus catalog stream
         self.is_opus_source = False
+        self._opus_resume_event: asyncio.Event | None = None
         self.current_lyric_index = -1
         self.last_lyric_tick = 0.0
 
@@ -116,28 +117,38 @@ class PlaybackEngine:
 
     async def stop(self) -> dict:
         try:
-            if not self.is_playing:
-                return {"status": "info", "message": "No song is playing"}
-
+            was_playing = self.is_playing
             current_song = self.current_song
-            if self.decoder:
-                await self.decoder.stop()
-                self.decoder = None
+            self.is_playing = False
+            self.paused = False
+            self.pause_source = None
+            if self._opus_resume_event is not None:
+                self._opus_resume_event.set()
+            if self._playback_task and not self._playback_task.done():
+                self._playback_task.cancel()
 
-            await self._cancel_playback_task()
             cleared = await self._clear_music_queue()
             audio_codec = self._get_audio_codec()
             if audio_codec:
                 await audio_codec.clear_music_queue()
             logger.debug(f"Cleared {cleared} frame(s) of music data")
 
-            self.is_playing = False
-            self.paused = False
-            self.pause_source = None
+            if self.decoder:
+                await self.decoder.stop()
+                self.decoder = None
+            await self._cancel_playback_task()
+
+            self.start_play_time = 0.0
             self.current_position = 0
             self.current_lyric_index = -1
             self.api_url = None
+            self._current_source = None
+            self._stream_headers = None
             self.is_opus_source = False
+            self._opus_resume_event = None
+
+            if not was_playing:
+                return {"status": "info", "message": "No song is playing"}
 
             await self._hooks.emit_state_change("stopped", current_song)
             logger.info(f"Stopped playback: {current_song}")
@@ -160,6 +171,8 @@ class PlaybackEngine:
 
             self.paused = True
             self.pause_source = source
+            if self.is_opus_source and self._opus_resume_event is not None:
+                self._opus_resume_event.clear()
             if self.start_play_time > 0:
                 self.current_position = time.time() - self.start_play_time
 
@@ -219,6 +232,23 @@ class PlaybackEngine:
                 return {"status": "success", "message": "Playback resumed"}
 
             if self.is_opus_source:
+                if (
+                    self._playback_task is not None
+                    and not self._playback_task.done()
+                ):
+                    self.paused = False
+                    self.pause_source = None
+                    self.start_play_time = time.time() - self.current_position
+                    self.last_lyric_tick = 0.0
+                    if self._opus_resume_event is not None:
+                        self._opus_resume_event.set()
+                    logger.info(
+                        f"Opus stream resumed in place: {self.current_song} from "
+                        f"{self._hooks.format_time(self.current_position)}"
+                    )
+                    await self._hooks.emit_state_change("playing", self.current_song)
+                    return {"status": "success", "message": "Playback resumed"}
+
                 # The Opus catalog stream cannot be decoded by FFmpeg and cannot be
                 # resumed mid-stream; restart it from the beginning.
                 logger.info(
@@ -238,6 +268,8 @@ class PlaybackEngine:
                 audio_codec = self._get_audio_codec()
                 if audio_codec:
                     await audio_codec.clear_music_queue()
+                self._opus_resume_event = asyncio.Event()
+                self._opus_resume_event.set()
                 self._playback_task = asyncio.create_task(
                     self._opus_playback_loop(str(self._current_source)),
                     name="music:opus-playback",
@@ -395,10 +427,7 @@ class PlaybackEngine:
     async def get_position(self):
         if not self.is_playing or self.paused:
             return self.current_position
-        current_pos = min(self.total_duration, time.time() - self.start_play_time)
-        if current_pos >= self.total_duration and self.total_duration > 0:
-            await self._handle_playback_finished()
-        return current_pos
+        return min(self.total_duration, time.time() - self.start_play_time)
 
     async def get_progress(self):
         if self.total_duration <= 0:
@@ -548,6 +577,8 @@ class PlaybackEngine:
             self.start_play_time = time.time()
             self.current_lyric_index = -1
             self.last_lyric_tick = 0.0
+            self._opus_resume_event = asyncio.Event()
+            self._opus_resume_event.set()
 
             self._playback_task = asyncio.create_task(
                 self._opus_playback_loop(url), name="music:opus-playback"
@@ -572,7 +603,9 @@ class PlaybackEngine:
             for candidate in stream_url_candidates(url):
                 if self._stopped_or_idle():
                     return
-                ok = await reader.stream(candidate)
+                ok = await reader.stream(
+                    candidate, resume_event=self._opus_resume_event
+                )
                 if ok:
                     await self._handle_playback_finished()
                     return
@@ -716,9 +749,14 @@ class PlaybackEngine:
 
         self.is_playing = False
         self.paused = False
+        self.pause_source = None
+        self.start_play_time = 0.0
         self.current_position = self.total_duration
         self.current_lyric_index = -1
         self.is_opus_source = False
+        self.api_url = None
+        self._current_source = None
+        self._stream_headers = None
         await self._hooks.emit_state_change("completed", self.current_song)
 
     def cancel_prefetch(self) -> None:

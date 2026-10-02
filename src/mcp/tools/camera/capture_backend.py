@@ -37,7 +37,7 @@ class CaptureConfig:
     frame_width: int = 640
     frame_height: int = 480
     warm_up_frames: int = 5
-    jpeg_max_side: int = 320
+    jpeg_max_side: int = 1024
 
 
 @dataclass
@@ -77,7 +77,12 @@ def load_capture_config() -> CaptureConfig:
         warm = int(cfg.get_config("CAMERA.warm_up_frames", 5) or 5)
     except (TypeError, ValueError):
         warm = 5
+    try:
+        jpeg_max_side = int(cfg.get_config("CAMERA.jpeg_max_side", 1024) or 1024)
+    except (TypeError, ValueError):
+        jpeg_max_side = 1024
     warm = max(0, min(warm, 30))
+    jpeg_max_side = max(320, min(jpeg_max_side, 3840))
 
     return CaptureConfig(
         camera_index=max(0, index),
@@ -86,6 +91,7 @@ def load_capture_config() -> CaptureConfig:
         frame_width=max(1, width),
         frame_height=max(1, height),
         warm_up_frames=warm,
+        jpeg_max_side=jpeg_max_side,
     )
 
 

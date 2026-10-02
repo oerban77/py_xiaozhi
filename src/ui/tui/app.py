@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 
 from textual import on
@@ -17,6 +18,7 @@ from textual.widgets import (
     Input,
     Label,
     RichLog,
+    Select,
     Static,
     TabbedContent,
     TabPane,
@@ -45,6 +47,7 @@ class SettingsScreen(ModalScreen[bool]):
         align: center middle;
     }
     #settings-dialog {
+        layout: vertical;
         width: 90%;
         max-width: 100;
         height: 85%;
@@ -60,6 +63,14 @@ class SettingsScreen(ModalScreen[bool]):
         color: $text-muted;
         margin-bottom: 1;
     }
+    TabbedContent {
+        height: 1fr;
+        min-height: 3;
+    }
+    TabPane,
+    VerticalScroll {
+        height: 1fr;
+    }
     .field-row {
         height: auto;
         margin-bottom: 1;
@@ -74,19 +85,58 @@ class SettingsScreen(ModalScreen[bool]):
     }
     #settings-actions {
         height: 3;
+        min-height: 3;
         align: right middle;
-        margin-top: 1;
+        margin-top: 0;
     }
     #settings-status {
         color: $accent;
         height: 1;
-        margin-top: 1;
+        min-height: 1;
+        margin-top: 0;
     }
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._values = load_setting_values()
+        self._audio_selection_values: dict[str, dict[str, str]] = {}
+        self._audio_devices = {"input": [], "output": []}
+        self._camera_devices = []
+        try:
+            from src.utils.audio_utils import list_audio_devices
+
+            self._audio_devices = list_audio_devices(include_virtual=True)
+        except Exception as e:
+            logger.warning(f"Failed to enumerate audio devices for TUI settings: {e}")
+
+    def on_mount(self) -> None:
+        self.run_worker(self._load_camera_devices(), name="settings:camera-scan")
+
+    async def _load_camera_devices(self) -> None:
+        try:
+            from src.mcp.tools.camera.capture_backend import list_camera_devices
+
+            devices = await asyncio.to_thread(
+                list_camera_devices,
+                max_index=5,
+                consecutive_fail_limit=2,
+            )
+            self._camera_devices = devices
+            field_path = "CAMERA.selected_device"
+            current = self._values.get(field_path, "0")
+            options = [(device.name, device.key) for device in devices]
+            keys = {device.key for device in devices}
+            if current not in keys:
+                label = f"Keep configured device ({current or 'default'})" if devices else "No camera detected; keep current setting"
+                options.append((label, current))
+            if not options:
+                options = [("No camera detected", "0")]
+            selector = self.query_one(f"#fld-{field_path.replace('.', '-')}", Select)
+            selector.set_options(options)
+            selector.value = current if current in {value for _, value in options} else options[0][1]
+        except Exception as e:
+            logger.warning(f"Failed to enumerate camera devices for TUI settings: {e}")
 
     def compose(self) -> ComposeResult:
         with Vertical(id="settings-dialog"):
@@ -109,16 +159,69 @@ class SettingsScreen(ModalScreen[bool]):
                                         placeholder = f"Choices: {', '.join(f.choices)}"
                                     elif f.kind == "bool":
                                         placeholder = "true / false"
-                                    yield Input(
-                                        value=current,
-                                        placeholder=placeholder,
-                                        id=f"fld-{f.path.replace('.', '-')}",
-                                        classes="field-input",
-                                    )
+                                    widget_id = f"fld-{f.path.replace('.', '-')}"
+                                    if f.kind in ("audio_input", "audio_output"):
+                                        kind = "input" if f.kind == "audio_input" else "output"
+                                        options, selected = self._audio_options(f.path, kind, current)
+                                        yield Select(
+                                            options,
+                                            value=selected,
+                                            id=widget_id,
+                                            classes="field-input",
+                                        )
+                                    elif f.kind == "camera_device":
+                                        yield Select(
+                                            [("Scanning cameras...", current or "0")],
+                                            value=current or "0",
+                                            id=widget_id,
+                                            classes="field-input",
+                                        )
+                                    elif f.kind == "choice":
+                                        choices = list(f.choices)
+                                        selected = current
+                                        if selected not in choices:
+                                            if selected:
+                                                choices.append(selected)
+                                            elif choices:
+                                                selected = choices[0]
+                                        yield Select(
+                                            [(choice, choice) for choice in choices],
+                                            value=selected,
+                                            id=widget_id,
+                                            classes="field-input",
+                                        )
+                                    else:
+                                        yield Input(
+                                            value=current,
+                                            placeholder=placeholder,
+                                            id=widget_id,
+                                            classes="field-input",
+                                        )
             yield Static("", id="settings-status")
             with Horizontal(id="settings-actions"):
                 yield Button("Cancel", id="btn-cancel", variant="default")
                 yield Button("Save", id="btn-save", variant="primary")
+
+    def _audio_options(
+        self, path: str, kind: str, current: str
+    ) -> tuple[list[tuple[str, str]], str]:
+        options = [("System default", "")]
+        values: dict[str, str] = {}
+        selected = ""
+        for device in self._audio_devices.get(kind, []):
+            raw_name = str(device.get("raw_name") or device.get("name") or "")
+            token = f"{kind}:{device.get('index', len(values))}"
+            values[token] = raw_name
+            options.append((str(device.get("name") or raw_name), token))
+            if raw_name == current and not selected:
+                selected = token
+        if current and not selected:
+            token = f"{kind}:configured"
+            values[token] = current
+            options.append((f"Configured: {current} (not detected)", token))
+            selected = token
+        self._audio_selection_values[path] = values
+        return options, selected
 
     def _collect_values(self) -> dict[str, str]:
         out: dict[str, str] = {}
@@ -126,8 +229,16 @@ class SettingsScreen(ModalScreen[bool]):
             for f in fields:
                 wid = f"fld-{f.path.replace('.', '-')}"
                 try:
-                    w = self.query_one(f"#{wid}", Input)
-                    out[f.path] = w.value
+                    widget = self.query_one(f"#{wid}")
+                    if isinstance(widget, Select):
+                        selection = str(widget.value or "")
+                        if f.kind in ("audio_input", "audio_output"):
+                            selection = self._audio_selection_values.get(f.path, {}).get(
+                                selection, ""
+                            )
+                        out[f.path] = selection
+                    else:
+                        out[f.path] = widget.value
                 except Exception:
                     out[f.path] = self._values.get(f.path, "")
         return out

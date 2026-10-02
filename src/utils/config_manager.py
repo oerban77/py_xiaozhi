@@ -96,6 +96,7 @@ class ConfigManager:
             "backend": "auto",
             "frame_width": 640,
             "frame_height": 480,
+            "jpeg_max_side": 1024,
             "fps": 30,
             # Number of warm-up frames to discard after opening (the first few frames are often invalid on USB/Pi)
             "warm_up_frames": 5,

@@ -225,6 +225,33 @@ ScrollView {
                         color: Theme.textSecondary
                     }
                 }
+
+                Text {
+                    text: "Max Image Side"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 80
+                }
+
+                RowLayout {
+                    spacing: Theme.spacingSm
+
+                    XSpinBox {
+                        Layout.preferredWidth: 100
+                        from: 320
+                        to: 1920
+                        stepSize: 64
+                        value: settingsModel ? settingsModel.jpegMaxSide : 1024
+                        onValueModified: if (settingsModel) settingsModel.jpegMaxSide = value
+                        font.pixelSize: Theme.fontSizeSm
+                    }
+
+                    Text {
+                        text: "px"
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textSecondary
+                    }
+                }
             }
         }
 

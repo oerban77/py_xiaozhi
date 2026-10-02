@@ -443,6 +443,272 @@ async def test_music_player_tick_lyrics_in_playback_path():
     await player._tick_lyrics()
     assert len(emitted) == n
 
+@pytest.mark.asyncio
+async def test_playback_finished_clears_stale_resume_state():
+    from src.mcp.tools.music.playback import PlaybackDeps, PlaybackEngine
+
+    class DummyHooks:
+        def prepare_for_io(self):
+            pass
+
+        def is_speaking(self):
+            return False
+
+        def format_time(self, seconds):
+            return f"{seconds:.1f}s"
+
+        async def tick_lyrics(self):
+            pass
+
+        async def emit_state_change(self, state, song_name=None, position=None):
+            return None
+
+    eng = PlaybackEngine(
+        PlaybackDeps(
+            cache=type("FakeCache", (), {"find_song_file": lambda self, _id: None})(),
+            downloader=type("FakeDownloader", (), {})(),
+            library=type("FakeLibrary", (), {"invalidate": lambda self: None})(),
+            hooks=DummyHooks(),
+        )
+    )
+
+    eng.is_playing = True
+    eng.paused = True
+    eng.pause_source = "tts"
+    eng.current_position = 12.0
+    eng.start_play_time = __import__("time").time() - 12.0
+    eng.total_duration = 30.0
+    eng.song_id = "song-1"
+    eng._current_source = "https://example.com/song.mp3"
+    eng.api_url = "https://example.com/song.mp3"
+
+    await eng._handle_playback_finished()
+
+    assert eng.is_playing is False
+    assert eng.paused is False
+    assert eng.pause_source is None
+    assert eng.current_position == eng.total_duration
+    assert eng._current_source is None
+
+
+@pytest.mark.asyncio
+async def test_music_position_poll_does_not_finish_playback():
+    from src.mcp.tools.music.playback import PlaybackDeps, PlaybackEngine
+
+    class DummyHooks:
+        def prepare_for_io(self):
+            pass
+
+        def is_speaking(self):
+            return False
+
+        def format_time(self, seconds):
+            return f"{seconds:.1f}s"
+
+        async def tick_lyrics(self):
+            pass
+
+        async def emit_state_change(self, state, song_name=None, position=None):
+            return None
+
+    eng = PlaybackEngine(
+        PlaybackDeps(
+            cache=type("FakeCache", (), {"find_song_file": lambda self, _id: None})(),
+            downloader=type("FakeDownloader", (), {})(),
+            library=type("FakeLibrary", (), {"invalidate": lambda self: None})(),
+            hooks=DummyHooks(),
+        )
+    )
+    eng.is_playing = True
+    eng.total_duration = 30.0
+    eng.start_play_time = __import__("time").time() - 31.0
+
+    position = await eng.get_position()
+
+    assert position == eng.total_duration
+    assert eng.is_playing is True
+
+
+@pytest.mark.asyncio
+async def test_opus_tts_resume_keeps_the_active_stream_task():
+    from src.mcp.tools.music.playback import PlaybackDeps, PlaybackEngine
+
+    class DummyHooks:
+        def prepare_for_io(self):
+            pass
+
+        def is_speaking(self):
+            return False
+
+        def format_time(self, seconds):
+            return f"{seconds:.1f}s"
+
+        async def tick_lyrics(self):
+            pass
+
+        async def emit_state_change(self, state, song_name=None, position=None):
+            pass
+
+    class ActiveTask:
+        def done(self):
+            return False
+
+    eng = PlaybackEngine(
+        PlaybackDeps(
+            cache=object(),
+            downloader=object(),
+            library=object(),
+            hooks=DummyHooks(),
+        )
+    )
+    task = ActiveTask()
+    eng.is_playing = True
+    eng.is_opus_source = True
+    eng.current_position = 42.0
+    eng.start_play_time = __import__("time").time() - eng.current_position
+    eng._playback_task = task  # type: ignore[assignment]
+    eng._opus_resume_event = asyncio.Event()
+    eng._opus_resume_event.set()
+
+    await eng.pause(source="tts")
+    assert eng.paused
+    assert not eng._opus_resume_event.is_set()
+
+    await eng.resume()
+
+    assert eng._playback_task is task
+    assert eng.paused is False
+    assert eng._opus_resume_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_music_stop_cancels_task_and_clears_output_queue():
+    import asyncio
+
+    from src.mcp.tools.music.playback import PlaybackDeps, PlaybackEngine
+
+    class DummyHooks:
+        def prepare_for_io(self):
+            pass
+
+        def is_speaking(self):
+            return False
+
+        def format_time(self, seconds):
+            return f"{seconds:.1f}s"
+
+        async def tick_lyrics(self):
+            pass
+
+        async def emit_state_change(self, state, song_name=None, position=None):
+            pass
+
+    class DummyAudioCodec:
+        def __init__(self):
+            self.clear_calls = 0
+
+        async def clear_music_queue(self):
+            self.clear_calls += 1
+
+    eng = PlaybackEngine(
+        PlaybackDeps(
+            cache=object(),
+            downloader=object(),
+            library=object(),
+            hooks=DummyHooks(),
+        )
+    )
+    codec = DummyAudioCodec()
+    eng.audio_codec = codec
+    eng.is_playing = True
+    eng.current_song = "test track"
+    eng.is_opus_source = True
+    eng._opus_resume_event = asyncio.Event()
+    eng._music_queue.put_nowait(object())
+    task = asyncio.create_task(asyncio.Event().wait())
+    eng._playback_task = task
+
+    result = await eng.stop()
+
+    assert result["status"] == "success"
+    assert task.cancelled()
+    assert codec.clear_calls == 1
+    assert eng._music_queue.empty()
+    assert eng.is_playing is False
+    assert eng._opus_resume_event is None
+
+
+@pytest.mark.asyncio
+async def test_opus_reader_uses_idle_timeout_and_honors_pause(monkeypatch):
+    import aiohttp
+    import numpy as np
+
+    from src.mcp.tools.music import opus_stream
+
+    captured = {}
+    writes = []
+    packet = b"\x00\x06packet"
+
+    class FakeDecoder:
+        _frame_ms = 60
+
+        def __init__(self):
+            pass
+
+        def decode_packet(self, _payload):
+            return np.ones(240, dtype=np.float32)
+
+        def close(self):
+            pass
+
+    class FakeContent:
+        async def iter_chunked(self, _chunk_size):
+            yield packet
+
+    class FakeResponse:
+        status = 200
+        content = FakeContent()
+
+    class FakeRequest:
+        async def __aenter__(self):
+            return FakeResponse()
+
+        async def __aexit__(self, *_args):
+            pass
+
+    class FakeSession:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            pass
+
+        def get(self, _url, headers=None):
+            return FakeRequest()
+
+    class FakeAudioCodec:
+        async def write_pcm_direct(self, pcm):
+            writes.append(pcm)
+
+    monkeypatch.setattr(aiohttp, "ClientSession", FakeSession)
+    monkeypatch.setattr(opus_stream, "OpusStreamDecoder", FakeDecoder)
+    resume_event = asyncio.Event()
+    reader = opus_stream.OpusStreamReader(FakeAudioCodec())
+    task = asyncio.create_task(
+        reader.stream("https://example.com/track.opus_stream", resume_event=resume_event)
+    )
+
+    await asyncio.sleep(0)
+    assert writes == []
+    resume_event.set()
+    assert await task is True
+    assert len(writes) == 1
+    assert captured["timeout"].total is None
+    assert captured["timeout"].sock_read == opus_stream._RECV_TIMEOUT
+
 
 def test_lyric_at_pure_function():
     from src.mcp.tools.music.lyrics import format_lyric_display, lyric_at

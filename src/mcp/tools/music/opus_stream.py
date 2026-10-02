@@ -97,6 +97,7 @@ class OpusStreamReader:
         *,
         headers: dict[str, str] | None = None,
         deadline: asyncio.Future | None = None,
+        resume_event: asyncio.Event | None = None,
     ) -> bool:
         """Stream until EOF/stop. Returns True when the stream finished cleanly."""
         import aiohttp
@@ -105,7 +106,7 @@ class OpusStreamReader:
         decoder = OpusStreamDecoder()
         frames = 0
         try:
-            timeout = aiohttp.ClientTimeout(total=_RECV_TIMEOUT)
+            timeout = aiohttp.ClientTimeout(total=None, sock_read=_RECV_TIMEOUT)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(url, headers=headers) as resp:
                     if resp.status != 200:
@@ -139,6 +140,8 @@ class OpusStreamReader:
                             payload = bytes(buf[_HEADER_LEN : _HEADER_LEN + pkt_len])
                             del buf[: _HEADER_LEN + pkt_len]
 
+                            if resume_event is not None:
+                                await resume_event.wait()
                             pcm = decoder.decode_packet(payload)
                             if pcm is None:
                                 continue

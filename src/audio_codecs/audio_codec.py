@@ -440,15 +440,13 @@ class AudioCodec:
         After writing, if the music buffer exceeds the target level, wait for playback to
         consume it — this is the only clock source on the music path (the decoder clock
         becomes inaccurate after a pause, so it cannot be used as a reference).
-        Backpressure gives up after 2 seconds as a safety net, and the FIFO drops the
-        oldest samples when full so it never grows without bound.
+        Keep waiting while the device consumes audio instead of allowing the bounded FIFO
+        to discard older samples during a temporary output stall.
         """
         self._music_fifo.push(pcm_float32)
 
         target = int(AudioConfig.OUTPUT_SAMPLE_RATE * _MUSIC_BACKLOG_TARGET_S)
-        for _ in range(100):
-            if self._is_closing or self._music_fifo.size <= target:
-                break
+        while not self._is_closing and self._music_fifo.size > target:
             await asyncio.sleep(0.02)
 
     def is_tts_playing(self) -> bool:
