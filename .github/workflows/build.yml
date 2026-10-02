@@ -311,7 +311,7 @@ jobs:
                   name for name in cfg["pyinstaller"].get("hidden_import", [])
                   if name != "textual"
               ]
-            else:
+          else:
               hidden_imports = cfg["pyinstaller"].setdefault("hidden_import", [])
               hidden_imports.append("textual.widgets._tab_pane")
           macos = cfg.setdefault("platforms", {}).get("macos", {})
