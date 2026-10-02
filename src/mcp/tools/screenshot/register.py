@@ -99,7 +99,7 @@ def register_screenshot_tools(
                 "on the desktop, screen capture, view the current interface, analyze "
                 "the current page, screen OCR. "
                 "This tool captures the physical desktop screen; it does NOT read "
-                "document files attached in the chat — use document_manage for those. "
+                "document files attached in the chat — use manage_document for those. "
                 "Features: 1) capture the whole desktop screen; 2) screen content recognition and analysis; "
                 "3) screen OCR text extraction; 4) interface element analysis; 5) application recognition; "
                 "6) error message screenshot analysis; 7) desktop state check; 8) multi-monitor screenshots. "

@@ -18,6 +18,21 @@ def _make_server() -> McpServer:
     return McpServer()
 
 
+def test_document_tool_is_registered_as_manage_document(monkeypatch):
+    from src.mcp.tools import documents
+    from src.mcp.tools.documents import register as document_registration
+
+    monkeypatch.setattr(
+        document_registration, "set_pending_document_provider", lambda _provider: None
+    )
+    tools = []
+    documents.register_documents_tools(tools.append)
+
+    names = {tool.name for tool in tools}
+    assert "manage_document" in names
+    assert "document_manage" not in names
+
+
 def _capture() -> tuple[list, callable]:
     """An async send callback that records every reply sent over the wire."""
     sent = []
@@ -157,7 +172,15 @@ def test_promoted_document_tool_is_not_repeated_across_pages():
             )
         )
     server.add_tool(
-        McpTool("document_manage", "Read an attached document", PropertyList([]), callback)
+        McpTool(
+            "set_workspace",
+            "Select a coding workspace",
+            PropertyList([Property("path", PropertyType.STRING)]),
+            callback,
+        )
+    )
+    server.add_tool(
+        McpTool("manage_document", "Read an attached document", PropertyList([]), callback)
     )
     server.add_tool(McpTool("after_document", "After document", PropertyList([]), callback))
     server.set_pending_document("2.pptx", "isinya apa ini?")
@@ -180,14 +203,24 @@ def test_promoted_document_tool_is_not_repeated_across_pages():
     names = asyncio.run(read_all_pages())
 
     assert len(sent) > 1
-    assert names[0] == "document_manage"
-    assert names.count("document_manage") == 1
+    assert names[0] == "manage_document"
+    assert names[1] == "set_workspace"
+    assert names.count("manage_document") == 1
+    assert names.count("set_workspace") == 1
     assert len(names) == len(set(names))
 
+    first_page_descriptions = {
+        tool["name"]: tool["description"] for tool in sent[0]["result"]["tools"]
+    }
+    assert "contents as the user's current request" in first_page_descriptions[
+        "manage_document"
+    ]
+    assert "call set_workspace" in first_page_descriptions["set_workspace"]
+
     sent.clear()
-    asyncio.run(server._handle_tools_list(99, {"cursor": "document_manage"}))
+    asyncio.run(server._handle_tools_list(99, {"cursor": "manage_document"}))
     names_after_cursor = [tool["name"] for tool in sent[0]["result"]["tools"]]
-    assert "document_manage" not in names_after_cursor
+    assert "manage_document" not in names_after_cursor
     assert "after_document" in names_after_cursor
 
 

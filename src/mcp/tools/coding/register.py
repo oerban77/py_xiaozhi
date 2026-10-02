@@ -57,7 +57,9 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "sha256 revision that apply_changes needs to modify the file. "
                 "Binary files are rejected. Paths are relative to the active coding "
                 "workspace; if the user named another project directory, call "
-                "set_workspace once before reading it."
+                "set_workspace once before reading it. Firmware artifacts with .bin "
+                "or .hex extensions are intentionally skipped; do not retry reading "
+                "them, analyze source/config files instead."
             ),
             properties=PropertyList(
                 [
@@ -78,7 +80,8 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
             description=(
                 "List the entries of a directory, optionally recursively. Paths are "
                 "relative to the active coding workspace; call set_workspace first "
-                "when the user explicitly names a different project directory."
+                "when the user explicitly names a different project directory. .bin "
+                "and .hex firmware artifacts are omitted from listings."
             ),
             properties=PropertyList(
                 [
@@ -100,7 +103,8 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Enumerate files under a directory filtered by glob patterns, "
                 "for example '*.py'. Paths are relative to the active coding "
                 "workspace; call set_workspace first when the user explicitly names "
-                "a different project directory."
+                "a different project directory. .bin and .hex firmware artifacts "
+                "are omitted from results."
             ),
             properties=PropertyList(
                 [
@@ -122,7 +126,8 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "Search for text or a regular expression in the files under a "
                 "directory and return matching lines with file and line number. Paths "
                 "are relative to the active coding workspace; call set_workspace once "
-                "for a user-requested different project, then use relative paths."
+                "for a user-requested different project, then use relative paths. "
+                "Search skips .bin and .hex firmware artifacts."
             ),
             properties=PropertyList(
                 [

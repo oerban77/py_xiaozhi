@@ -566,7 +566,7 @@ class XiaozhiTuiApp(App[None]):
 
         if path is None:
             return False
-        self.write_log(f"[cyan]Clipboard attached:[/] {path.name}; sending to document_manage")
+        self.write_log(f"[cyan]Clipboard attached:[/] {path.name}; sending to manage_document")
         self._dispatch_command(f"/attachment {path}")
         return True
 

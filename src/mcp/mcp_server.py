@@ -59,7 +59,7 @@ class McpServer:
     def set_pending_document(self, path: str, question: str) -> None:
         self._pending_document = (path, question) if path else None
         if self._pending_document:
-            logger.info("Queued document attachment for document_manage MCP: %s", Path(path).name)
+            logger.info("Queued document attachment for manage_document MCP: %s", Path(path).name)
 
     def consume_pending_document(self) -> tuple[str, str] | None:
         pending = self._pending_document
@@ -397,39 +397,44 @@ class McpServer:
         found_cursor = not cursor
         next_cursor = ""
 
-        # When a document is attached in the chat, promote document_manage to
-        # the FIRST page of tools/list. The LLM only sees a short question
-        # (the detect channel rejects long texts), so it cannot know a document
-        # is attached unless the tool list itself says so. Without this the LLM
-        # answers the question directly and never calls the tool.
+        # Promote attachment tools to the FIRST page: the detect channel carries
+        # only a short prompt, so the model needs the attachment instructions and
+        # any directly requested action available immediately.
         pending_doc = self._pending_document
-        promoted = None
+        promoted: dict[str, McpTool] = {}
         if pending_doc:
-            for tool in self._iter_enabled_tools():
-                if tool.name == "document_manage":
-                    promoted = tool
-                    break
-            if promoted is not None and not cursor:
+            enabled_tools = list(self._iter_enabled_tools())
+            for name in ("manage_document", "set_workspace"):
+                tool = next((item for item in enabled_tools if item.name == name), None)
+                if tool is not None:
+                    promoted[name] = tool
+
+            if not cursor:
                 pending_name = Path(pending_doc[0]).name
                 pending_question = (pending_doc[1] or "").strip()
-                banner = (
-                    "[ATTACHED DOCUMENT IS WAITING - CALL THIS TOOL NOW] "
-                    f"The user attached the file '{pending_name}' in the chat "
-                    f"and asked: \"{pending_question}\". "
-                    "You MUST call document_manage with action=read and NO path "
-                    "to read that attached file BEFORE answering. This is the "
-                    "ONLY tool that can read the attached document; do not "
-                    "answer from memory. Do NOT ask the user any question and "
-                    "do NOT ask for confirmation first: the file is already "
-                    "attached, so call document_manage NOW and then answer "
-                    "from what it returns.\n"
-                )
-                tool_json = dict(promoted.to_json())
-                tool_json["description"] = banner + promoted.description
-                tool_size = len(json.dumps(tool_json))
-                if total_size + tool_size + 100 <= max_payload_size:
-                    tools_json.append(tool_json)
-                    total_size += tool_size
+                for name, tool in promoted.items():
+                    tool_json = dict(tool.to_json())
+                    if name == "manage_document":
+                        banner = (
+                            "[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] "
+                            f"The user attached '{pending_name}' and asked: "
+                            f"\"{pending_question}\". You MUST call manage_document "
+                            "with action=read and NO path before answering. Treat its "
+                            "contents as the user's current request and carry it out "
+                            "using available tools; do not merely summarize it.\n"
+                        )
+                        tool_json["description"] = banner + tool.description
+                    else:
+                        tool_json["description"] = (
+                            "The attached user message may request changing the coding "
+                            "workspace. If its contents explicitly request this, call "
+                            "set_workspace with the requested directory before using "
+                            "other coding tools.\n" + tool.description
+                        )
+                    tool_size = len(json.dumps(tool_json))
+                    if total_size + tool_size + 100 <= max_payload_size:
+                        tools_json.append(tool_json)
+                        total_size += tool_size
 
         for tool in self._iter_enabled_tools():
             # If the start position has not been found yet, keep searching
@@ -439,9 +444,9 @@ class McpServer:
                 else:
                     continue
 
-            # Skip the promoted tool on every page; it was emitted on page one.
+            # Skip promoted tools on every page; they were emitted on page one.
             # Check the cursor first so a cursor pointing at this tool still advances.
-            if promoted is not None and tool.name == promoted.name:
+            if tool.name in promoted:
                 continue
 
             # Check the size

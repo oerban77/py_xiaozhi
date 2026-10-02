@@ -1,7 +1,8 @@
 import pytest
 
-from src.mcp.tools.coding.register import register_coding_tools
+from src.mcp.tools.coding import service as coding_service
 from src.mcp.tools.coding.patching import ToolFailure
+from src.mcp.tools.coding.register import register_coding_tools
 from src.mcp.tools.coding.service import _resolve
 
 
@@ -48,3 +49,27 @@ async def test_set_workspace_tool_selects_user_requested_project(monkeypatch, tm
     assert calls == [str(selected)]
     assert "Active coding workspace" in result
     assert str(selected.resolve()) in result
+
+
+def test_firmware_artifacts_are_skipped_by_coding_analysis_tools(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "main.c").write_text("SOURCE_MARKER", encoding="utf-8")
+    (workspace / "firmware.hex").write_text("HEX_ONLY_MARKER", encoding="utf-8")
+    (workspace / "firmware.BIN").write_bytes(b"\\x00\\x01")
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    assert "firmware.hex" not in coding_service._list_dir(
+        {"path": ".", "recursive": True}
+    )
+    listed_files = coding_service._list_files({"path": "."})
+    assert "firmware.hex" not in listed_files
+    assert "firmware.BIN" not in listed_files
+    search_result = coding_service._search_text(
+        {"path": ".", "query": "HEX_ONLY_MARKER"}
+    )
+    assert "no matches" in search_result
+
+    with pytest.raises(ToolFailure) as exc_info:
+        coding_service._read_file({"path": "firmware.hex"})
+    assert exc_info.value.code == "IGNORED_FILE_TYPE"

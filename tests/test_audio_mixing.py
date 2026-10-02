@@ -24,8 +24,8 @@ from src.audio_codecs.audio_codec import (  # noqa: E402
 )
 from src.audio_codecs.stream_manager import AudioStreamManager  # noqa: E402
 from src.constants.constants import AudioConfig  # noqa: E402
-from src.core.event_bus import EventBus  # noqa: E402
 from src.constants.constants import DeviceState  # noqa: E402
+from src.core.event_bus import EventBus  # noqa: E402
 from src.mcp.tools.music.bus import MusicEventBridge  # noqa: E402
 from src.plugins.audio import AudioPlugin  # noqa: E402
 from src.plugins.audio import _is_explicit_music_stop_command  # noqa: E402

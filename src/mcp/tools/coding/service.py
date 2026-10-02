@@ -73,6 +73,7 @@ DEFAULT_TIMEOUT_MS = 30_000
 MAX_TIMEOUT_MS = 120_000
 BINARY_PROBE_BYTES = 4096
 MAX_DEPTH = 8
+IGNORED_ANALYSIS_EXTENSIONS = {".bin", ".hex"}
 
 # Commands that must never be run, whatever the arguments. The hardware tool
 # uses the same list; a coding assistant has no business running these either.
@@ -121,6 +122,10 @@ def _is_within(root: Path, target: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _is_ignored_analysis_file(path: Path) -> bool:
+    return path.suffix.lower() in IGNORED_ANALYSIS_EXTENSIONS
 
 
 def _resolve(path: str, root: Path, *, must_exist: bool = False) -> Path:
@@ -182,6 +187,12 @@ def _read_file(args: dict) -> str:
         raise ToolFailure(
             "IS_DIRECTORY", f"Is a directory: {path}", category="validation"
         )
+    if _is_ignored_analysis_file(path):
+        raise ToolFailure(
+            "IGNORED_FILE_TYPE",
+            f"Skipped {path.suffix} firmware artifact. Analyze source/config files instead.",
+            category="validation",
+        )
     text = _read_text(path)
     start_line = int(args.get("start_line") or 1)
     end_line = int(args.get("end_line") or 0)
@@ -241,6 +252,11 @@ def _list_dir(args: dict) -> str:
             if not include_hidden:
                 dirnames[:] = [d for d in dirnames if not d.startswith(".")]
                 filenames = [f for f in filenames if not f.startswith(".")]
+            filenames = [
+                name
+                for name in filenames
+                if not _is_ignored_analysis_file(Path(name))
+            ]
             for name in sorted(dirnames):
                 entries.append(f"{Path(dirpath, name).relative_to(root)}/")
             for name in sorted(filenames):
@@ -250,6 +266,8 @@ def _list_dir(args: dict) -> str:
     else:
         for entry in sorted(path.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
             if not include_hidden and entry.name.startswith("."):
+                continue
+            if entry.is_file() and _is_ignored_analysis_file(entry):
                 continue
             display = str(entry.relative_to(root))
             entries.append(f"{display}/" if entry.is_dir() else display)
@@ -284,6 +302,8 @@ def _list_files(args: dict) -> str:
             filenames = [f for f in filenames if not f.startswith(".")]
         for name in filenames:
             full = Path(dirpath, name)
+            if _is_ignored_analysis_file(full):
+                continue
             relative = str(full.relative_to(root))
             if exclude_list and any(
                 fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(relative, pat)
@@ -333,6 +353,8 @@ def _search_text(args: dict) -> str:
             if globs and not any(fnmatch.fnmatch(name, pat) for pat in globs):
                 continue
             full = Path(dirpath, name)
+            if _is_ignored_analysis_file(full):
+                continue
             if full.is_symlink() and not _is_within(root, full.resolve()):
                 continue
             try:

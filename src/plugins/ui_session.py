@@ -120,6 +120,35 @@ class SessionActions:
         if not text:
             return False
 
+        if len(text) > 31:
+            from src.ui.shared.clipboard_attachments import save_pasted_text
+            from src.ui.shared.events import UISendAttachmentRequest
+
+            try:
+                attachment_path = save_pasted_text(text)
+            except Exception as exc:
+                logger.exception("Could not save long chat text as an attachment")
+                await self._set_attachment_status(
+                    f"Could not attach long message: {exc}"
+                )
+                return False
+
+            logger.info(
+                "Routing long chat message through temporary attachment: chars=%d",
+                len(text),
+            )
+            await self.send_attachment_from_event(
+                UISendAttachmentRequest(
+                    path=str(attachment_path),
+                    question=(
+                        "Ini pesan/perintah pengguna. Baca isinya dan jalankan "
+                        "permintaan yang tertulis."
+                    ),
+                    use_document_tool=True,
+                )
+            )
+            return True
+
         logger.info(f"Sending text: {text[:40]}{'...' if len(text) > 40 else ''}")
 
         if self._ctx.is_speaking():

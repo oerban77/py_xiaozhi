@@ -23,7 +23,7 @@ def register_documents_tools(
 ) -> None:
     """Register the document tools with McpServer.
 
-    pending_document_provider: when supplied, ``document_manage`` reads a
+    pending_document_provider: when supplied, ``manage_document`` reads a
     chat-attached document when the LLM calls it without a path.
     """
     set_pending_document_provider(pending_document_provider)
@@ -51,7 +51,7 @@ def register_documents_tools(
             search_files,
         ),
         McpTool(
-            "document_manage",
+            "manage_document",
             (
                 "[ATTACHED DOCUMENT READER - use this for attached files] "
                 "When a document/file is attached, uploaded, or sent in the chat, "
@@ -60,7 +60,7 @@ def register_documents_tools(
                 "chat. Never use take_screenshot, read_file, or image_read for an "
                 "attached document. If the user asks to read, analyze, summarize, "
                 "explain, translate, or answer questions about an attached "
-                "document, call document_manage(action=read) FIRST, then answer "
+                "document, call manage_document(action=read) FIRST, then answer "
                 "from the returned content.\n"
                 "Read, create, edit, delete or export a document.\n"
                 "Supports text formats (.txt .md .json .csv .log .ini .yaml .xml), "
