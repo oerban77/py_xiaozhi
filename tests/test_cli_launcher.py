@@ -93,6 +93,44 @@ def test_gui_mode_hides_console_on_windows(monkeypatch):
     assert called == {"free": True}
 
 
+def test_tui_bootstrap_logging_does_not_write_to_terminal():
+    import subprocess
+    import sys
+
+    script = "\n".join(
+        [
+            "import io, logging",
+            "from main import _silence_tui_bootstrap_console",
+            "logger = logging.getLogger('test.tui.bootstrap')",
+            "stream = io.StringIO()",
+            "handler = logging.StreamHandler(stream)",
+            "handler._xiaozhi_bootstrap_handler = True",
+            "logger.addHandler(handler)",
+            "_silence_tui_bootstrap_console()",
+            "logger.info('startup debug')",
+            "assert not stream.getvalue()",
+            "print('suppressed')",
+        ]
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "suppressed"
+    assert result.stderr == ""
+
+
+def test_tui_ui_starts_before_wake_word_model_loading():
+    from src.plugins.ui import UIPlugin
+    from src.plugins.wake_word import WakeWordPlugin
+
+    assert UIPlugin.priority < WakeWordPlugin.priority
+
+
 def test_tui_workspace_setting_persists_new_directory(monkeypatch, tmp_path):
     from src.ui.tui import settings_data
 

@@ -20,7 +20,7 @@ class UIPlugin(Plugin):
     """Interface plugin."""
 
     name = "ui"
-    priority = 60
+    priority = 25
 
     def __init__(
         self,

@@ -5,7 +5,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from src.mcp.tools.documents.register import register_documents_tools
-from src.mcp.tools.documents.service import _read_pdf
+from src.mcp.tools.documents.service import _PDF_MAX_PAGES_PER_READ, _read_pdf
 
 
 def _write_text_pdf(path, page_count):
@@ -33,18 +33,19 @@ def _write_text_pdf(path, page_count):
 
 def test_large_pdf_returns_chunks_with_continuation(tmp_path):
     pdf_path = tmp_path / "long-document.pdf"
-    _write_text_pdf(pdf_path, page_count=25)
+    page_count = _PDF_MAX_PAGES_PER_READ + 1
+    _write_text_pdf(pdf_path, page_count=page_count)
 
     first_chunk = _read_pdf(str(pdf_path))
-    next_chunk = _read_pdf(str(pdf_path), page_start=21, page_end=25)
+    next_page = _PDF_MAX_PAGES_PER_READ + 1
+    next_chunk = _read_pdf(str(pdf_path), page_start=next_page, page_end=page_count)
 
     assert "PAGE 1 unique" in first_chunk
-    assert "PAGE 20 unique" in first_chunk
-    assert "PAGE 21 unique" not in first_chunk
-    assert "Continue with page_start=21, page_end=25." in first_chunk
-    assert "PAGE 21 unique" in next_chunk
-    assert "PAGE 25 unique" in next_chunk
-    assert "Read pages 21-25 of 25." in next_chunk
+    assert f"PAGE {_PDF_MAX_PAGES_PER_READ} unique" in first_chunk
+    assert f"PAGE {next_page} unique" not in first_chunk
+    assert f"Continue with page_start={next_page}, page_end={page_count}." in first_chunk
+    assert f"PAGE {next_page} unique" in next_chunk
+    assert f"Read pages {next_page}-{page_count} of {page_count}." in next_chunk
 
 
 def test_pdf_page_range_validation(tmp_path):
@@ -79,5 +80,20 @@ async def test_manage_document_tool_reads_requested_pdf_range(tmp_path):
 
     assert response["isError"] is False
     assert "PAGE 21 unique" in text
-    assert "PAGE 25 unique" in text
-    assert "Read pages 21-25 of 25." in text
+    assert "PAGE 24 unique" in text
+    assert "PAGE 25 unique" not in text
+    assert "Continue with page_start=25, page_end=25." in text
+
+    continuation = json.loads(
+        await document_tool.call(
+            {
+                "action": "read",
+                "path": str(pdf_path),
+                "page_start": 25,
+                "page_end": 25,
+            }
+        )
+    )
+    continuation_text = continuation["content"][0]["text"]
+    assert continuation["isError"] is False
+    assert "PAGE 25 unique" in continuation_text

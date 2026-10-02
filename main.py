@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import faulthandler
 import locale
+import logging
 import os
 import signal
 import sys
@@ -112,6 +113,24 @@ def _configure_gui_console_visibility(mode: str) -> None:
     """Hide the terminal window for GUI mode on Windows."""
     if mode == "gui" and sys.platform == "win32":
         _free_console()
+
+
+def _silence_tui_bootstrap_console() -> None:
+    """Prevent temporary pre-configuration loggers from writing over the TUI."""
+    root_logger = logging.getLogger()
+    for logger_obj in logging.Logger.manager.loggerDict.values():
+        if not isinstance(logger_obj, logging.Logger):
+            continue
+        for handler in list(logger_obj.handlers):
+            if getattr(handler, "_xiaozhi_bootstrap_handler", False):
+                logger_obj.removeHandler(handler)
+                handler.close()
+    for handler in list(root_logger.handlers):
+        if getattr(handler, "_xiaozhi_bootstrap_handler", False):
+            root_logger.removeHandler(handler)
+            handler.close()
+    if not root_logger.handlers:
+        root_logger.addHandler(logging.NullHandler())
 
 
 def parse_args(argv=None, *, default_mode="gui"):
@@ -285,6 +304,9 @@ def main(argv=None, *, default_mode="gui") -> int:
     _configure_gui_console_visibility(args.mode)
 
     os.environ["XIAOZHI_START_MINIMIZED"] = "1" if args.start_minimized else "0"
+
+    if args.mode == "tui":
+        _silence_tui_bootstrap_console()
 
     from src.utils.config_manager import initialize_config  # noqa: E402
 
