@@ -93,6 +93,27 @@ os.environ["QT_API"] = "pyside6"
 os.environ["QT_QUICK_CONTROLS_STYLE"] = "Basic"
 
 
+def _free_console() -> None:
+    """Detach from the current console on Windows so GUI mode can run hidden."""
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        if hasattr(kernel32, "FreeConsole"):
+            kernel32.FreeConsole()
+    except Exception:
+        pass
+
+
+def _configure_gui_console_visibility(mode: str) -> None:
+    """Hide the terminal window for GUI mode on Windows."""
+    if mode == "gui" and sys.platform == "win32":
+        _free_console()
+
+
 def parse_args(argv=None):
     """Parse the command-line arguments."""
     from src.constants.system import SystemConstants
@@ -260,6 +281,8 @@ def main(argv=None) -> int:
         args = argv
     else:
         args = parse_args(argv)
+
+    _configure_gui_console_visibility(args.mode)
 
     os.environ["XIAOZHI_START_MINIMIZED"] = "1" if args.start_minimized else "0"
 

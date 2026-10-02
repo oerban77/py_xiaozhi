@@ -69,6 +69,17 @@ def test_parse_args_supports_starting_minimized():
     assert args.start_minimized is True
 
 
+def test_gui_mode_hides_console_on_windows(monkeypatch):
+    called = {}
+
+    monkeypatch.setattr(main.sys, "platform", "win32")
+    monkeypatch.setattr(main, "_free_console", lambda: called.setdefault("free", True))
+
+    main._configure_gui_console_visibility("gui")
+
+    assert called == {"free": True}
+
+
 def test_tui_workspace_setting_persists_new_directory(monkeypatch, tmp_path):
     from src.ui.tui import settings_data
 
