@@ -1797,12 +1797,47 @@ def test_image_ocr_fallback_explains_missing_vision(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_audio_channel_open_waits_for_listen_request():
+    from src.bootstrap.session import ConversationSession
+    from src.constants.constants import DeviceState
+
+    states = []
+
+    class FakeState:
+        async def set_device_state(self, state):
+            states.append(state)
+
+        def set_keep_listening(self, _value):
+            pass
+
+    session = ConversationSession(
+        state=FakeState(),
+        protocol=object(),  # type: ignore[arg-type]
+        plugins=None,  # type: ignore[arg-type]
+    )
+
+    await session._on_audio_channel_opened()
+
+    assert states == [DeviceState.IDLE]
+
+
+@pytest.mark.asyncio
 async def test_abort_speaking_resumes_keep_listening():
     """持续监听时打断后回到 listening."""
     from src.bootstrap.session import ConversationSession
     from src.constants.constants import DeviceState, ListeningMode
 
     order = []
+
+    class FakeCodec:
+        async def clear_audio_queue(self):
+            order.append("clear_queue")
+
+    class FakePlugins:
+        def get_plugin(self, name):
+            if name == "audio":
+                return type("AudioPlugin", (), {"codec": FakeCodec()})()
+            return None
 
     class FakeProtocol:
         def is_audio_channel_opened(self):
@@ -1831,15 +1866,70 @@ async def test_abort_speaking_resumes_keep_listening():
     session = ConversationSession(
         state=FakeState(),
         protocol=FakeProtocol(),
-        plugins=None,  # type: ignore[arg-type]
+        plugins=FakePlugins(),  # type: ignore[arg-type]
     )
 
     await session.abort_speaking("user_interruption")
+    assert order[0] == "clear_queue"
     assert ("abort", "user_interruption") in order
+    assert order.index("clear_queue") < order.index(("abort", "user_interruption"))
     assert ("listen", ListeningMode.AUTO_STOP) in order
     assert ("state", DeviceState.LISTENING) in order
     assert ("state", DeviceState.IDLE) not in order
     assert session._aborted is False
+
+
+@pytest.mark.asyncio
+async def test_wake_word_interrupt_resumes_listening_in_manual_mode():
+    from src.constants.constants import AbortReason, ListeningMode
+    from src.plugins.wake_word import WakeWordPlugin
+
+    events = []
+
+    class FakeContext:
+        speaking = True
+        listening = False
+
+        def is_speaking(self):
+            return self.speaking
+
+        def is_listening(self):
+            return self.listening
+
+        def get_config(self):
+            return type("Config", (), {"get_config": lambda _self, _path, default=False: default})()
+
+    class FakeCodec:
+        async def clear_audio_queue(self):
+            events.append("clear_audio")
+
+    class FakeCommands:
+        async def abort_speaking(self, reason):
+            events.append(("abort", reason))
+            context.speaking = False
+
+        async def connect_protocol(self):
+            events.append("connect")
+            return True
+
+        async def start_listening(self, mode):
+            events.append(("listen", mode))
+            context.listening = True
+
+    context = FakeContext()
+    plugin = WakeWordPlugin()
+    plugin._ctx = context
+    plugin._cmd = FakeCommands()
+    plugin._inject_dependency("audio", type("AudioPlugin", (), {"codec": FakeCodec()})())
+
+    await plugin._on_detected("Hello Xiaozhi", "Hello Xiaozhi")
+
+    assert events == [
+        ("abort", AbortReason.WAKE_WORD_DETECTED),
+        "clear_audio",
+        "connect",
+        ("listen", ListeningMode.AUTO_STOP),
+    ]
 
 
 def test_device_state_handler_does_not_block_with_sleep():
@@ -1906,6 +1996,7 @@ async def test_handle_tts_stop_relisten_before_state():
         protocol=FakeProtocol(),
         plugins=FakePlugins(),  # type: ignore[arg-type]
     )
+    session._aborted = True
 
     await session._handle_tts_stop()
 

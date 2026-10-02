@@ -62,10 +62,10 @@ class ConversationSession:
         if self._keep_idle_on_channel_open:
             self._keep_idle_on_channel_open = False
             self.state.set_keep_listening(False)
-            await self.state.set_device_state(DeviceState.IDLE)
-            logger.info("Protocol channel opened (config reconnect): staying idle, not entering listen")
-            return
-        await self.state.set_device_state(DeviceState.LISTENING)
+            logger.info("Protocol channel opened (config reconnect): staying idle")
+        else:
+            logger.info("Protocol channel opened; waiting for an explicit listen request")
+        await self.state.set_device_state(DeviceState.IDLE)
 
     async def _on_audio_channel_closed(self, _=None) -> None:
         await self.state.set_device_state(DeviceState.IDLE)
@@ -115,6 +115,8 @@ class ConversationSession:
     async def _handle_tts_stop(self) -> None:
         # If we still need to keep listening, send listen first, then clear the queue and update state
         if not self.state.keep_listening:
+            if self._aborted:
+                await self._clear_tts_audio_queue()
             await self.state.set_device_state(DeviceState.IDLE)
             return
 
@@ -131,17 +133,9 @@ class ConversationSession:
             else:
                 logger.warning("TTS finished but protocol channel is closed; skipping re-listen")
 
-        # Only discard buffered TTS audio when the speech was aborted by the user
-        # (interrupt / wake word). A normal tts stop arrives as soon as the server has
-        # streamed every frame, which can be well before the playback buffer has drained,
-        # so clearing here would cut off the tail of the sentence.
+        # A normal TTS stop arrives before the playback buffer drains, so leave its tail intact.
         if self._aborted:
-            try:
-                audio_plugin = self.plugins.get_plugin("audio")
-                if audio_plugin and audio_plugin.codec:
-                    await audio_plugin.codec.clear_audio_queue()
-            except Exception as e:
-                logger.warning(f"Failed to clear audio queue: {e}", exc_info=True)
+            await self._clear_tts_audio_queue()
         else:
             logger.debug("TTS finished normally; leaving the playback buffer to drain")
 
@@ -250,6 +244,7 @@ class ConversationSession:
         logger.info(f"Aborting speech output: {reason}")
         self._aborted = True
         self.state.set_aborted(True)
+        await self._clear_tts_audio_queue()
         try:
             if self.protocol.is_audio_channel_opened():
                 await self.protocol.send_abort_speaking(reason)
@@ -274,3 +269,11 @@ class ConversationSession:
             logger.debug("Continuous listening resumed after interrupt")
         else:
             await self.state.set_device_state(DeviceState.IDLE)
+
+    async def _clear_tts_audio_queue(self) -> None:
+        try:
+            audio_plugin = self.plugins.get_plugin("audio") if self.plugins else None
+            if audio_plugin and audio_plugin.codec:
+                await audio_plugin.codec.clear_audio_queue()
+        except Exception as e:
+            logger.warning(f"Failed to clear audio queue after interrupt: {e}", exc_info=True)

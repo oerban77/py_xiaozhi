@@ -5,7 +5,7 @@ Detects the wake word and triggers a conversation.
 
 from typing import TYPE_CHECKING, Optional
 
-from src.constants.constants import AbortReason
+from src.constants.constants import AbortReason, ListeningMode
 from src.logging import get_logger
 from src.plugins.base import Plugin
 
@@ -104,16 +104,17 @@ class WakeWordPlugin(Plugin):
                 await self._cmd.abort_speaking(AbortReason.WAKE_WORD_DETECTED)
                 if self._audio_plugin and self._audio_plugin.codec:
                     await self._audio_plugin.codec.clear_audio_queue()
-            else:
-                # Start an automatic conversation
-                await self._cmd.connect_protocol()
-                from src.constants.constants import ListeningMode
+                if self._ctx.is_listening():
+                    return
 
-                mode = (
-                    ListeningMode.REALTIME
-                    if self._ctx.get_config().get_config("AEC_OPTIONS.ENABLED", True)
-                    else ListeningMode.AUTO_STOP
-                )
+            # Start/resume a voice session so speech following the wake word is heard.
+            await self._cmd.connect_protocol()
+            mode = (
+                ListeningMode.REALTIME
+                if self._ctx.get_config().get_config("AEC_OPTIONS.ENABLED", False)
+                else ListeningMode.AUTO_STOP
+            )
+            if not self._ctx.is_listening():
                 await self._cmd.start_listening(mode)
         except Exception as e:
             logger.error(f"Failed to handle wake word detection: {e}", exc_info=True)

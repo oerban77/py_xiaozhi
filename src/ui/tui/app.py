@@ -300,6 +300,7 @@ class XiaozhiTuiApp(App[None]):
 
     BINDINGS = [
         Binding("ctrl+c", "quit_app", "Quit", show=True, priority=True),
+        Binding("f3", "interrupt_speech", "Interrupt", show=True),
         Binding("f2", "open_settings", "Settings", show=True),
         Binding("f1", "show_help", "Help", show=True),
     ]
@@ -335,7 +336,7 @@ class XiaozhiTuiApp(App[None]):
         with Horizontal(id="input-row"):
             yield Input(
                 placeholder=(
-                    "Type text to send | r Conversation | x Interrupt | s Settings | q Quit | h Help"
+                    "Type text to send | r Conversation | x+Enter / F3 Interrupt | s Settings | q Quit | h Help"
                 ),
                 id="cmd-input",
             )
@@ -446,7 +447,8 @@ class XiaozhiTuiApp(App[None]):
             "[bold cyan]Help[/]\n"
             "  Text -> send to the assistant\n"
             "  r -> start/stop the conversation\n"
-            "  x -> interrupt\n"
+            "  x -> interrupt (Enter)\n"
+            "  F3 -> interrupt immediately\n"
             "  s / F2 -> Settings\n"
             "  q / Ctrl+C -> Quit\n"
             "  h / F1 -> Help"
@@ -469,6 +471,10 @@ class XiaozhiTuiApp(App[None]):
         if self._on_command:
             self._on_command("q")
         self.exit()
+
+    def action_interrupt_speech(self) -> None:
+        if self._on_command:
+            self._on_command("x")
 
     def _install_log_handler(self) -> None:
         if self._log_handler_installed:
