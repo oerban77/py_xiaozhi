@@ -240,7 +240,7 @@ def test_background_command_can_be_cancelled(monkeypatch, tmp_path):
         )
     )
     deadline = time.monotonic() + 5
-    while result["status"] != "completed" and time.monotonic() < deadline:
+    while result["status"] != "cancelled" and time.monotonic() < deadline:
         time.sleep(0.02)
         result = json.loads(
             coding_service._exec_command(
@@ -248,8 +248,7 @@ def test_background_command_can_be_cancelled(monkeypatch, tmp_path):
             )
         )
 
-    assert result["status"] == "completed"
-    assert result["exit_code"] != 0
+    assert result["status"] == "cancelled"
 
 
 def test_sync_command_timeout_leaves_mcp_response_slack(monkeypatch, tmp_path):
@@ -273,3 +272,22 @@ def test_sync_command_timeout_leaves_mcp_response_slack(monkeypatch, tmp_path):
 
     assert "status=exited" in result
     assert captured["timeout"] == 40
+
+
+def test_exec_command_blocks_repeated_pdf_page_extraction(monkeypatch, tmp_path):
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        coding_service.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("PDF dump command must not execute"),
+    )
+    command = (
+        "python -c \"import pypdf; pdf = open('book.pdf', 'rb'); "
+        "reader = pypdf.PdfReader(pdf); page = reader.pages[12]; "
+        "text = page.extract_text(); print(text[:8000])\""
+    )
+
+    result = coding_service._exec_command({"cmd": command})
+
+    assert result.startswith("USE_DOCUMENT_TOOL:")
+    assert "entry_number" in result

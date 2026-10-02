@@ -212,10 +212,12 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "registry edits, user creation, shutdown) are refused. Short commands "
                 "run synchronously within the MCP timeout budget. For tests/builds "
                 "that may take longer, pass background=true; poll with job_id and "
-                "output_offset until status=completed. Pass cancel=true with job_id "
+                "output_offset until status=completed or status=cancelled. Pass cancel=true with job_id "
                 "to stop a running job. Do not report a test/build as successful "
                 "while status is running; after completion, require exit_code=0 "
-                "before claiming it passed."
+                "before claiming it passed. Do not use per-page pypdf/PyMuPDF "
+                "commands to read PDFs; use manage_document with entry_number or "
+                "page ranges to avoid a long sequence of tool calls."
             ),
             properties=PropertyList(
                 [

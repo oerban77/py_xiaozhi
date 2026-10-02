@@ -89,6 +89,8 @@ IGNORED_ANALYSIS_EXTENSIONS = {".bin", ".hex"}
 class _CommandJob:
     process: subprocess.Popen
     started_at: float
+    windows_job_handle: Any = None
+    cancelled: bool = False
     output: bytearray = field(default_factory=bytearray)
     output_base: int = 0
     total_output: int = 0
@@ -99,6 +101,91 @@ class _CommandJob:
 
 _COMMAND_JOBS: dict[str, _CommandJob] = {}
 _COMMAND_JOBS_LOCK = threading.Lock()
+
+
+def _create_windows_job_object():
+    if os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    handle = kernel32.CreateJobObjectW(None, None)
+    if not handle:
+        return None
+
+    class BasicLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_longlong),
+            ("PerJobUserTimeLimit", ctypes.c_longlong),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_ulonglong) for name in (
+            "ReadOperationCount",
+            "WriteOperationCount",
+            "OtherOperationCount",
+            "ReadTransferCount",
+            "WriteTransferCount",
+            "OtherTransferCount",
+        )]
+
+    class ExtendedLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", BasicLimitInformation),
+            ("IoInfo", IoCounters),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    information = ExtendedLimitInformation()
+    information.BasicLimitInformation.LimitFlags = 0x00002000  # KILL_ON_JOB_CLOSE
+    kernel32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    kernel32.SetInformationJobObject.restype = wintypes.BOOL
+    if not kernel32.SetInformationJobObject(
+        handle, 9, ctypes.byref(information), ctypes.sizeof(information)
+    ):
+        kernel32.CloseHandle(handle)
+        return None
+    return handle
+
+
+def _close_windows_job_object(handle) -> None:
+    if os.name == "nt" and handle:
+        import ctypes
+
+        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(handle)
+
+
+def _assign_process_to_windows_job(process: subprocess.Popen, handle):
+    if os.name != "nt" or not handle:
+        return handle
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    if kernel32.AssignProcessToJobObject(handle, process._handle):
+        return handle
+    _close_windows_job_object(handle)
+    return None
 
 # Commands that must never be run, whatever the arguments. The hardware tool
 # uses the same list; a coding assistant has no business running these either.
@@ -126,6 +213,19 @@ _BLACKLIST = [re.compile(pattern, re.IGNORECASE) for pattern in BLACKLIST_PATTER
 
 def is_command_safe(command: str) -> bool:
     return not any(pattern.search(command) for pattern in _BLACKLIST)
+
+
+def _is_pdf_page_dump_command(command: str) -> bool:
+    normalized = command.lower()
+    has_pdf = ".pdf" in normalized
+    has_pdf_reader = any(
+        name in normalized for name in ("pypdf", "pypdf2", "pdfreader", "pdfplumber", "fitz")
+    )
+    has_page_access = re.search(r"\.pages\s*\[", normalized) is not None
+    has_text_extraction = any(
+        name in normalized for name in ("extract_text", "extracttext", "get_text")
+    )
+    return has_pdf and has_pdf_reader and has_page_access and has_text_extraction
 
 
 # ── workspace resolution ──────────────────────────────────────
@@ -938,6 +1038,9 @@ def _prune_command_jobs() -> None:
                 with job.lock:
                     if job.readers_done == 2:
                         job.completed_at = now
+                        if job.windows_job_handle:
+                            _close_windows_job_object(job.windows_job_handle)
+                            job.windows_job_handle = None
             if job.completed_at is not None and now - job.completed_at > COMMAND_JOB_RETENTION_SECONDS:
                 _COMMAND_JOBS.pop(job_id, None)
         completed = sorted(
@@ -961,22 +1064,35 @@ def _start_command_job(command: str, cwd: Path, stdin_text: str) -> str:
 
         process_options = {}
         if os.name == "nt":
+            windows_job_handle = _create_windows_job_object()
             process_options["creationflags"] = getattr(
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
         else:
+            windows_job_handle = None
             process_options["start_new_session"] = True
-        process = subprocess.Popen(
-            command,
-            cwd=str(cwd),
-            shell=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-            **process_options,
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=str(cwd),
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+                **process_options,
+            )
+        except Exception:
+            _close_windows_job_object(windows_job_handle)
+            raise
+        windows_job_handle = _assign_process_to_windows_job(
+            process, windows_job_handle
         )
-        job = _CommandJob(process=process, started_at=time.monotonic())
+        job = _CommandJob(
+            process=process,
+            started_at=time.monotonic(),
+            windows_job_handle=windows_job_handle,
+        )
         job_id = uuid.uuid4().hex[:16]
         _COMMAND_JOBS[job_id] = job
 
@@ -1014,16 +1130,31 @@ def _start_command_job(command: str, cwd: Path, stdin_text: str) -> str:
 
 def _terminate_command_job(job: _CommandJob) -> None:
     process = job.process
+    job.cancelled = True
+    if os.name == "nt" and job.windows_job_handle:
+        handle = job.windows_job_handle
+        job.windows_job_handle = None
+        _close_windows_job_object(handle)
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+            except OSError:
+                pass
+        return
     if process.poll() is not None:
         return
     if os.name == "nt":
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 capture_output=True,
-                timeout=5,
+                timeout=2,
                 check=False,
             )
+            if result.returncode != 0:
+                process.kill()
         except (OSError, subprocess.TimeoutExpired):
             try:
                 process.kill()
@@ -1061,6 +1192,7 @@ def _poll_command_job(args: dict) -> str:
         return "status=invalid_argument\noutput_offset and max_output_bytes must be integers."
 
     return_code = job.process.poll()
+    completed = False
     with job.lock:
         if return_code is not None and job.readers_done == 2 and job.completed_at is None:
             job.completed_at = time.monotonic()
@@ -1075,10 +1207,19 @@ def _poll_command_job(args: dict) -> str:
         readers_done = job.readers_done
         total_output = job.total_output
         completed = return_code is not None and readers_done == 2
+        cancelled = job.cancelled
+        if completed and job.windows_job_handle:
+            _close_windows_job_object(job.windows_job_handle)
+            job.windows_job_handle = None
 
     payload = {
         "job_id": job_id,
-        "status": "completed" if completed else "running",
+        "status": (
+            "cancelled" if completed and cancelled
+            else "completed" if completed
+            else "cancelling" if cancelled
+            else "running"
+        ),
         "exit_code": return_code if completed else None,
         "output": output.decode("utf-8", errors="replace"),
         "output_offset": next_offset,
@@ -1115,6 +1256,14 @@ def _exec_command(args: dict) -> str:
             "PERMISSION_REQUIRED",
             f"Command rejected by the safety policy: {command}",
             category="security",
+        )
+    if _is_pdf_page_dump_command(command):
+        return (
+            "USE_DOCUMENT_TOOL: This command reads one PDF page at a time and can "
+            "cause a long sequence of MCP calls. It was not executed. Use "
+            "manage_document(action='read', path=<pdf>, entry_number=<requested "
+            "entry>) to return the exact numbered section in one bounded call. "
+            "For other PDF content, use page_start/page_end continuation."
         )
 
     root = _workspace_root()
