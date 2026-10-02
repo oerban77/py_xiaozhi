@@ -92,6 +92,19 @@ def setup_logging(
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, config.level, logging.INFO))
 
+    # get_logger() may have installed temporary per-module console handlers before
+    # setup_logging() ran. Remove those now that the configured handlers are ready.
+    for logger_obj in logging.Logger.manager.loggerDict.values():
+        if not isinstance(logger_obj, logging.Logger):
+            continue
+        for handler in list(logger_obj.handlers):
+            if getattr(handler, "_xiaozhi_bootstrap_handler", False):
+                logger_obj.removeHandler(handler)
+                handler.close()
+        if hasattr(logger_obj, "_xiaozhi_bootstrap_level"):
+            logger_obj.setLevel(logger_obj._xiaozhi_bootstrap_level)
+            del logger_obj._xiaozhi_bootstrap_level
+
     # Clear existing handlers
     if root_logger.handlers:
         for handler in root_logger.handlers[:]:
@@ -239,10 +252,12 @@ def get_logger(name: str | None = None) -> logging.Logger:
     # If the logging system is not initialized, add a basic console handler
     if not _initialized and not logger.handlers and not logging.root.handlers:
         handler = logging.StreamHandler()
+        handler._xiaozhi_bootstrap_handler = True
         handler.setFormatter(
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
         logger.addHandler(handler)
+        logger._xiaozhi_bootstrap_level = logger.level
         logger.setLevel(logging.DEBUG)
 
     return logger
