@@ -30,6 +30,8 @@
       "cv2",
       "PIL",
       "PIL.ImageGrab",
+      "pypdf",
+      "olefile",
       "mutagen",
       "mutagen.id3",
       "pyperclip",

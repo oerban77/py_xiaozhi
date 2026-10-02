@@ -7,6 +7,9 @@
 PySide6>=6.6.0
 qasync>=0.27.1
 
+# 终端 TUI
+textual>=0.80.0
+
 # 音频处理
 numpy>=1.26.0
 sounddevice>=0.4.4
@@ -23,7 +26,7 @@ httpx>=0.27.0
 # AI/ML
 openai>=1.0.0
 sherpa-onnx>=1.12.26
-sherpa-onnx-core>=1.12.26; sys_platform != "win32"
+sherpa-onnx-core>=1.12.26
 
 # 图像处理
 opencv-python-headless>=4.9.0

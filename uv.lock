@@ -1194,6 +1194,15 @@ wheels = [
 ]
 
 [[package]]
+name = "olefile"
+version = "0.47"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/1b/077b508e3e500e1629d366249c3ccb32f95e50258b231705c09e3c7a4366/olefile-0.47.zip", hash = "sha256:599383381a0bf3dfbd932ca0ca6515acd174ed48870cbf7fee123d698c192c1c", size = 112240, upload-time = "2023-12-01T16:22:53.025Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/d3/b64c356a907242d719fc668b71befd73324e47ab46c8ebbbede252c154b2/olefile-0.47-py2.py3-none-any.whl", hash = "sha256:543c7da2a7adadf21214938bb79c83ea12b473a4b6ee4ad4bf854e7715e13d1f", size = 114565, upload-time = "2023-12-01T16:22:51.518Z" },
+]
+
+[[package]]
 name = "openai"
 version = "2.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1602,11 +1611,13 @@ dependencies = [
     { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "cryptography" },
     { name = "gpiozero", marker = "sys_platform == 'linux'" },
+    { name = "httpx" },
     { name = "lgpio", marker = "sys_platform == 'linux'" },
     { name = "lunar-python" },
     { name = "mutagen" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "olefile" },
     { name = "openai" },
     { name = "opencv-python-headless" },
     { name = "opuslib" },
@@ -1620,6 +1631,7 @@ dependencies = [
     { name = "pynput" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
+    { name = "pypdf" },
     { name = "pyperclip" },
     { name = "pypinyin" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
@@ -1672,11 +1684,13 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "gpiozero", marker = "sys_platform == 'linux'", specifier = ">=2.0.1" },
     { name = "gpiozero", marker = "extra == 'linux'", specifier = ">=2.0.1" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "lgpio", marker = "sys_platform == 'linux'", specifier = ">=0.2.2.0" },
     { name = "lgpio", marker = "extra == 'linux'", specifier = ">=0.2.2.0" },
     { name = "lunar-python", specifier = ">=1.3.0" },
     { name = "mutagen", specifier = ">=1.47.0" },
     { name = "numpy", specifier = ">=1.26.0" },
+    { name = "olefile", specifier = ">=0.46" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "opencv-python-headless", specifier = ">=4.9.0" },
     { name = "opuslib", specifier = ">=3.0.1" },
@@ -1693,6 +1707,7 @@ requires-dist = [
     { name = "pyobjc-framework-cocoa", marker = "extra == 'macos'", specifier = ">=10.0" },
     { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'", specifier = ">=10.0" },
     { name = "pyobjc-framework-quartz", marker = "extra == 'macos'", specifier = ">=10.0" },
+    { name = "pypdf", specifier = ">=4.0.0" },
     { name = "pyperclip", specifier = ">=1.8.0" },
     { name = "pypinyin", specifier = ">=0.51.0" },
     { name = "pyside6", marker = "extra == 'gui'", specifier = ">=6.6.0" },
@@ -2029,6 +2044,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/67/43/b1f0ad3b842ab150a7e6b7d97f6257eab6af241b4c7d14cb8e7fde9214b8/pyobjc_framework_quartz-12.1-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:53b84e880c358ba1ddcd7e8d5ea0407d760eca58b96f0d344829162cda5f37b3", size = 224317, upload-time = "2025-11-14T10:00:30.703Z" },
     { url = "https://files.pythonhosted.org/packages/4a/00/96249c5c7e5aaca5f688ca18b8d8ad05cd7886ebd639b3c71a6a4cadbe75/pyobjc_framework_quartz-12.1-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:42d306b07f05ae7d155984503e0fb1b701fecd31dcc5c79fe8ab9790ff7e0de0", size = 219558, upload-time = "2025-11-14T10:00:45.476Z" },
     { url = "https://files.pythonhosted.org/packages/4d/a6/708a55f3ff7a18c403b30a29a11dccfed0410485a7548c60a4b6d4cc0676/pyobjc_framework_quartz-12.1-cp314-cp314t-macosx_10_15_universal2.whl", hash = "sha256:0cc08fddb339b2760df60dea1057453557588908e42bdc62184b6396ce2d6e9a", size = 224580, upload-time = "2025-11-14T10:01:00.091Z" },
+]
+
+[[package]]
+name = "pypdf"
+version = "6.19.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1f/ac/63d71aaedb59acbcdef491e6ca6469165e3771c9c74358204818fd9bc5a6/pypdf-6.19.0.tar.gz", hash = "sha256:bbc43aca292369ccc6cbc8a921991ecf2538a3587ab5a116eff06c321d647155", size = 7033266, upload-time = "2026-09-16T09:32:05.946Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/2c/c43c03eaf630435f023f1dc61ec4a4a78951ad5530a62c71cc89bde307b7/pypdf-6.19.0-py3-none-any.whl", hash = "sha256:7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14", size = 395480, upload-time = "2026-09-16T09:32:04.087Z" },
 ]
 
 [[package]]
