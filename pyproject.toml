@@ -39,6 +39,7 @@ dependencies = [
     "cryptography>=42.0.0",
     # 工具库
     "psutil>=5.9.0",
+    "arabic-reshaper>=3.0.1,<4",
     "pendulum>=3.0.0",
     "py-machineid>=0.6.0",
     "platformdirs>=4.0.0",

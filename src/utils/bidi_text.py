@@ -3,8 +3,8 @@
 The GUI (Qt/QML) applies the Unicode Bidirectional Algorithm (UBA) natively, so
 Arabic / Hebrew text is displayed right-to-left automatically. Rich and Textual
 do NOT apply the UBA, so the same text appears left-to-right (reversed) in the
-TUI. This module provides a self-contained, dependency-free implementation of
-the parts of the UBA needed to render RTL scripts correctly in a terminal:
+TUI. This module uses ``arabic-reshaper`` for Arabic contextual forms and a
+pragmatic run reordering implementation for mixed-direction terminal text:
 
 1. ``bidi_visual`` — reorder a logical string into visual order (RTL runs are
    reversed, embedded LTR runs such as numbers / Latin are kept in order).
@@ -23,6 +23,16 @@ good enough for chat / log lines and is fully deterministic.
 from __future__ import annotations
 
 import unicodedata
+
+from arabic_reshaper import ArabicReshaper
+
+_ARABIC_RESHAPER = ArabicReshaper(
+    configuration={
+        "delete_harakat": False,
+        "shift_harakat_position": False,
+        "support_ligatures": False,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Character classification
@@ -102,7 +112,12 @@ def _split_runs(text: str) -> list[tuple[str, str]]:
             current.append(ch)
         elif _is_ltr_char(ch):
             if current_dir == "rtl":
+                trailing_space: list[str] = []
+                while current and current[-1].isspace():
+                    trailing_space.insert(0, current.pop())
                 flush()
+                if trailing_space:
+                    runs.append(("ltr", "".join(trailing_space)))
             current_dir = "ltr"
             current.append(ch)
         else:
@@ -207,109 +222,13 @@ def bidi_positions(text: str) -> tuple[list[int], list[int]]:
 # Arabic reshaping (contextual joining forms)
 # ---------------------------------------------------------------------------
 
-# Arabic letters that have contextual forms, mapped from their isolated code
-# point to (isolated, initial, medial, final) presentation forms.
-_ARABIC_JOINING = {
-    0x0622: (0xFE81, 0xFE81, 0xFE82, 0xFE82),  # آ
-    0x0623: (0xFE83, 0xFE83, 0xFE84, 0xFE84),  # أ
-    0x0624: (0xFE85, 0xFE85, 0xFE86, 0xFE86),  # ؤ
-    0x0626: (0xFE87, 0xFE87, 0xFE88, 0xFE88),  # ئ
-    0x0627: (0xFE8D, 0xFE8D, 0xFE8E, 0xFE8E),  # ا
-    0x0628: (0xFE8F, 0xFE91, 0xFE92, 0xFE90),  # ب
-    0x0629: (0xFE93, 0xFE93, 0xFE94, 0xFE94),  # ة
-    0x062A: (0xFE95, 0xFE97, 0xFE98, 0xFE96),  # ت
-    0x062B: (0xFE99, 0xFE9B, 0xFE9C, 0xFE9A),  # ث
-    0x062C: (0xFE9D, 0xFE9F, 0xFEA0, 0xFE9E),  # ج
-    0x062D: (0xFEA1, 0xFEA3, 0xFEA4, 0xFEA2),  # ح
-    0x062E: (0xFEA5, 0xFEA7, 0xFEA8, 0xFEA6),  # خ
-    0x062F: (0xFEA9, 0xFEA9, 0xFEAA, 0xFEAA),  # د
-    0x0630: (0xFEAB, 0xFEAB, 0xFEAC, 0xFEAC),  # ذ
-    0x0631: (0xFEAD, 0xFEAD, 0xFEAE, 0xFEAE),  # ر
-    0x0632: (0xFEAF, 0xFEAF, 0xFEB0, 0xFEB0),  # ز
-    0x0633: (0xFEB1, 0xFEB3, 0xFEB4, 0xFEB2),  # س
-    0x0634: (0xFEB5, 0xFEB7, 0xFEB8, 0xFEB6),  # ش
-    0x0635: (0xFEB9, 0xFEBB, 0xFEBC, 0xFEBA),  # ص
-    0x0636: (0xFEBD, 0xFEBF, 0xFEC0, 0xFEBE),  # ض
-    0x0637: (0xFEC1, 0xFEC3, 0xFEC4, 0xFEC2),  # ط
-    0x0638: (0xFEC5, 0xFEC7, 0xFEC8, 0xFEC6),  # ظ
-    0x0639: (0xFEC9, 0xFECB, 0xFECC, 0xFECA),  # ع
-    0x063A: (0xFECD, 0xFECF, 0xFED0, 0xFECE),  # غ
-    0x0641: (0xFED1, 0xFED3, 0xFED4, 0xFED2),  # ف
-    0x0642: (0xFED5, 0xFED7, 0xFED8, 0xFED6),  # ق
-    0x0643: (0xFED9, 0xFEDB, 0xFEDC, 0xFEDA),  # ك
-    0x0644: (0xFEDD, 0xFEDF, 0xFEE0, 0xFEDE),  # ل
-    0x0645: (0xFEE1, 0xFEE3, 0xFEE4, 0xFEE2),  # م
-    0x0646: (0xFEE5, 0xFEE7, 0xFEE8, 0xFEE6),  # ن
-    0x0647: (0xFEE9, 0xFEEB, 0xFEEC, 0xFEEA),  # ه
-    0x0648: (0xFEED, 0xFEED, 0xFEEE, 0xFEEE),  # و
-    0x0649: (0xFEEF, 0xFEEF, 0xFEF0, 0xFEF0),  # ى
-    0x064A: (0xFEF1, 0xFEF3, 0xFEF4, 0xFEF2),  # ي
-}
-
-# Letters that never join to the following letter (right-joining only).
-_NON_JOINING = {0x0622, 0x0623, 0x0624, 0x0627, 0x0629, 0x062F, 0x0630,
-                0x0631, 0x0632, 0x0648, 0x0649}
-
-
-def _is_arabic_letter(ch: str) -> bool:
-    return ord(ch) in _ARABIC_JOINING
-
-
 def reshape_arabic(text: str) -> str:
     """Convert Arabic letters in ``text`` to their contextual joining forms.
 
-    The input is expected to be in logical order (as typed). The output uses
-    Arabic presentation forms so a terminal font renders connected glyphs.
-    Non-Arabic characters are passed through unchanged.
+    The input is in logical order. Harakat are preserved, while ligatures are
+    disabled so each output character still maps to its input cursor position.
     """
-    if not text:
-        return text
-
-    chars = list(text)
-    n = len(chars)
-    out: list[str] = []
-
-    for i, ch in enumerate(chars):
-        cp = ord(ch)
-        if cp not in _ARABIC_JOINING:
-            out.append(ch)
-            continue
-
-        # Determine whether the previous / next characters allow joining.
-        prev_joins = False
-        prev_index = i - 1
-        while prev_index >= 0 and _is_combining_mark(chars[prev_index]):
-            prev_index -= 1
-        if prev_index >= 0:
-            prev_cp = ord(chars[prev_index])
-            prev_joins = (
-                prev_cp in _ARABIC_JOINING
-                and prev_cp not in _NON_JOINING
-            )
-
-        next_joins = False
-        next_index = i + 1
-        while next_index < n and _is_combining_mark(chars[next_index]):
-            next_index += 1
-        if next_index < n:
-            next_cp = ord(chars[next_index])
-            next_joins = (
-                next_cp in _ARABIC_JOINING
-                and cp not in _NON_JOINING
-            )
-
-        isolated, initial, medial, final = _ARABIC_JOINING[cp]
-
-        if prev_joins and next_joins:
-            out.append(chr(medial))
-        elif prev_joins and not next_joins:
-            out.append(chr(final))
-        elif not prev_joins and next_joins:
-            out.append(chr(initial))
-        else:
-            out.append(chr(isolated))
-
-    return "".join(out)
+    return _ARABIC_RESHAPER.reshape(text)
 
 
 # ---------------------------------------------------------------------------

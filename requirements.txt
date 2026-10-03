@@ -9,6 +9,7 @@ qasync>=0.27.1
 
 # 终端 TUI
 textual>=0.80.0
+arabic-reshaper>=3.0.1,<4
 
 # 音频处理
 numpy>=1.26.0
