@@ -201,13 +201,21 @@ class TuiViewManager:
         def _apply() -> None:
             setattr(app, name, value)
 
-        try:
-            app.call_from_thread(_apply)
-        except Exception:
+        # Schedule the update on the Textual event loop without blocking.
+        # call_from_thread() blocks the calling thread on future.result(), which
+        # can deadlock the app when a worker thread updates the UI while the
+        # event loop is busy (e.g. during heavy RTL rendering or log floods).
+        loop = getattr(app, "_loop", None)
+        if loop is not None and not loop.is_closed():
             try:
-                _apply()
-            except Exception as e:
-                logger.debug(f"TUI set {name} failed: {e}")
+                loop.call_soon_threadsafe(_apply)
+                return
+            except Exception:
+                pass
+        try:
+            _apply()
+        except Exception as e:
+            logger.debug(f"TUI set {name} failed: {e}")
 
     # ----- ViewPort -----
 

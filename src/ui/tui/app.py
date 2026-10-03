@@ -866,7 +866,14 @@ class XiaozhiTuiApp(App[None]):
             def emit(self, record: logging.LogRecord) -> None:
                 try:
                     msg = self.format(record)
-                    app.call_from_thread(app.write_log, msg)
+                    # Schedule the write on the Textual event loop without blocking.
+                    # call_from_thread() would block the emitting thread on
+                    # future.result(), which deadlocks the app when a worker
+                    # thread (audio, protocol, MCP) logs while the loop is busy.
+                    loop = app._loop
+                    if loop is None or loop.is_closed():
+                        return
+                    loop.call_soon_threadsafe(app.write_log, msg)
                 except Exception:
                     pass
 
