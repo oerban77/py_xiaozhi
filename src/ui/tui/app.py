@@ -6,6 +6,7 @@ import asyncio
 import json
 from collections.abc import Callable
 
+from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -34,6 +35,7 @@ from src.ui.tui.settings_data import (
     load_setting_values,
     save_settings,
 )
+from src.utils.bidi_text import contains_rtl, to_visual
 
 logger = get_logger()
 
@@ -45,6 +47,26 @@ class ClipboardAttachmentInput(Input):
         Binding("up", "history_previous", show=False, priority=True),
         Binding("down", "history_next", show=False, priority=True),
     ]
+
+    @property
+    def _value(self) -> Text:
+        """Render logical text in visual order for RTL scripts.
+
+        The underlying `self.value` remains in logical order for editing and
+        submission, but the widget renders the visual-order string so Arabic and
+        Hebrew appear right-to-left in the TUI.
+        """
+        if self.password:
+            return Text("•" * len(self.value), no_wrap=True, overflow="ignore", end="")
+
+        rendered_value = self.value
+        if contains_rtl(rendered_value):
+            rendered_value = to_visual(rendered_value)
+
+        text = Text(rendered_value, no_wrap=True, overflow="ignore", end="")
+        if self.highlighter is not None:
+            text = self.highlighter(text)
+        return text
 
     def __init__(self, on_paste_attachment: Callable[[str], bool], **kwargs) -> None:
         self._on_paste_attachment = on_paste_attachment
@@ -541,7 +563,7 @@ class XiaozhiTuiApp(App[None]):
         if not self._status_widgets_ready:
             return
         self.query_one("#chat-line", Static).update(
-            f"Conversation: {self.chat_text or '—'}"
+            f"Conversation: {to_visual(self.chat_text) or '—'}"
         )
 
     def _refresh_music_line(self) -> None:
@@ -553,9 +575,32 @@ class XiaozhiTuiApp(App[None]):
 
     def write_log(self, message: str) -> None:
         try:
-            self.query_one("#log-panel", RichLog).write(message)
+            self.query_one("#log-panel", RichLog).write(
+                self._bidi_log_message(message)
+            )
         except Exception:
             pass
+
+    @staticmethod
+    def _bidi_log_message(message: str) -> str:
+        """Apply RTL reordering to a log line while preserving Rich markup.
+
+        Rich markup tags (``[bold cyan]...[/]``) must not be reordered or they
+        would break rendering. We split on markup tags and apply ``to_visual``
+        only to the plain-text segments between them.
+        """
+        if not message or not any(ord(ch) >= 0x0590 for ch in message):
+            return message
+        import re
+
+        parts = re.split(r"(\[[^\]]*\])", message)
+        out: list[str] = []
+        for part in parts:
+            if part.startswith("[") and part.endswith("]"):
+                out.append(part)
+            else:
+                out.append(to_visual(part))
+        return "".join(out)
 
     @on(Input.Submitted, "#cmd-input")
     def on_input_submitted(self, event: Input.Submitted) -> None:
