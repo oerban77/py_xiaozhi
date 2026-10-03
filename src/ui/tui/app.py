@@ -10,7 +10,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.events import Paste
+from textual.events import MouseDown, Paste
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import (
@@ -86,6 +86,34 @@ class ClipboardAttachmentInput(Input):
             event.stop()
             return
         super()._on_paste(event)
+
+    async def _on_mouse_down(self, event: MouseDown) -> None:
+        if event.button == 3:
+            offset_x, _ = event.get_content_offset_capture(self)
+            self.cursor_position = self._cell_offset_to_index(offset_x)
+            self.focus()
+            self._paste_system_clipboard()
+            event.stop()
+            return
+        await super()._on_mouse_down(event)
+
+    def _paste_system_clipboard(self) -> None:
+        try:
+            import pyperclip
+
+            text = pyperclip.paste()
+        except Exception as exc:
+            logger.debug("Could not read text clipboard for right-click paste: %s", exc)
+            text = ""
+
+        if text:
+            if self._on_paste_attachment(text):
+                return
+            start, end = self.selection
+            self.replace(text, start, end)
+            return
+
+        self._on_paste_attachment("")
 
 
 class SettingsScreen(ModalScreen[tuple[bool, bool]]):

@@ -65,6 +65,35 @@ async def test_tui_chat_input_navigates_history_and_restores_draft():
         assert chat_input.value == "unsent draft"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clipboard_text", ["right-click paste", ""])
+async def test_tui_chat_input_right_click_pastes_clipboard(monkeypatch, clipboard_text):
+    pytest.importorskip("textual")
+    import pyperclip
+    from textual.app import App, ComposeResult
+
+    from src.ui.tui.app import ClipboardAttachmentInput
+
+    attachments = []
+
+    def handle_paste(text):
+        attachments.append(text)
+        return not text
+
+    class InputHarness(App[None]):
+        def compose(self) -> ComposeResult:
+            yield ClipboardAttachmentInput(handle_paste, id="chat-input")
+
+    monkeypatch.setattr(pyperclip, "paste", lambda: clipboard_text)
+    app = InputHarness()
+    async with app.run_test() as pilot:
+        chat_input = app.query_one("#chat-input", ClipboardAttachmentInput)
+        await pilot.click("#chat-input", button=3)
+
+        assert chat_input.value == clipboard_text
+        assert attachments == [clipboard_text]
+
+
 def test_tui_pasted_text_stays_in_chat_input():
     from src.ui.tui.app import XiaozhiTuiApp
 
