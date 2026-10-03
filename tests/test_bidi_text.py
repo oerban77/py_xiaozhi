@@ -3,6 +3,8 @@
 
 import pytest
 
+from rich.text import Text
+
 from src.utils.bidi_text import (
     bidi_visual,
     contains_rtl,
@@ -67,3 +69,13 @@ async def test_input_widget_renders_visual_rtl_value():
         field = ClipboardAttachmentInput(lambda _: False, value="مرحبا")
         await pilot.app.mount(field)
         assert field._value.plain == to_visual("مرحبا")
+
+
+def test_chat_render_uses_right_justified_rtl_text():
+    from src.ui.tui.app import XiaozhiTuiApp
+
+    rendered = XiaozhiTuiApp._render_chat_line("مرحبا بالعالم")
+    assert isinstance(rendered, Text)
+    assert rendered.justify == "right"
+    assert rendered.plain.startswith("Conversation: ")
+    assert any(0xFB50 <= ord(ch) <= 0xFEFF for ch in rendered.plain)

@@ -449,6 +449,9 @@ class XiaozhiTuiApp(App[None]):
     #meta-line {
         color: $text-muted;
     }
+    #chat-line {
+        text-align: right;
+    }
     #log-panel {
         height: 1fr;
         border: solid $accent;
@@ -559,12 +562,20 @@ class XiaozhiTuiApp(App[None]):
             f"Connection: {conn} | Mode: {mode} | Emotion: {self.emotion}"
         )
 
+    @staticmethod
+    def _render_chat_line(text: str) -> str | Text:
+        """Render chat text with RTL-aware alignment to avoid visible gaps."""
+        rendered = to_visual(text) if text else "—"
+        if not text:
+            return "Conversation: —"
+        if contains_rtl(text):
+            return Text(f"Conversation: {rendered}", justify="right")
+        return f"Conversation: {rendered}"
+
     def _refresh_chat_line(self) -> None:
         if not self._status_widgets_ready:
             return
-        self.query_one("#chat-line", Static).update(
-            f"Conversation: {to_visual(self.chat_text) or '—'}"
-        )
+        self.query_one("#chat-line", Static).update(self._render_chat_line(self.chat_text))
 
     def _refresh_music_line(self) -> None:
         if not self._status_widgets_ready:
