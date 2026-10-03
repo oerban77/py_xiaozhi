@@ -83,6 +83,77 @@ MAX_SEARCH_BATCH_BYTES = 16 * 1024 * 1024
 BINARY_PROBE_BYTES = 4096
 MAX_DEPTH = 8
 IGNORED_ANALYSIS_EXTENSIONS = {".bin", ".hex"}
+IGNORED_ANALYSIS_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
+    ".idea",
+    ".vscode",
+    "cache",
+    "tmp",
+    "temp",
+}
+PRIORITY_DIRS = (
+    "src",
+    "tests",
+    "scripts",
+    "config",
+    "templates",
+    "examples",
+    "mcp",
+    "models",
+    "assets",
+    "app",
+)
+
+
+def _is_ignored_analysis_dir(name: str) -> bool:
+    return name in IGNORED_ANALYSIS_DIRS
+
+
+def _path_priority(path: Path, root: Path) -> int:
+    """Prefer source and test areas over docs/build noise for large repo scans."""
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return 0
+    parts = relative.parts
+    if not parts:
+        return 0
+    first = parts[0].lower()
+    if first in PRIORITY_DIRS:
+        base = 1000 - PRIORITY_DIRS.index(first) * 10
+    elif first in {"docs", "document", "documentation"}:
+        base = 200
+    elif first.startswith("."):
+        base = -1000
+    else:
+        base = 50
+    if any(part.lower() in IGNORED_ANALYSIS_DIRS for part in parts):
+        return -10000
+    if any(part.lower() in {"build", "dist", "node_modules", "cache", "tmp", "temp"} for part in parts):
+        return -10000
+    return base
+
+
+def _path_sort_key(path: Path, root: Path) -> tuple[int, str]:
+    """Order analysis results by project relevance before alphabetical order."""
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        relative = path
+    return (-_path_priority(path, root), str(relative).lower())
 
 
 @dataclass
@@ -434,21 +505,37 @@ def _list_dir(args: dict) -> str:
                 dirnames[:] = []
                 continue
             if not include_hidden:
-                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-                filenames = [f for f in filenames if not f.startswith(".")]
+                dirnames[:] = [
+                    d for d in dirnames if not d.startswith(".") and not _is_ignored_analysis_dir(d)
+                ]
+            else:
+                dirnames[:] = [d for d in dirnames if not _is_ignored_analysis_dir(d)]
+            dirnames[:] = sorted(
+                dirnames,
+                key=lambda d: _path_sort_key(Path(dirpath, d), root),
+            )
             filenames = [
                 name
                 for name in filenames
-                if not _is_ignored_analysis_file(Path(name))
+                if not _is_ignored_analysis_file(Path(dirpath, name))
             ]
-            for name in sorted(dirnames):
-                entries.append(f"{Path(dirpath, name).relative_to(root)}/")
-            for name in sorted(filenames):
-                entries.append(str(Path(dirpath, name).relative_to(root)))
+            if not include_hidden:
+                filenames = [f for f in filenames if not f.startswith(".")]
+            for name in dirnames:
+                relative = str(Path(dirpath, name).relative_to(root)).replace("\\", "/")
+                entries.append(f"{relative}/")
+            for name in sorted(
+                filenames,
+                key=lambda f: _path_sort_key(Path(dirpath, f), root),
+            ):
+                relative = str(Path(dirpath, name).relative_to(root)).replace("\\", "/")
+                entries.append(relative)
             if len(entries) >= max_entries:
                 break
     else:
-        for entry in sorted(path.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+        for entry in sorted(path.iterdir(), key=lambda e: _path_sort_key(e, root)):
+            if _is_ignored_analysis_dir(entry.name):
+                continue
             if not include_hidden and entry.name.startswith("."):
                 continue
             if entry.is_file() and _is_ignored_analysis_file(entry):
@@ -482,13 +569,17 @@ def _list_files(args: dict) -> str:
     matches: list[str] = []
     for dirpath, dirnames, filenames in os.walk(path):
         if not include_hidden:
-            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+            dirnames[:] = [
+                d for d in dirnames if not d.startswith(".") and not _is_ignored_analysis_dir(d)
+            ]
             filenames = [f for f in filenames if not f.startswith(".")]
-        for name in filenames:
+        else:
+            dirnames[:] = [d for d in dirnames if not _is_ignored_analysis_dir(d)]
+        for name in sorted(filenames, key=lambda f: _path_sort_key(Path(dirpath, f), root)):
             full = Path(dirpath, name)
             if _is_ignored_analysis_file(full):
                 continue
-            relative = str(full.relative_to(root))
+            relative = str(full.relative_to(root)).replace("\\", "/")
             if exclude_list and any(
                 fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(relative, pat)
                 for pat in exclude_list
@@ -503,7 +594,7 @@ def _list_files(args: dict) -> str:
 
     if not matches:
         return f"(no files matching {patterns} under {rel})"
-    matches = sorted(set(matches))[:max_results]
+    matches = sorted(set(matches), key=lambda p: _path_sort_key(Path(root / p), root))[:max_results]
     return "\n".join(matches)
 
 
@@ -548,7 +639,11 @@ def _search_text(args: dict) -> str:
     more_files = False
     for dirpath, dirnames, filenames in os.walk(path):
         dirnames[:] = sorted(
-            d for d in dirnames if not d.startswith(".") and d not in {".git", "__pycache__"}
+            d
+            for d in dirnames
+            if not d.startswith(".")
+            and d not in {".git", "__pycache__"}
+            and not _is_ignored_analysis_dir(d)
         )
         for name in sorted(filenames):
             if globs and not any(fnmatch.fnmatch(name, pat) for pat in globs):
@@ -568,6 +663,8 @@ def _search_text(args: dict) -> str:
             candidate_index += 1
         if more_files:
             break
+
+    files.sort(key=lambda p: _path_priority(p, root), reverse=True)
 
     results: list[str] = []
     scanned = 0
@@ -592,7 +689,7 @@ def _search_text(args: dict) -> str:
         scanned += 1
         scanned_bytes += size
         lines = text.split("\n")
-        relative = str(full.relative_to(root))
+        relative = str(full.relative_to(root)).replace("\\", "/")
         for index, line in enumerate(lines):
             if needle.search(line):
                 start = max(0, index - context_lines)

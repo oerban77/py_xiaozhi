@@ -78,6 +78,32 @@ def test_coding_tools_advertise_resumable_search_and_command_jobs():
     assert "exit_code=0" in by_name["exec_command"].description
 
 
+def test_large_repo_noise_dirs_are_skipped_during_analysis(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "real.py").write_text("needle = 'found'\n", encoding="utf-8")
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "guide.py").write_text("needle = 'docs-only'\n", encoding="utf-8")
+    (workspace / ".venv").mkdir()
+    (workspace / ".venv" / "ignored.py").write_text("needle = 'too noisy'\n", encoding="utf-8")
+    (workspace / "build").mkdir()
+    (workspace / "build" / "artifact.py").write_text("needle = 'build-only'\n", encoding="utf-8")
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    recursive_listing = coding_service._list_dir({"path": ".", "recursive": True}).replace("\\", "/")
+    assert "src/real.py" in recursive_listing
+    assert ".venv" not in recursive_listing
+    assert "build" not in recursive_listing
+
+    search_result = coding_service._search_text({"path": ".", "query": "needle", "glob": "*.py"}).replace("\\", "/")
+    assert "src/real.py:1" in search_result
+    assert "docs/guide.py:1" in search_result
+    assert search_result.index("src/real.py:1") < search_result.index("docs/guide.py:1")
+    assert ".venv" not in search_result
+    assert "build" not in search_result
+
+
 def test_firmware_artifacts_are_skipped_by_coding_analysis_tools(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -100,6 +126,25 @@ def test_firmware_artifacts_are_skipped_by_coding_analysis_tools(monkeypatch, tm
     with pytest.raises(ToolFailure) as exc_info:
         coding_service._read_file({"path": "firmware.hex"})
     assert exc_info.value.code == "IGNORED_FILE_TYPE"
+
+
+def test_list_files_prioritizes_source_dirs_before_docs_and_noise(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "module.py").write_text("print('source')\n", encoding="utf-8")
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "guide.py").write_text("print('docs')\n", encoding="utf-8")
+    (workspace / "build").mkdir()
+    (workspace / "build" / "artifact.py").write_text("print('noisy')\n", encoding="utf-8")
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    listing = coding_service._list_files({"path": ".", "max_results": 10})
+    first, second = listing.splitlines()[:2]
+
+    assert first == "src/module.py"
+    assert second == "docs/guide.py"
+    assert "build/artifact.py" not in listing
 
 
 def test_read_file_streams_requested_range_and_keeps_revision(monkeypatch, tmp_path):
