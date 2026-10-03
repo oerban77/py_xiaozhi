@@ -71,11 +71,46 @@ async def test_input_widget_renders_visual_rtl_value():
         assert field._value.plain == to_visual("مرحبا")
 
 
-def test_chat_render_uses_right_justified_rtl_text():
+async def test_rtl_input_cursor_mouse_and_selection_follow_visual_order():
+    from src.ui.tui.app import ClipboardAttachmentInput, XiaozhiTuiApp
+
+    app = XiaozhiTuiApp()
+    async with app.run_test() as pilot:
+        field = ClipboardAttachmentInput(lambda _: False, value="مرحبا")
+        field.styles.width = 20
+        await pilot.app.mount(field)
+        await pilot.pause()
+
+        field.cursor_position = 0
+        assert field._cursor_offset == len(field._value.plain) + 1
+        assert field._cell_offset_to_index(0) == len(field.value)
+
+        field.action_cursor_left()
+        assert field.cursor_position == 1
+        field.action_cursor_right()
+        assert field.cursor_position == 0
+
+        field.action_cursor_left(select=True)
+        assert field.selection == (0, 1)
+        assert field.selected_text == field.value[:1]
+        field.action_cursor_right(select=True)
+        assert field.selection == (0, 0)
+
+        field.selection = type(field.selection)(1, 4)
+        assert field.selected_text == field.value[1:4]
+        assert field.render_line(0).cell_length == field.scrollable_content_region.width + 1
+
+
+def test_chat_render_keeps_ltr_prefix_and_rtl_run():
     from src.ui.tui.app import XiaozhiTuiApp
 
     rendered = XiaozhiTuiApp._render_chat_line("مرحبا بالعالم")
-    assert isinstance(rendered, Text)
-    assert rendered.justify == "right"
-    assert rendered.plain.startswith("Conversation: ")
-    assert any(0xFB50 <= ord(ch) <= 0xFEFF for ch in rendered.plain)
+    assert rendered.startswith("Conversation: ")
+    assert any(0xFB50 <= ord(ch) <= 0xFEFF for ch in rendered)
+
+
+def test_bidi_visual_keeps_ltr_prefix_left_and_rtl_segment_visual():
+    visual = bidi_visual("Conversation: مرحبا بالعالم")
+    assert visual.startswith("Conversation: ")
+    assert "Conversation:" in visual
+    assert any(0xFB50 <= ord(ch) <= 0xFEFF for ch in visual)

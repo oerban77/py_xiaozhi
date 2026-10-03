@@ -6,14 +6,17 @@ import asyncio
 import json
 from collections.abc import Callable
 
+from rich.cells import cell_len, get_character_cell_size
 from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.events import MouseDown, Paste
+from textual.expand_tabs import expand_tabs_inline
 from textual.reactive import reactive
 from textual.screen import ModalScreen
+from textual.strip import Strip
 from textual.widgets import (
     Button,
     Checkbox,
@@ -35,7 +38,7 @@ from src.ui.tui.settings_data import (
     load_setting_values,
     save_settings,
 )
-from src.utils.bidi_text import contains_rtl, to_visual
+from src.utils.bidi_text import bidi_positions, contains_rtl, to_visual
 
 logger = get_logger()
 
@@ -67,6 +70,155 @@ class ClipboardAttachmentInput(Input):
         if self.highlighter is not None:
             text = self.highlighter(text)
         return text
+
+    def _visual_positions(self) -> tuple[list[int], list[int]]:
+        if contains_rtl(self.value):
+            return bidi_positions(self.value)
+        return list(range(len(self.value))), list(range(len(self.value) + 1))
+
+    def _logical_boundary_at_visual(self, position: int, current: int) -> int:
+        _, boundaries = self._visual_positions()
+        matches = [
+            index for index, visual in enumerate(boundaries) if visual == position
+        ]
+        if not matches:
+            position = min(boundaries, key=lambda visual: abs(visual - position))
+            matches = [
+                index for index, visual in enumerate(boundaries) if visual == position
+            ]
+        return min(matches, key=lambda index: abs(index - current))
+
+    @property
+    def _cursor_offset(self) -> int:
+        _, boundaries = self._visual_positions()
+        visual_position = boundaries[self.cursor_position]
+        visual_text = self._value.plain
+        offset = cell_len(expand_tabs_inline(visual_text[:visual_position], 4))
+        if visual_position == len(visual_text):
+            offset += 1
+        return offset
+
+    def _cell_offset_to_index(self, offset: int) -> int:
+        if not contains_rtl(self.value):
+            return super()._cell_offset_to_index(offset)
+
+        character_positions, boundaries = self._visual_positions()
+        visual_text = self._value.plain
+        scroll_x, _ = self.scroll_offset
+        offset += scroll_x
+        cell_offset = 0
+        logical_by_visual = [0] * len(character_positions)
+        for logical_index, visual_index in enumerate(character_positions):
+            logical_by_visual[visual_index] = logical_index
+
+        for visual_index, char in enumerate(visual_text):
+            cell_width = get_character_cell_size(char)
+            if cell_offset <= offset < cell_offset + cell_width:
+                logical_index = logical_by_visual[visual_index]
+                is_rtl = boundaries[logical_index] > visual_index
+                return logical_index + int(is_rtl)
+            cell_offset += cell_width
+
+        return self._logical_boundary_at_visual(len(visual_text), len(self.value))
+
+    def render_line(self, y: int) -> Strip:
+        if y != 0 or not contains_rtl(self.value):
+            return super().render_line(y)
+
+        max_content_width = self.scrollable_content_region.width
+        result = self._value
+        suggestion = self._suggestion
+        show_suggestion = len(suggestion) > len(self.value) and self.has_focus
+        if show_suggestion:
+            result += Text(
+                suggestion[len(self.value) :],
+                self.get_component_rich_style("input--suggestion"),
+                end="",
+            )
+
+        if self.has_focus:
+            if not self.selection.is_empty:
+                start, end = sorted(self.selection)
+                character_positions, _ = self._visual_positions()
+                selected_positions = sorted(character_positions[start:end])
+                selection_style = self.get_component_rich_style("input--selection")
+                range_start = range_end = None
+                for position in selected_positions:
+                    if range_end is not None and position == range_end:
+                        range_end += 1
+                    else:
+                        if range_start is not None:
+                            result.stylize_before(
+                                selection_style, range_start, range_end
+                            )
+                        range_start, range_end = position, position + 1
+                if range_start is not None:
+                    result.stylize_before(selection_style, range_start, range_end)
+
+            if self._cursor_visible:
+                _, boundaries = self._visual_positions()
+                cursor = boundaries[self.cursor_position]
+                if cursor == len(result):
+                    result.pad_right(1)
+                result.stylize(
+                    self.get_component_rich_style("input--cursor"), cursor, cursor + 1
+                )
+
+        segments = list(
+            self.app.console.render(
+                result, self.app.console_options.update_width(self.content_width)
+            )
+        )
+        strip = Strip(segments)
+        scroll_x, _ = self.scroll_offset
+        strip = strip.crop(scroll_x, scroll_x + max_content_width + 1)
+        return strip.extend_cell_length(max_content_width + 1).apply_style(
+            self.rich_style
+        )
+
+    def action_cursor_left(self, select: bool = False) -> None:
+        if not contains_rtl(self.value):
+            super().action_cursor_left(select)
+            return
+        self._move_visual_cursor(-1, select)
+
+    def action_cursor_right(self, select: bool = False) -> None:
+        if not contains_rtl(self.value):
+            super().action_cursor_right(select)
+            return
+        if self.cursor_at_end and self._suggestion and not select:
+            super().action_cursor_right(select)
+            return
+        self._move_visual_cursor(1, select)
+
+    def _move_visual_cursor(self, direction: int, select: bool) -> None:
+        _, boundaries = self._visual_positions()
+        anchor, active = self.selection
+        current_visual = boundaries[active]
+        if not select and not self.selection.is_empty:
+            target_visual = (
+                min(boundaries[anchor], boundaries[active])
+                if direction < 0
+                else max(boundaries[anchor], boundaries[active])
+            )
+        else:
+            positions = sorted(set(boundaries))
+            candidates = [
+                position
+                for position in positions
+                if (position - current_visual) * direction > 0
+            ]
+            target_visual = (
+                (max(candidates) if direction < 0 else min(candidates))
+                if candidates
+                else current_visual
+            )
+
+        target = self._logical_boundary_at_visual(target_visual, active)
+        if select:
+            self.selection = type(self.selection)(anchor, target)
+        else:
+            self.cursor_position = target
 
     def __init__(self, on_paste_attachment: Callable[[str], bool], **kwargs) -> None:
         self._on_paste_attachment = on_paste_attachment
@@ -449,9 +601,6 @@ class XiaozhiTuiApp(App[None]):
     #meta-line {
         color: $text-muted;
     }
-    #chat-line {
-        text-align: right;
-    }
     #log-panel {
         height: 1fr;
         border: solid $accent;
@@ -563,13 +712,11 @@ class XiaozhiTuiApp(App[None]):
         )
 
     @staticmethod
-    def _render_chat_line(text: str) -> str | Text:
-        """Render chat text with RTL-aware alignment to avoid visible gaps."""
-        rendered = to_visual(text) if text else "—"
+    def _render_chat_line(text: str) -> str:
+        """Keep the label on the left and render only RTL runs in visual order."""
         if not text:
             return "Conversation: —"
-        if contains_rtl(text):
-            return Text(f"Conversation: {rendered}", justify="right")
+        rendered = to_visual(text)
         return f"Conversation: {rendered}"
 
     def _refresh_chat_line(self) -> None:

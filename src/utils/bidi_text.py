@@ -111,27 +111,61 @@ def _split_runs(text: str) -> list[tuple[str, str]]:
 
 
 def bidi_visual(text: str) -> str:
-    """Reorder ``text`` into visual (display) order for RTL scripts.
+    """Reorder ``text`` into visual (display) order for mixed-direction text.
 
-    RTL runs are reversed so they read right-to-left; LTR runs (numbers, Latin)
-    are kept in their natural order. The overall line is laid out so that the
-    first RTL run appears at the right edge.
+    The key rule here is: do not reverse the whole line. We preserve the logical
+    order of left-to-right runs, and only reverse the strong RTL runs in-place.
+    This keeps a leading prefix such as ``Conversation:`` on the left, while
+    Arabic/Hebrew content still renders right-to-left.
     """
     if not text:
         return text
 
     runs = _split_runs(text)
+    if not runs:
+        return text
 
-    # Build the visual line. We process runs from the end to the start so that
-    # the first logical RTL run ends up on the right.
     visual_parts: list[str] = []
-    for direction, chunk in reversed(runs):
+    for direction, chunk in runs:
         if direction == "rtl":
-            visual_parts.append(chunk[::-1])
+            # Arabic and Hebrew display requires both shaping and visual
+            # reordering. Shape the run first so the glyph sequence matches the
+            # terminal font's contextual forms, then reverse the run to match
+            # the visual reading order.
+            visual_parts.append(reshape_arabic(chunk)[::-1])
         else:
             visual_parts.append(chunk)
 
     return "".join(visual_parts)
+
+
+def bidi_positions(text: str) -> tuple[list[int], list[int]]:
+    """Return visual character positions and cursor boundaries for logical text."""
+    character_positions = [0] * len(text)
+    boundary_positions = [0] * (len(text) + 1)
+    boundary_priorities = [-1] * (len(text) + 1)
+    logical_offset = 0
+    visual_offset = 0
+
+    for direction, chunk in _split_runs(text):
+        length = len(chunk)
+        rtl = direction == "rtl"
+        priority = 2 if rtl else 1
+        for offset in range(length + 1):
+            logical_boundary = logical_offset + offset
+            if priority >= boundary_priorities[logical_boundary]:
+                boundary_positions[logical_boundary] = (
+                    visual_offset + length - offset if rtl else visual_offset + offset
+                )
+                boundary_priorities[logical_boundary] = priority
+        for offset in range(length):
+            character_positions[logical_offset + offset] = (
+                visual_offset + length - offset - 1 if rtl else visual_offset + offset
+            )
+        logical_offset += length
+        visual_offset += length
+
+    return character_positions, boundary_positions
 
 
 # ---------------------------------------------------------------------------
@@ -260,8 +294,7 @@ def to_visual(text: str) -> str:
     # Only bother when the string actually contains RTL characters.
     if not any(_is_rtl_char(ch) for ch in text):
         return text
-    reshaped = reshape_arabic(text)
-    return bidi_visual(reshaped)
+    return bidi_visual(text)
 
 
 def contains_rtl(text: str) -> bool:
