@@ -88,7 +88,11 @@ class BpeConverter(KeywordConverter):
     def convert(self, text: str) -> str:
         self._load_tokens()
 
-        normalized = text.strip().upper()
+        cleaned = re.sub(r"[^A-Za-z]+", " ", text or "")
+        normalized = re.sub(r"\s+", " ", cleaned).strip().upper()
+        if not normalized:
+            raise ValueError("The English wake word is empty after removing punctuation and spaces.")
+
         words = normalized.split()
 
         all_tokens = []
@@ -109,6 +113,6 @@ class BpeConverter(KeywordConverter):
         # (the part after "@") must not contain spaces; otherwise the words after
         # the space are parsed as BPE tokens and the process is aborted with
         # std::exit() when they are missing from the vocabulary.
-        display_name = normalized.replace(" ", "-")
+        display_name = re.sub(r"[^A-Za-z0-9]+", "-", normalized).strip("-")
 
         return f"{bpe_str} @{display_name}"

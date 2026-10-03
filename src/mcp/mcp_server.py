@@ -362,10 +362,9 @@ class McpServer:
     def _call_timeout(self) -> float:
         """Wall-clock budget for a single tools/call (0 disables the limit).
 
-        The xiaozhi server enforces its own tool-call deadline and closes the
-        session when it expires. Answering within this window (with a partial
-        result or a clear error) keeps the session alive instead of letting a
-        slow tool outlive the connection.
+        Keep a safety margin below the transport/session deadline so a slow tool
+        fails with an MCP error instead of causing the xiaozhi session to be torn
+        down. The default window stays intentionally conservative for this reason.
         """
         try:
             from src.utils.config_manager import get_config
@@ -373,14 +372,14 @@ class McpServer:
             raw = get_config().get_config("MCP_TOOLS.CALL_TIMEOUT", 45)
             value = float(raw)
         except Exception:
-            return 45.0
+            return 30.0
         if value < 0:
             # A negative value is a typo, not a request to disable the limit;
             # fall back to the smallest sane budget instead of running unbounded.
             return 1.0
         if value == 0:
             return 0.0
-        return max(1.0, min(value, 600.0))
+        return max(1.0, min(value, 30.0))
 
     async def _handle_tools_list(
         self, request_id: int, params: dict[str, Any]

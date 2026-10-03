@@ -16,6 +16,7 @@ from .service import (
     list_dir,
     list_files,
     read_file,
+    reason_about_project,
     search_text,
 )
 
@@ -151,6 +152,28 @@ def register_coding_tools(add_tool: Callable[[McpTool], None]) -> None:
                 ]
             ),
             callback=search_text,
+        )
+    )
+
+    add_tool(
+        McpTool(
+            name="reason_about_project",
+            description=(
+                "Analyze a task description and score the files most likely to be relevant "
+                "for a repair or feature change. This tool performs lightweight reasoning "
+                "before a patch: it ranks candidate files by path, filename, and content "
+                "matches, then suggests the next read/search steps. Use it to orient the "
+                "workspace before detailed file reads or edits."
+            ),
+            properties=PropertyList(
+                [
+                    Property("question", PropertyType.STRING),
+                    Property("path", PropertyType.STRING, default_value="."),
+                    Property("max_files", PropertyType.INTEGER, default_value=5, min_value=1, max_value=10),
+                    Property("max_snippet_bytes", PropertyType.INTEGER, default_value=4096, min_value=256, max_value=8192),
+                ]
+            ),
+            callback=reason_about_project,
         )
     )
 

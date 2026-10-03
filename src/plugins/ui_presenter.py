@@ -21,10 +21,10 @@ class UiPresenter:
     }
 
     MUSIC_STATE_TEXT = {
-        "playing": "Now playing: {song}",
-        "paused": "Paused: {song}",
-        "stopped": "Stopped: {song}",
-        "completed": "Playback finished: {song}",
+        "playing": "正在播放：{song}",
+        "paused": "已暂停：{song}",
+        "stopped": "已停止：{song}",
+        "completed": "播放结束：{song}",
     }
 
     def __init__(self, viewport: Optional["ViewPort"] = None) -> None:

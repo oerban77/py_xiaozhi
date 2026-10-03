@@ -147,9 +147,19 @@ class WebsocketProtocol(Protocol):
         return 5.0
 
     def _is_connected(self) -> bool:
-        """Check whether the WebSocket connection is alive."""
+        """Check whether the WebSocket connection is alive.
+
+        `close_code` alone is not a reliable liveness signal because a socket may
+        still be in the closing handshake while `close_code` is `None`. Prefer the
+        websocket's actual open/closed state, falling back to `close_code` only if
+        the socket object doesn't expose the newer `open` flag.
+        """
         if not self.websocket:
             return False
+        if getattr(self.websocket, "closed", False):
+            return False
+        if hasattr(self.websocket, "open"):
+            return bool(self.websocket.open)
         return self.websocket.close_code is None
 
     async def _do_cleanup(self):

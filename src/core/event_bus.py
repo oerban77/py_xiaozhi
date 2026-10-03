@@ -107,8 +107,7 @@ class EventBus:
     def _warn_if_unknown(event: str, action: str) -> None:
         if event not in _KNOWN_EVENTS:
             logger.warning(
-                f"EventBus: {action} unknown event name {event!r} (possible typo; "
-                "use the Events.* constants)"
+                f"EventBus: {action} unknown event name {event!r} (可能是拼写错误；未知事件名，使用 Events.* 常量)"
             )
 
     def on(self, event: str, handler: Callable[..., Awaitable[None]]) -> None:

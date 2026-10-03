@@ -158,10 +158,10 @@ class ConfigManager:
             # using nextCursor pagination. This is useful for clients that do not handle
             # paged MCP tool catalogs correctly.
             "PAGINATION_ENABLED": True,
-            # Wall-clock budget for a single tools/call. The xiaozhi server closes the
-            # session when a tool call takes longer than its own limit, so a slow tool
-            # (e.g. an nmap scan) must be answered within this window. 0 = no limit.
-            "CALL_TIMEOUT": 45,
+            # Wall-clock budget for a single tools/call. Keep a safety margin below the
+            # transport/session timeout so a tool returns an MCP error instead of tearing
+            # down the xiaozhi session. 0 = no limit.
+            "CALL_TIMEOUT": 30,
         },
         # Web search backend used by the web_search / read_article MCP tools.
         # SEARCH_ENGINE selects the keyless backend: "anysearch" (default) or

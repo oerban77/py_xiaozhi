@@ -147,6 +147,70 @@ def test_list_files_prioritizes_source_dirs_before_docs_and_noise(monkeypatch, t
     assert "build/artifact.py" not in listing
 
 
+def test_reason_about_project_rank_relevant_files_by_task(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "auth.py").write_text("def login(user):\n    return user\n", encoding="utf-8")
+    (workspace / "src" / "config.py").write_text("AUTH_URL = 'https://example.test'\n", encoding="utf-8")
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "guide.md").write_text("Authentication docs\n", encoding="utf-8")
+    (workspace / "build").mkdir()
+    (workspace / "build" / "artifact.py").write_text("AUTH_URL = 'not used'\n", encoding="utf-8")
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+
+    result = coding_service._reason_about_project({"question": "fix login auth bug", "max_files": 3})
+
+    assert "Likely relevant files" in result
+    assert "Root cause hypothesis" in result
+    assert "Likely fix" in result
+    assert "Validation" in result
+    assert "Confidence" in result
+    assert "Suggested validation command" in result
+    assert "Patch plan" in result
+    assert "src/auth.py" in result
+    assert "src/config.py" in result
+    assert "docs/guide.md" not in result.splitlines()[0]
+    assert "build/artifact.py" not in result
+
+
+def test_reason_about_project_keeps_scan_bounded_for_large_repos(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "auth.py").write_text("def login(user):\n    return user\n", encoding="utf-8")
+    for idx in range(60):
+        noisy = workspace / "noise" / f"file_{idx}.py"
+        noisy.parent.mkdir(exist_ok=True)
+        noisy.write_text(f"unused_{idx} = {idx}\n", encoding="utf-8")
+    seen = []
+
+    def fake_read_text(path):
+        seen.append(str(path.relative_to(workspace)))
+        return path.read_text(encoding="utf-8", errors="replace")
+
+    monkeypatch.setattr(coding_service, "_workspace_root", lambda: workspace)
+    monkeypatch.setattr(coding_service, "_read_text", fake_read_text)
+
+    result = coding_service._reason_about_project({"question": "fix login auth bug", "max_files": 3})
+
+    assert "src/auth.py" in result
+    assert len(seen) <= 12
+
+
+def test_mcp_server_keeps_a_margin_before_session_disconnect(monkeypatch):
+    from src.mcp.mcp_server import McpServer
+    from src.utils import config_manager
+
+    class ConfigStub:
+        def get_config(self, key, default=None):
+            return 45 if key == "MCP_TOOLS.CALL_TIMEOUT" else default
+
+    monkeypatch.setattr(config_manager, "get_config", lambda: ConfigStub())
+
+    assert McpServer()._call_timeout() == 30.0
+
+
 def test_read_file_streams_requested_range_and_keeps_revision(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()

@@ -2431,6 +2431,32 @@ async def test_cli_mock_protocol_smoke_session():
     await tm.cancel_all()
 
 
+def test_websocket_health_check_requires_socket_to_be_open(monkeypatch):
+    """WebSocket liveness should depend on socket open state, not only close_code."""
+    from src.protocols.websocket_protocol import WebsocketProtocol
+    from src.utils.config_manager import initialize_config
+
+    initialize_config()
+
+    class FakeSocket:
+        open = False
+        closed = False
+        close_code = None
+
+    protocol = WebsocketProtocol()
+    protocol.websocket = FakeSocket()
+
+    assert protocol._is_connected() is False
+
+    class LiveSocket:
+        open = True
+        closed = False
+        close_code = None
+
+    protocol.websocket = LiveSocket()
+    assert protocol._is_connected() is True
+
+
 def test_settings_run_worker_emits_test_complete_on_exception():
     """后台任务异常必须 testComplete，避免设置页一直转圈."""
     from src.ui.gui.models.settings_model import SettingsModel

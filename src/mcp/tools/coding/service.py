@@ -373,6 +373,256 @@ def _line_slice(text: str, start_line: int, end_line: int) -> tuple[str, int]:
     return "\n".join(selected), total
 
 
+def _tokenize_reasoning_terms(text: str) -> list[str]:
+    """Extract useful task terms while dropping common filler words."""
+    tokens = re.findall(r"[A-Za-z0-9_]+", text.lower())
+    stop_words = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "for",
+        "with",
+        "into",
+        "from",
+        "this",
+        "that",
+        "these",
+        "those",
+        "what",
+        "when",
+        "where",
+        "why",
+        "how",
+        "which",
+        "about",
+        "using",
+        "does",
+        "doesnt",
+        "dont",
+        "cant",
+        "need",
+        "wants",
+        "want",
+        "please",
+        "fix",
+        "bug",
+        "issue",
+    }
+    tokens = [token for token in tokens if len(token) > 2 and token not in stop_words]
+    return tokens
+
+
+def _reason_about_project(args: dict) -> str:
+    """Score likely file targets for a user task and explain why they look relevant."""
+    root = _workspace_root()
+    rel = str(args.get("path", "") or ".")
+    path = _resolve(rel, root, must_exist=True)
+    if not path.is_dir():
+        raise ToolFailure("NOT_A_DIRECTORY", f"Not a directory: {rel}", category="validation")
+
+    question = str(args.get("question", "") or args.get("query", "") or "").strip()
+    if not question:
+        raise ToolFailure("INVALID_ARGUMENT", "question is required", category="validation")
+
+    try:
+        max_files = int(args.get("max_files") or 5)
+        max_snippet_bytes = int(args.get("max_snippet_bytes") or 4096)
+    except (TypeError, ValueError):
+        raise ToolFailure(
+            "INVALID_ARGUMENT", "max_files and max_snippet_bytes must be integers."
+        ) from None
+    max_files = max(1, min(max_files, 10))
+    max_snippet_bytes = max(1, min(max_snippet_bytes, 8192))
+
+    tokens = _tokenize_reasoning_terms(question)
+    if not tokens:
+        return "Reasoning is unavailable because the task text has no useful search terms."
+
+    reasoning_budget = max(12, max_files * 8)
+    candidate_files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(path):
+        dirnames[:] = [
+            d for d in dirnames if not d.startswith(".") and not _is_ignored_analysis_dir(d)
+        ]
+        for name in sorted(filenames):
+            full = Path(dirpath, name)
+            if full.is_symlink() and not _is_within(root, full.resolve()):
+                continue
+            if _is_ignored_analysis_file(full):
+                continue
+            relative = str(full.relative_to(root)).replace("\\", "/")
+            if any(part.lower() in IGNORED_ANALYSIS_DIRS for part in full.relative_to(root).parts):
+                continue
+            lower_name = full.name.lower()
+            lower_rel = relative.lower()
+            token_hits = [token for token in tokens if token in lower_name or token in lower_rel]
+            path_score = _path_priority(full, root)
+            if token_hits or path_score >= 150:
+                candidate_files.append(full)
+                if len(candidate_files) >= reasoning_budget:
+                    break
+        if len(candidate_files) >= reasoning_budget:
+            break
+
+    candidate_files.sort(key=lambda item: _path_sort_key(item, root))
+    scored: list[tuple[int, str, str]] = []
+    for full in candidate_files:
+        relative = str(full.relative_to(root)).replace("\\", "/")
+        score = 0
+        lower_name = full.name.lower()
+        lower_rel = relative.lower()
+        for token in tokens:
+            if token in lower_name:
+                score += 8
+            if token in lower_rel:
+                score += 12
+        score += max(0, 25 - len(relative.split("/"))) * 2
+        score += _path_priority(full, root) // 100
+
+        reason_bits: list[str] = []
+        if any(token in lower_rel for token in tokens):
+            reason_bits.append("path and filename match")
+        if any(token in lower_name for token in tokens):
+            reason_bits.append("symbol/name overlap")
+        if score <= 0:
+            continue
+        try:
+            snippet = _read_text(full)[:max_snippet_bytes]
+        except (OSError, ToolFailure):
+            snippet = ""
+        if snippet:
+            snippet_score = sum(1 for token in tokens if token in snippet.lower())
+            if snippet_score:
+                score += snippet_score * 5
+                reason_bits.append("content match")
+        if not reason_bits:
+            reason_bits.append("likely support file")
+        scored.append((score, relative, "; ".join(reason_bits)))
+
+    scored.sort(key=lambda item: (-item[0], item[1].lower()))
+    top = scored[:max_files]
+    if not top:
+        return (
+            f"Likely relevant files\n"
+            f"Task: {question}\n"
+            f"No high-confidence matches were found in {rel}. Try a narrower search or add more keywords."
+        )
+
+    top_files = [relative for _, relative, _ in top]
+    normalized_tokens = {token for token in tokens}
+    if {"auth", "login"}.intersection(normalized_tokens):
+        root_cause = (
+            "The task touches the authentication path, so the likely root cause is a "
+            "mismatch between the login flow and the configuration or validation rules."
+        )
+    elif {"slow", "timeout", "search", "scan"}.intersection(normalized_tokens):
+        root_cause = (
+            "The task likely stems from unbounded traversal or poor ranking in the analysis path, "
+            "which causes slow scans or timeouts before the actual fix is reached."
+        )
+    elif {"test", "fail", "error"}.intersection(normalized_tokens):
+        root_cause = (
+            "The issue appears to come from a failing code path or missing guard, so the first "
+            "diagnostic step is to inspect the failing branch and the exact conditions it checks."
+        )
+    else:
+        root_cause = (
+            "The strongest signal is at the feature boundary, so the highest-probability issue is a "
+            "logic mismatch or missing integration point between the relevant modules."
+        )
+
+    if {"auth", "login"}.intersection(normalized_tokens):
+        likely_fix = (
+            "Check the login/auth branch and align the request validation, configuration values, and "
+            "state handling so the auth path does not silently fail or ignore a valid credential."
+        )
+        patch_plan = [
+            "1. Read the login/auth entrypoint and confirm the exact validation or token path.",
+            "2. Check the configuration/settings values consumed by that flow for mismatches or stale defaults.",
+            "3. Patch the root mismatch and run the smallest relevant auth or unit test slice.",
+        ]
+        validation_steps = [
+            "- Run the narrow auth/unit test that covers the login flow.",
+            "- Confirm the expected success or failure path with the same input that reproduced the bug.",
+        ]
+        validation_command = "python -m pytest tests -q"
+    elif {"slow", "timeout", "search", "scan"}.intersection(normalized_tokens):
+        likely_fix = (
+            "Reduce noisy traversal and prioritize high-value source directories before broad scans so the "
+            "analysis remains bounded and the tool stays under the MCP timeout budget."
+        )
+        patch_plan = [
+            "1. Inspect the traversal and ranking logic that chooses candidate files.",
+            "2. Reduce noise and prioritize source directories before broad scans.",
+            "3. Re-run the targeted search or command and confirm the timeout risk is gone.",
+        ]
+        validation_steps = [
+            "- Re-run the relevant search/list operation against a large repo layout.",
+            "- Confirm the answer returns quickly and without crossing the timeout budget.",
+        ]
+        validation_command = "python -m pytest tests/test_coding_workspace_tools.py -q"
+    else:
+        likely_fix = (
+            "Patch the feature boundary where the relevant contract or branch condition diverges from the "
+            "expected behavior, then validate the smallest affected pathway."
+        )
+        patch_plan = [
+            "1. Read the top-ranked file and validate the relevant branch or handler.",
+            "2. Confirm the contract between the feature entrypoint and its dependencies.",
+            "3. Patch the mismatch and run the smallest focused verification command.",
+        ]
+        validation_steps = [
+            "- Run the narrowest applicable unit or integration test for the changed behavior.",
+            "- Check that the previously failing path now follows the expected success or error branch.",
+        ]
+        validation_command = "python -m pytest -q"
+
+    top_score = max((score for score, _, _ in top), default=0)
+    confidence = min(95, max(50, top_score))
+
+    lines = [
+        "Likely relevant files",
+        f"Task: {question}",
+        "",
+    ]
+    for index, (score, relative, reason) in enumerate(top, start=1):
+        lines.append(f"{index}. {relative} (score={score}) — {reason}")
+    lines.extend(
+        [
+            "",
+            "Root cause hypothesis",
+            f"- {root_cause}",
+            "",
+            "Likely fix",
+            f"- {likely_fix}",
+            "",
+            "Confidence",
+            f"- {confidence}/100 based on the top-ranked file and content matches.",
+            "",
+            "Patch plan",
+        ]
+    )
+    lines.extend(f"- {step}" for step in patch_plan)
+    lines.extend(
+        [
+            "",
+            "Validation",
+        ]
+    )
+    lines.extend(f"- {step}" for step in validation_steps)
+    lines.extend(
+        [
+            "",
+            f"Suggested validation command: {validation_command}",
+            "",
+            "Suggested next step: read the top file(s) first, then search for the exact symbol names found above using search_text(query=..., path=..., glob='*.py').",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _read_file_window(
     path: Path,
     start_line: int,
@@ -1592,6 +1842,10 @@ async def list_files(args: dict) -> str:
 
 async def search_text(args: dict) -> str:
     return await asyncio.to_thread(_run_sync, _search_text, args)
+
+
+async def reason_about_project(args: dict) -> str:
+    return await asyncio.to_thread(_run_sync, _reason_about_project, args)
 
 
 async def apply_patch(args: dict) -> str:

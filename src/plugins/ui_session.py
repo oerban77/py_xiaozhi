@@ -73,11 +73,11 @@ class SessionActions:
 
         if self._auto_mode and state == DeviceState.IDLE and self._auto_session_active:
             self._auto_session_active = False
-            self._ui.set_button_text("Start Chat")
+            self._ui.set_button_text("开始对话")
         elif self._auto_mode and state in (DeviceState.LISTENING, DeviceState.SPEAKING):
             if not self._auto_session_active:
                 self._auto_session_active = True
-            self._ui.set_button_text("Stop Chat")
+            self._ui.set_button_text("停止对话")
 
     async def request_shutdown(self, _data=None) -> None:
         self._cmd.request_shutdown()
@@ -99,7 +99,7 @@ class SessionActions:
         await self._cmd.start_listening(mode)
         if self._auto_mode:
             self._auto_session_active = True
-            self._ui.set_button_text("Stop Chat")
+            self._ui.set_button_text("停止对话")
         logger.debug(f"Listen session started: mode={mode}")
         return True
 
@@ -420,7 +420,7 @@ class SessionActions:
                 await self._cmd.stop_listening()
         finally:
             self._auto_session_active = False
-            self._ui.set_button_text("Start Chat")
+            self._ui.set_button_text("开始对话")
             logger.debug("Auto mode: stopping conversation")
 
     async def abort(self, _data=None) -> None:
