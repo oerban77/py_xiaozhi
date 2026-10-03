@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """Tests for RTL (Arabic/Hebrew) rendering support in the TUI."""
 
+import unicodedata
+
 import pytest
 
 from rich.text import Text
 
 from src.utils.bidi_text import (
+    bidi_positions,
     bidi_visual,
     contains_rtl,
     reshape_arabic,
@@ -44,6 +47,24 @@ def test_arabic_reshaping_connects_letters():
     assert len(reshaped) == 2
     assert ord(reshaped[0]) != 0x0628  # not isolated
     assert ord(reshaped[1]) != 0x0628  # not isolated
+
+
+def test_arabic_diacritics_stay_attached_when_reordered():
+    logical = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"
+    visual = to_visual(logical)
+    character_positions, _ = bidi_positions(logical)
+
+    assert visual != logical
+    for index, char in enumerate(logical):
+        if not unicodedata.category(char).startswith("M"):
+            continue
+        base_index = index - 1
+        while base_index >= 0 and unicodedata.category(logical[base_index]).startswith("M"):
+            base_index -= 1
+        assert base_index >= 0
+        base_position = character_positions[base_index]
+        assert character_positions[index] == base_position + index - base_index
+        assert not unicodedata.category(visual[base_position]).startswith("M")
 
 
 def test_mixed_rtl_ltr_keeps_latin_in_order():

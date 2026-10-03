@@ -57,6 +57,11 @@ def _is_ltr_char(ch: str) -> bool:
     return unicodedata.bidirectional(ch) in ("L", "LRE", "LRO")
 
 
+def _is_combining_mark(ch: str) -> bool:
+    """Return True for Unicode combining and spacing marks."""
+    return unicodedata.category(ch) in ("Mn", "Mc", "Me")
+
+
 def _is_number_char(ch: str) -> bool:
     """Return True if ``ch`` is a digit (European or Arabic-Indic)."""
     return ch.isdigit() or unicodedata.bidirectional(ch) in ("EN", "AN")
@@ -130,13 +135,25 @@ def bidi_visual(text: str) -> str:
         if direction == "rtl":
             # Arabic and Hebrew display requires both shaping and visual
             # reordering. Shape the run first so the glyph sequence matches the
-            # terminal font's contextual forms, then reverse the run to match
-            # the visual reading order.
-            visual_parts.append(reshape_arabic(chunk)[::-1])
+            # terminal font's contextual forms, then reverse grapheme clusters
+            # so combining marks remain attached to their base characters.
+            shaped = reshape_arabic(chunk)
+            visual_parts.append("".join(reversed(_grapheme_clusters(shaped))))
         else:
             visual_parts.append(chunk)
 
     return "".join(visual_parts)
+
+
+def _grapheme_clusters(text: str) -> list[str]:
+    """Group combining marks with the preceding base character."""
+    clusters: list[str] = []
+    for ch in text:
+        if clusters and _is_combining_mark(ch):
+            clusters[-1] += ch
+        else:
+            clusters.append(ch)
+    return clusters
 
 
 def bidi_positions(text: str) -> tuple[list[int], list[int]]:
@@ -151,17 +168,35 @@ def bidi_positions(text: str) -> tuple[list[int], list[int]]:
         length = len(chunk)
         rtl = direction == "rtl"
         priority = 2 if rtl else 1
-        for offset in range(length + 1):
-            logical_boundary = logical_offset + offset
-            if priority >= boundary_priorities[logical_boundary]:
-                boundary_positions[logical_boundary] = (
-                    visual_offset + length - offset if rtl else visual_offset + offset
+        spans: list[tuple[int, int]] = []
+        for offset, ch in enumerate(chunk):
+            if spans and _is_combining_mark(ch):
+                start, _ = spans[-1]
+                spans[-1] = (start, offset + 1)
+            else:
+                spans.append((offset, offset + 1))
+
+        visual_run_offset = 0
+        visual_spans = reversed(spans) if rtl else iter(spans)
+        for start, end in visual_spans:
+            cluster_length = end - start
+            cluster_visual_start = visual_offset + visual_run_offset
+            for offset in range(start, end):
+                character_positions[logical_offset + offset] = (
+                    cluster_visual_start + offset - start
                 )
-                boundary_priorities[logical_boundary] = priority
-        for offset in range(length):
-            character_positions[logical_offset + offset] = (
-                visual_offset + length - offset - 1 if rtl else visual_offset + offset
-            )
+            for offset in range(cluster_length + 1):
+                logical_boundary = logical_offset + start + offset
+                if offset == 0 and rtl:
+                    visual_boundary = cluster_visual_start + cluster_length
+                elif offset == cluster_length and rtl:
+                    visual_boundary = cluster_visual_start
+                else:
+                    visual_boundary = cluster_visual_start + offset
+                if priority >= boundary_priorities[logical_boundary]:
+                    boundary_positions[logical_boundary] = visual_boundary
+                    boundary_priorities[logical_boundary] = priority
+            visual_run_offset += cluster_length
         logical_offset += length
         visual_offset += length
 
@@ -209,14 +244,6 @@ _ARABIC_JOINING = {
     0x0648: (0xFEED, 0xFEED, 0xFEEE, 0xFEEE),  # و
     0x0649: (0xFEEF, 0xFEEF, 0xFEF0, 0xFEF0),  # ى
     0x064A: (0xFEF1, 0xFEF3, 0xFEF4, 0xFEF2),  # ي
-    0x064B: (0xFE70, 0xFE70, 0xFE71, 0xFE71),  # ً
-    0x064C: (0xFE72, 0xFE72, 0xFE72, 0xFE72),  # ٌ
-    0x064D: (0xFE74, 0xFE74, 0xFE74, 0xFE74),  # ٍ
-    0x064E: (0xFE76, 0xFE76, 0xFE77, 0xFE77),  # َ
-    0x064F: (0xFE78, 0xFE78, 0xFE79, 0xFE79),  # ُ
-    0x0650: (0xFE7A, 0xFE7A, 0xFE7B, 0xFE7B),  # ِ
-    0x0651: (0xFE7C, 0xFE7C, 0xFE7D, 0xFE7D),  # ّ
-    0x0652: (0xFE7E, 0xFE7E, 0xFE7F, 0xFE7F),  # ْ
 }
 
 # Letters that never join to the following letter (right-joining only).
@@ -250,16 +277,22 @@ def reshape_arabic(text: str) -> str:
 
         # Determine whether the previous / next characters allow joining.
         prev_joins = False
-        if i > 0:
-            prev_cp = ord(chars[i - 1])
+        prev_index = i - 1
+        while prev_index >= 0 and _is_combining_mark(chars[prev_index]):
+            prev_index -= 1
+        if prev_index >= 0:
+            prev_cp = ord(chars[prev_index])
             prev_joins = (
                 prev_cp in _ARABIC_JOINING
                 and prev_cp not in _NON_JOINING
             )
 
         next_joins = False
-        if i + 1 < n:
-            next_cp = ord(chars[i + 1])
+        next_index = i + 1
+        while next_index < n and _is_combining_mark(chars[next_index]):
+            next_index += 1
+        if next_index < n:
+            next_cp = ord(chars[next_index])
             next_joins = (
                 next_cp in _ARABIC_JOINING
                 and cp not in _NON_JOINING
