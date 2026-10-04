@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
@@ -18,6 +23,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
+  PlatformFile? _attachment;
+  Uint8List? _attachmentBytes;
+  bool _sendingAttachment = false;
 
   @override
   void initState() {
@@ -62,16 +70,93 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _sendText() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty) return;
-    if (text.length > 31) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pesan teks maksimal 31 karakter.')),
-      );
+    if (_attachment != null) {
+      await _sendAttachment();
       return;
     }
-    _textController.clear();
-    await widget.controller.sendText(text);
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+    final sent = await widget.controller.sendText(text);
+    if (sent) _textController.clear();
+  }
+
+  Future<void> _pickAttachment() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp',
+          'txt', 'md', 'json', 'csv', 'log', 'ini', 'yaml', 'yml', 'xml',
+        ],
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty || !mounted) return;
+      final file = result.files.single;
+      final bytes = file.bytes ??
+          (file.path == null ? null : await File(file.path!).readAsBytes());
+      if (bytes == null || bytes.isEmpty) {
+        throw const FormatException('File kosong atau tidak dapat dibaca.');
+      }
+      final extension = (file.extension ?? '').toLowerCase();
+      final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}.contains(extension);
+      if (isImage && bytes.length > 10 * 1024 * 1024) {
+        throw const FormatException('Ukuran gambar maksimal 10 MB.');
+      }
+      setState(() {
+        _attachment = file;
+        _attachmentBytes = bytes;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lampiran gagal dipilih: $error')),
+      );
+    }
+  }
+
+  Future<void> _sendAttachment() async {
+    final file = _attachment;
+    final bytes = _attachmentBytes;
+    if (file == null || bytes == null || !widget.controller.isConnected) return;
+    setState(() => _sendingAttachment = true);
+    try {
+      final extension = (file.extension ?? '').toLowerCase();
+      final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}.contains(extension);
+      final question = _textController.text.trim();
+      final sent = isImage
+          ? await widget.controller.sendImageAttachment(
+              fileName: file.name,
+              imageBytes: bytes,
+              question: question,
+            )
+          : await widget.controller.sendTextAttachment(
+              fileName: file.name,
+              content: utf8.decode(bytes, allowMalformed: true),
+              question: question,
+            );
+      if (sent && mounted) {
+        _textController.clear();
+        setState(() {
+          _attachment = null;
+          _attachmentBytes = null;
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lampiran gagal dikirim: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _sendingAttachment = false);
+    }
+  }
+
+  void _removeAttachment() {
+    setState(() {
+      _attachment = null;
+      _attachmentBytes = null;
+    });
   }
 
   @override
@@ -251,14 +336,52 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_attachment != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}
+                              .contains((_attachment!.extension ?? '').toLowerCase())
+                          ? Icons.image_outlined
+                          : Icons.description_outlined,
+                      color: AppColors.green,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _attachment!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: AppColors.ink, fontSize: 13),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Hapus lampiran',
+                      onPressed: _sendingAttachment ? null : _removeAttachment,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                    ),
+                  ],
+                ),
+              ),
             Row(
               children: [
+                IconButton(
+                  tooltip: 'Lampirkan gambar atau file teks',
+                  onPressed: widget.controller.isConnected && !_sendingAttachment
+                      ? _pickAttachment
+                      : null,
+                  icon: const Icon(Icons.attach_file_rounded),
+                ),
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    enabled: widget.controller.isConnected,
+                    enabled: widget.controller.isConnected && !_sendingAttachment,
                     textInputAction: TextInputAction.send,
-                    maxLength: 31,
+                    maxLength: XiaozhiController.maxTextAttachmentChars,
                     buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
                     onSubmitted: (_) => _sendText(),
                     decoration: const InputDecoration(
@@ -270,14 +393,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  tooltip: 'Kirim pesan',
-                  onPressed: widget.controller.isConnected ? _sendText : null,
+                  tooltip: _attachment == null ? 'Kirim pesan' : 'Kirim lampiran',
+                  onPressed: widget.controller.isConnected && !_sendingAttachment
+                      ? _sendText
+                      : null,
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: Colors.white,
                     fixedSize: const Size(50, 50),
                   ),
-                  icon: const Icon(Icons.arrow_upward_rounded),
+                  icon: _sendingAttachment
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Icon(_attachment == null ? Icons.arrow_upward_rounded : Icons.send_rounded),
                 ),
               ],
             ),

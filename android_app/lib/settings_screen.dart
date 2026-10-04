@@ -22,30 +22,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _vlApiKeyController;
   late final TextEditingController _visionUrlController;
   late final TextEditingController _visionTokenController;
+  late final TextEditingController _smartHomeBrokerController;
+  late final TextEditingController _smartHomePortController;
+  late final TextEditingController _smartHomeUsernameController;
+  late final TextEditingController _smartHomePasswordController;
+  late final TextEditingController _smartHomeDevicesController;
   late String _cameraFacing;
   late bool _autoConversation;
+  late bool _smartHomeUseTls;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
 
   static const _mcpModules = <_McpModule>[
     _McpModule('app', 'App', 'Pengelolaan aplikasi'),
     _McpModule('blender', 'Blender', 'Kontrol Blender 3D', desktopOnly: true),
-    _McpModule('camera', 'Camera', 'Kamera'),
+    _McpModule('camera', 'Camera', 'Kamera', supported: true),
     _McpModule('coding', 'Coding', 'Operasi workspace dan kode', desktopOnly: true),
     _McpModule('documents', 'Documents', 'Dokumen'),
     _McpModule('hardware', 'Hardware', 'Akses perangkat dan sistem', desktopOnly: true),
-    _McpModule('indonesia_holiday', 'Indonesia Holiday', 'Hari libur Indonesia'),
+    _McpModule('indonesia_holiday', 'Indonesia Holiday', 'Hari libur Indonesia', supported: true),
     _McpModule('kali', 'Kali', 'Tool keamanan dan jaringan', desktopOnly: true),
-    _McpModule('music', 'Music', 'Musik'),
-    _McpModule('news', 'News', 'Berita'),
-    _McpModule('prayer', 'Prayer', 'Jadwal sholat'),
-    _McpModule('qrcode', 'QRCode', 'Kode QR'),
-    _McpModule('reminder', 'Reminder', 'Pengingat'),
+    _McpModule('music', 'Music', 'Musik', supported: true),
+    _McpModule('news', 'News', 'Berita', supported: true),
+    _McpModule('prayer', 'Prayer', 'Jadwal sholat', supported: true),
+    _McpModule('qrcode', 'QRCode', 'Kode QR', supported: true),
+    _McpModule('reminder', 'Reminder', 'Pengingat', supported: true),
     _McpModule('screenshot', 'Screenshot', 'Tangkapan layar desktop', desktopOnly: true),
-    _McpModule('smarthome', 'Smart Home', 'Otomasi rumah'),
+    _McpModule('smarthome', 'Smart Home', 'Otomasi rumah', supported: true),
     _McpModule('volume', 'Volume', 'Kontrol volume sistem', desktopOnly: true),
-    _McpModule('weather', 'Weather', 'Cuaca'),
-    _McpModule('websearch', 'Web Search', 'Pencarian web'),
+    _McpModule('weather', 'Weather', 'Cuaca', supported: true),
+    _McpModule('websearch', 'Web Search', 'Pencarian web', supported: true),
   ];
 
   @override
@@ -59,9 +65,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _vlApiKeyController = TextEditingController(text: widget.controller.vlApiKey);
     _visionUrlController = TextEditingController(text: widget.controller.visionUrl);
     _visionTokenController = TextEditingController(text: widget.controller.visionToken);
+    _smartHomeBrokerController = TextEditingController(text: widget.controller.smartHomeBroker);
+    _smartHomePortController = TextEditingController(text: '${widget.controller.smartHomePort}');
+    _smartHomeUsernameController = TextEditingController(text: widget.controller.smartHomeUsername);
+    _smartHomePasswordController = TextEditingController(text: widget.controller.smartHomePassword);
+    _smartHomeDevicesController = TextEditingController(text: widget.controller.smartHomeDevicesJson);
+    _smartHomeUseTls = widget.controller.smartHomeUseTls;
     _disabledMcpModules = {
       ...widget.controller.disabledMcpModules,
-      ..._mcpModules.where((module) => module.desktopOnly).map((module) => module.id),
+      ..._mcpModules.where((module) => !module.supported).map((module) => module.id),
     };
     _cameraFacing = widget.controller.cameraFacing;
     _autoConversation = widget.controller.autoConversation;
@@ -77,6 +89,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _vlApiKeyController.dispose();
     _visionUrlController.dispose();
     _visionTokenController.dispose();
+    _smartHomeBrokerController.dispose();
+    _smartHomePortController.dispose();
+    _smartHomeUsernameController.dispose();
+    _smartHomePasswordController.dispose();
+    _smartHomeDevicesController.dispose();
     super.dispose();
   }
 
@@ -98,6 +115,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newVlApiKey: _vlApiKeyController.text,
       newVisionUrl: _visionUrlController.text,
       newVisionToken: _visionTokenController.text,
+      newSmartHomeBroker: _smartHomeBrokerController.text,
+      newSmartHomePort: int.tryParse(_smartHomePortController.text) ?? 1883,
+      newSmartHomeUsername: _smartHomeUsernameController.text,
+      newSmartHomePassword: _smartHomePasswordController.text,
+      newSmartHomeUseTls: _smartHomeUseTls,
+      newSmartHomeDevicesJson: _smartHomeDevicesController.text,
       newDisabledMcpModules: _disabledMcpModules.toList()..sort(),
       newAutoConversation: _autoConversation,
     );
@@ -313,10 +336,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: Text(module.title),
                         subtitle: Text(
                           module.desktopOnly
-                              ? '${module.description} · Desktop-only'
-                              : module.description,
+                            ? '${module.description} · Desktop-only'
+                            : module.supported
+                              ? module.description
+                              : '${module.description} · Belum tersedia di Android',
                         ),
-                        onChanged: module.desktopOnly ? null : (enabled) {
+                        onChanged: !module.supported ? null : (enabled) {
                           setState(() {
                             if (enabled) {
                               _disabledMcpModules.remove(module.id);
@@ -328,6 +353,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         activeThumbColor: AppColors.green,
                         activeTrackColor: AppColors.green.withValues(alpha: 0.35),
                       ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Smart Home MQTT',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Kredensial disimpan di perangkat. TLS otomatis digunakan untuk port 8883.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'Broker IP / host'),
+                    TextField(
+                      controller: _smartHomeBrokerController,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        hintText: '192.168.1.10 atau mqtt.example.com',
+                        prefixIcon: Icon(Icons.router_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'Port'),
+                    TextField(
+                      controller: _smartHomePortController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: '1883',
+                        prefixIcon: Icon(Icons.numbers_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'Username'),
+                    TextField(
+                      controller: _smartHomeUsernameController,
+                      autocorrect: false,
+                      decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline_rounded)),
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'Password'),
+                    TextField(
+                      controller: _smartHomePasswordController,
+                      obscureText: true,
+                      autocorrect: false,
+                      decoration: const InputDecoration(prefixIcon: Icon(Icons.key_outlined)),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _smartHomeUseTls,
+                      title: const Text('Gunakan TLS'),
+                      subtitle: const Text('Aktifkan untuk broker TLS seperti port 8883.'),
+                      onChanged: (value) => setState(() => _smartHomeUseTls = value),
+                      activeThumbColor: AppColors.green,
+                      activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'Devices (JSON)'),
+                    TextField(
+                      controller: _smartHomeDevicesController,
+                      minLines: 3,
+                      maxLines: 8,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        hintText: '[{"topic":"sonoff-1000","name":"Living Room Light","room":"living room","type":"light"}]',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Setiap perangkat memerlukan topic; name, room, type, dan power_cmd opsional.',
+                      style: TextStyle(color: Color(0xFF71817C), fontSize: 12, height: 1.4),
+                    ),
                   ],
                 ),
               ],
@@ -359,12 +456,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _McpModule {
-  const _McpModule(this.id, this.title, this.description, {this.desktopOnly = false});
+  const _McpModule(
+    this.id,
+    this.title,
+    this.description, {
+    this.desktopOnly = false,
+    this.supported = false,
+  });
 
   final String id;
   final String title;
   final String description;
   final bool desktopOnly;
+  final bool supported;
 }
 
 class _FieldLabel extends StatelessWidget {

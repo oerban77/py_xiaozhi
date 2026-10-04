@@ -49,13 +49,18 @@ jobs:
           MANIFEST=android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="py_xiaozhi_android"/android:label="Xiaozhi"/' "$MANIFEST"
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' "$MANIFEST"
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' "$MANIFEST"
+          sed -i '/<\/application>/i\    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n        <intent-filter>\n            <action android:name="android.intent.action.BOOT_COMPLETED" />\n            <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n            <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n            <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />\n        </intent-filter>\n    </receiver>' "$MANIFEST"
           if [ -f android/app/build.gradle.kts ]; then
             sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
+            sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
+            sed -i '/^dependencies {/a\    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' android/app/build.gradle.kts
           elif [ -f android/app/build.gradle ]; then
             sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' android/app/build.gradle
             sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
+            sed -i '/compileOptions {/a\        coreLibraryDesugaringEnabled true' android/app/build.gradle
+            sed -i '/^dependencies {/a\    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' android/app/build.gradle
           fi
           printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 

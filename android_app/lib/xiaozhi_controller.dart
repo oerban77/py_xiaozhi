@@ -14,9 +14,11 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'chat_message.dart';
+import 'mcp_runtime.dart';
 import 'protocol_messages.dart';
 
 class XiaozhiController extends ChangeNotifier {
+  static const maxTextAttachmentChars = 24000;
   static const _secureStorage = FlutterSecureStorage();
   static const _uuid = Uuid();
 
@@ -42,12 +44,21 @@ class XiaozhiController extends ChangeNotifier {
   String vlApiKey = '';
   String visionUrl = '';
   String visionToken = '';
+  String smartHomeBroker = '';
+  int smartHomePort = 1883;
+  String smartHomeUsername = '';
+  String smartHomePassword = '';
+  bool smartHomeUseTls = false;
+  String smartHomeDevicesJson = '[]';
   List<String> disabledMcpModules = [];
   bool autoConversation = false;
   bool autoSessionActive = false;
   String status = 'Belum terhubung';
   String sessionId = '';
   String _assistantText = '';
+  String? _pendingTextAttachment;
+  Uint8List? _pendingImageAttachment;
+  String _pendingImageQuestion = '';
   int? _assistantMessageIndex;
   final int _outputSampleRate = 24000;
   bool isConnected = false;
@@ -58,6 +69,7 @@ class XiaozhiController extends ChangeNotifier {
   bool _playerStarted = false;
 
   Future<void> initialize() async {
+    await McpRuntime.initializeNotifications();
     _preferences = await SharedPreferences.getInstance();
     endpoint = _preferences?.getString('server_url') ?? '';
     cameraFacing = _preferences?.getString('camera_facing') ?? 'back';
@@ -65,11 +77,17 @@ class XiaozhiController extends ChangeNotifier {
     clientId = _preferences?.getString('client_id') ?? '';
     localVlUrl = _preferences?.getString('camera_local_vl_url') ?? '';
     visionUrl = _preferences?.getString('camera_explain_url') ?? '';
+    smartHomeBroker = _preferences?.getString('smart_home_broker') ?? '';
+    smartHomePort = _preferences?.getInt('smart_home_port') ?? 1883;
+    smartHomeUsername = _preferences?.getString('smart_home_username') ?? '';
+    smartHomeUseTls = _preferences?.getBool('smart_home_use_tls') ?? false;
+    smartHomeDevicesJson = _preferences?.getString('smart_home_devices') ?? '[]';
     disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
     autoConversation = _preferences?.getBool('auto_conversation') ?? false;
     token = await _secureStorage.read(key: 'access_token') ?? '';
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
     visionToken = await _secureStorage.read(key: 'camera_explain_token') ?? '';
+    smartHomePassword = await _secureStorage.read(key: 'smart_home_password') ?? '';
     if (deviceId.isEmpty) {
       deviceId = _uuid.v4().replaceAll('-', '');
       await _preferences?.setString('device_id', deviceId);
@@ -91,6 +109,12 @@ class XiaozhiController extends ChangeNotifier {
     required String newVlApiKey,
     required String newVisionUrl,
     required String newVisionToken,
+    required String newSmartHomeBroker,
+    required int newSmartHomePort,
+    required String newSmartHomeUsername,
+    required String newSmartHomePassword,
+    required bool newSmartHomeUseTls,
+    required String newSmartHomeDevicesJson,
     required List<String> newDisabledMcpModules,
     required bool newAutoConversation,
   }) async {
@@ -106,6 +130,14 @@ class XiaozhiController extends ChangeNotifier {
     vlApiKey = newVlApiKey.trim();
     visionUrl = newVisionUrl.trim();
     visionToken = newVisionToken.trim();
+    smartHomeBroker = newSmartHomeBroker.trim();
+    smartHomePort = newSmartHomePort.clamp(1, 65535).toInt();
+    smartHomeUsername = newSmartHomeUsername.trim();
+    smartHomePassword = newSmartHomePassword;
+    smartHomeUseTls = newSmartHomeUseTls || smartHomePort == 8883;
+    smartHomeDevicesJson = newSmartHomeDevicesJson.trim().isEmpty
+      ? '[]'
+      : newSmartHomeDevicesJson.trim();
     disabledMcpModules = List.of(newDisabledMcpModules);
     autoConversation = newAutoConversation;
     autoSessionActive = false;
@@ -115,11 +147,17 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setString('camera_facing', cameraFacing);
     await _preferences?.setString('camera_local_vl_url', localVlUrl);
     await _preferences?.setString('camera_explain_url', visionUrl);
+    await _preferences?.setString('smart_home_broker', smartHomeBroker);
+    await _preferences?.setInt('smart_home_port', smartHomePort);
+    await _preferences?.setString('smart_home_username', smartHomeUsername);
+    await _preferences?.setBool('smart_home_use_tls', smartHomeUseTls);
+    await _preferences?.setString('smart_home_devices', smartHomeDevicesJson);
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_conversation', autoConversation);
     await _secureStorage.write(key: 'access_token', value: token);
     await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
     await _secureStorage.write(key: 'camera_explain_token', value: visionToken);
+    await _secureStorage.write(key: 'smart_home_password', value: smartHomePassword);
     status = 'Pengaturan tersimpan';
     notifyListeners();
   }
@@ -223,14 +261,69 @@ class XiaozhiController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendText(String value) async {
+  Future<bool> sendText(String value) async {
     final text = value.trim();
-    if (!isConnected || text.isEmpty) return;
-    messages.add(ChatMessage(text: text, isUser: true));
-    status = 'Menunggu jawaban...';
+    if (!isConnected || text.isEmpty) return false;
+    final isAttachment = text.length >= 32;
+    return _sendChatRequest(
+      displayText: text,
+      detectText: isAttachment ? 'baca lampiran' : text,
+      pendingText: isAttachment ? text : null,
+    );
+  }
+
+  Future<bool> sendTextAttachment({
+    required String fileName,
+    required String content,
+    required String question,
+  }) {
+    final request = question.trim().isEmpty
+        ? 'Baca dan jawab isi lampiran ini.'
+        : question.trim();
+    return _sendChatRequest(
+      displayText: 'Lampiran teks: $fileName\n$request',
+      detectText: 'baca lampiran',
+      pendingText: 'Nama file: $fileName\nPermintaan pengguna: $request\n\n$content',
+    );
+  }
+
+  Future<bool> sendImageAttachment({
+    required String fileName,
+    required Uint8List imageBytes,
+    required String question,
+  }) {
+    if (imageBytes.isEmpty) return Future.value(false);
+    final request = question.trim().isEmpty ? 'Jelaskan isi gambar ini.' : question.trim();
+    return _sendChatRequest(
+      displayText: 'Lampiran gambar: $fileName\n$request',
+      detectText: 'lihat lampiran',
+      imageBytes: imageBytes,
+      imageQuestion: request,
+    );
+  }
+
+  Future<bool> _sendChatRequest({
+    required String displayText,
+    required String detectText,
+    String? pendingText,
+    Uint8List? imageBytes,
+    String imageQuestion = '',
+  }) async {
+    if (!isConnected) return false;
+    _pendingTextAttachment = pendingText == null
+        ? null
+        : pendingText.length > maxTextAttachmentChars
+            ? '${pendingText.substring(0, maxTextAttachmentChars)}\n[Attachment content truncated]'
+            : pendingText;
+    _pendingImageAttachment = imageBytes;
+    _pendingImageQuestion = imageQuestion;
+    final hasAttachment = pendingText != null || imageBytes != null;
+    messages.add(ChatMessage(text: displayText, isUser: true));
+    status = hasAttachment ? 'Mengirim attachment...' : 'Menunggu jawaban...';
     notifyListeners();
     _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
-    _sendJson(ProtocolMessages.detectText(sessionId, text));
+    _sendJson(ProtocolMessages.detectText(sessionId, detectText));
+    return true;
   }
 
   Future<void> startVoice() async {
@@ -252,7 +345,6 @@ class XiaozhiController extends ChangeNotifier {
           noiseSuppress: true,
           androidConfig: AndroidRecordConfig(
             audioSource: AndroidAudioSource.voiceCommunication,
-            audioManagerMode: AudioManagerMode.modeInCommunication,
           ),
         ),
       );
@@ -323,6 +415,53 @@ class XiaozhiController extends ChangeNotifier {
         }
       } catch (error) {
         _handleConnectionFailure('Audio tidak dapat disiapkan: $error');
+      }
+      return;
+    }
+
+    if (type == 'mcp') {
+      final payload = data['payload'];
+      if (payload is Map) {
+        final response = await McpRuntime.handle(
+          Map<String, dynamic>.from(payload),
+          disabledModules: disabledMcpModules.toSet(),
+          pendingTextAttachment: _pendingTextAttachment,
+          pendingImageAttachment: _pendingImageAttachment,
+          pendingImageQuestion: _pendingImageQuestion,
+          smartHomeConfig: {
+            'broker': smartHomeBroker,
+            'port': smartHomePort,
+            'username': smartHomeUsername,
+            'password': smartHomePassword,
+            'useTls': smartHomeUseTls,
+            'devices': smartHomeDevicesJson,
+          },
+          visionConfig: {
+            'cameraFacing': cameraFacing,
+            'localVlUrl': localVlUrl,
+            'vlApiKey': vlApiKey,
+            'visionUrl': visionUrl,
+            'visionToken': visionToken,
+            'deviceId': deviceId,
+            'clientId': clientId,
+          },
+        );
+        if (response != null) {
+          final params = payload['params'];
+          if (payload['method'] == 'tools/call' &&
+              params is Map &&
+              (params['name'] == 'manage_document' || params['name'] == 'take_photo') &&
+              response['result'] is Map) {
+            _pendingTextAttachment = null;
+            _pendingImageAttachment = null;
+            _pendingImageQuestion = '';
+          }
+          _sendJson({
+            'type': 'mcp',
+            'session_id': sessionId,
+            'payload': response,
+          });
+        }
       }
       return;
     }
@@ -457,6 +596,7 @@ class XiaozhiController extends ChangeNotifier {
     unawaited(_socketSubscription?.cancel());
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());
+    unawaited(McpRuntime.dispose());
     _recorder.dispose();
     unawaited(_player.closePlayer());
     _encoder?.destroy();

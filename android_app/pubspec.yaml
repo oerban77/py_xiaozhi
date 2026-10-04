@@ -8,16 +8,25 @@ environment:
 
 dependencies:
   camera: ^0.12.1
+  flutter_local_notifications: ^18.0.1
   flutter:
     sdk: flutter
   flutter_secure_storage: ^9.2.4
+  file_picker: ^8.1.7
   flutter_sound: ^9.30.0
+  mqtt_client: ^10.2.1
+  mobile_scanner: ^7.4.2
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
   record: ^7.1.1
   shared_preferences: ^2.5.3
   uuid: ^4.5.1
+  flutter_timezone: ^5.1.1
   web_socket_channel: ^3.0.3
+  html: ^0.15.6
+  just_audio: ^0.9.46
+  timezone: ^0.11.1
+  xml: ^6.5.0
 
 dev_dependencies:
   flutter_test:
