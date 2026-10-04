@@ -62,19 +62,44 @@ class ClipboardAttachmentInput(Input):
         if self.password:
             return Text("•" * len(self.value), no_wrap=True, overflow="ignore", end="")
 
-        rendered_value = self.value
+        value = self.value
+        cached = getattr(self, "_value_cache", None)
+        if cached is not None and cached[0] == value:
+            return cached[1]
+
+        rendered_value = value
         if contains_rtl(rendered_value):
             rendered_value = to_visual(rendered_value)
 
         text = Text(rendered_value, no_wrap=True, overflow="ignore", end="")
         if self.highlighter is not None:
             text = self.highlighter(text)
+        self._value_cache = (value, text)
         return text
 
+    def _has_rtl(self) -> bool:
+        value = self.value
+        cached = getattr(self, "_has_rtl_cache", None)
+        if cached is not None and cached[0] == value:
+            return cached[1]
+        result = contains_rtl(value)
+        self._has_rtl_cache = (value, result)
+        return result
+
     def _visual_positions(self) -> tuple[list[int], list[int]]:
-        if contains_rtl(self.value):
-            return bidi_positions(self.value)
-        return list(range(len(self.value))), list(range(len(self.value) + 1))
+        value = self.value
+        cached = getattr(self, "_visual_positions_cache", None)
+        if cached is not None and cached[0] == value:
+            return cached[1]
+        if self._has_rtl():
+            positions = bidi_positions(value)
+        else:
+            positions = (
+                list(range(len(value))),
+                list(range(len(value) + 1)),
+            )
+        self._visual_positions_cache = (value, positions)
+        return positions
 
     def _logical_boundary_at_visual(self, position: int, current: int) -> int:
         _, boundaries = self._visual_positions()
@@ -98,8 +123,15 @@ class ClipboardAttachmentInput(Input):
             offset += 1
         return offset
 
+    def _watch_value(self, value: str) -> None:
+        # Invalidate caches when the value changes so the next access recomputes.
+        self._visual_positions_cache = None
+        self._value_cache = None
+        self._has_rtl_cache = None
+        super()._watch_value(value)
+
     def _cell_offset_to_index(self, offset: int) -> int:
-        if not contains_rtl(self.value):
+        if not self._has_rtl():
             return super()._cell_offset_to_index(offset)
 
         character_positions, boundaries = self._visual_positions()
@@ -122,7 +154,7 @@ class ClipboardAttachmentInput(Input):
         return self._logical_boundary_at_visual(len(visual_text), len(self.value))
 
     def render_line(self, y: int) -> Strip:
-        if y != 0 or not contains_rtl(self.value):
+        if y != 0 or not self._has_rtl():
             return super().render_line(y)
 
         max_content_width = self.scrollable_content_region.width
@@ -177,13 +209,13 @@ class ClipboardAttachmentInput(Input):
         )
 
     def action_cursor_left(self, select: bool = False) -> None:
-        if not contains_rtl(self.value):
+        if not self._has_rtl():
             super().action_cursor_left(select)
             return
         self._move_visual_cursor(-1, select)
 
     def action_cursor_right(self, select: bool = False) -> None:
-        if not contains_rtl(self.value):
+        if not self._has_rtl():
             super().action_cursor_right(select)
             return
         if self.cursor_at_end and self._suggestion and not select:
@@ -605,6 +637,9 @@ class XiaozhiTuiApp(App[None]):
         height: 1fr;
         border: solid $accent;
         margin: 0 1;
+        scrollbar-size-vertical: 2;
+        scrollbar-size-horizontal: 2;
+        scrollbar-gutter: stable;
     }
     #input-row {
         height: 3;
@@ -641,6 +676,13 @@ class XiaozhiTuiApp(App[None]):
         self._log_handler_installed = False
         self._tui_log_handler = None
         self._status_widgets_ready = False
+        self._status_line: Static | None = None
+        self._meta_line: Static | None = None
+        self._chat_line: Static | None = None
+        self._music_line: Static | None = None
+        self._log_panel: RichLog | None = None
+        self._log_buffer: list[str] = []
+        self._log_flush_scheduled = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -662,6 +704,11 @@ class XiaozhiTuiApp(App[None]):
 
     def on_mount(self) -> None:
         self.query_one("#cmd-input", Input).focus()
+        self._status_line = self.query_one("#status-line", Static)
+        self._meta_line = self.query_one("#meta-line", Static)
+        self._chat_line = self.query_one("#chat-line", Static)
+        self._music_line = self.query_one("#music-line", Static)
+        self._log_panel = self.query_one("#log-panel", RichLog)
         self._status_widgets_ready = True
         self._install_log_handler()
         self._refresh_status_widgets()
@@ -698,16 +745,16 @@ class XiaozhiTuiApp(App[None]):
             pass
 
     def _refresh_status_line(self) -> None:
-        if not self._status_widgets_ready:
+        if self._status_line is None:
             return
-        self.query_one("#status-line", Static).update(f"Status: {self.status_text}")
+        self._status_line.update(f"Status: {self.status_text}")
 
     def _refresh_meta_line(self) -> None:
-        if not self._status_widgets_ready:
+        if self._meta_line is None:
             return
         conn = "Connected" if self.connected else "Disconnected"
         mode = "Auto" if self.auto_mode else "Manual"
-        self.query_one("#meta-line", Static).update(
+        self._meta_line.update(
             f"Connection: {conn} | Mode: {mode} | Emotion: {self.emotion}"
         )
 
@@ -720,22 +767,38 @@ class XiaozhiTuiApp(App[None]):
         return f"Conversation: {rendered}"
 
     def _refresh_chat_line(self) -> None:
-        if not self._status_widgets_ready:
+        if self._chat_line is None:
             return
-        self.query_one("#chat-line", Static).update(self._render_chat_line(self.chat_text))
+        self._chat_line.update(self._render_chat_line(self.chat_text))
 
     def _refresh_music_line(self) -> None:
-        if not self._status_widgets_ready:
+        if self._music_line is None:
             return
-        self.query_one("#music-line", Static).update(
-            f"Music: {self.music_line or '—'}"
-        )
+        self._music_line.update(f"Music: {self.music_line or '—'}")
 
     def write_log(self, message: str) -> None:
+        """Queue a log line for display.
+
+        Writes are buffered and flushed once per event-loop iteration so that
+        bursts of log messages (TTS streaming, lyrics, protocol chatter) do not
+        trigger a separate RichLog render for every line.
+        """
+        if self._log_panel is None:
+            return
+        self._log_buffer.append(message)
+        if not self._log_flush_scheduled:
+            self._log_flush_scheduled = True
+            self.call_after_refresh(self._flush_log_buffer)
+
+    def _flush_log_buffer(self) -> None:
+        self._log_flush_scheduled = False
+        if not self._log_buffer or self._log_panel is None:
+            return
+        lines = self._log_buffer
+        self._log_buffer = []
         try:
-            self.query_one("#log-panel", RichLog).write(
-                self._bidi_log_message(message)
-            )
+            for line in lines:
+                self._log_panel.write(self._bidi_log_message(line))
         except Exception:
             pass
 
@@ -749,6 +812,8 @@ class XiaozhiTuiApp(App[None]):
         """
         if not message or not any(ord(ch) >= 0x0590 for ch in message):
             return message
+        if "[" not in message:
+            return to_visual(message)
         import re
 
         parts = re.split(r"(\[[^\]]*\])", message)
