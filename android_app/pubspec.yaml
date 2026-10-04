@@ -25,7 +25,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   html: ^0.15.6
   just_audio: ^0.9.46
-  timezone: ^0.11.1
+  timezone: ^0.10.1
   xml: ^6.5.0
 
 dev_dependencies:
