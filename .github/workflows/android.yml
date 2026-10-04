@@ -79,8 +79,12 @@ jobs:
               text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
           if 'packagingOptions' not in text and 'android {' in text:
               text = text.replace('android {', 'android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
-          if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
-              text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
+          desugar_dependency = 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"'
+          if desugar_dependency not in text:
+              if 'dependencies {' in text:
+                  text = text.replace('dependencies {', f'dependencies {{\n    {desugar_dependency}', 1)
+              else:
+                  text += f'\ndependencies {{\n    {desugar_dependency}\n}}\n'
           p.write_text(text)
           PY
           fi
@@ -99,8 +103,12 @@ jobs:
               text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
           if 'useLegacyPackaging = true' not in text and 'android {' in text:
               text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
-          if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in text and 'dependencies {' in text:
-              text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
+          desugar_dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+          if desugar_dependency not in text:
+              if 'dependencies {' in text:
+                  text = text.replace('dependencies {', f'dependencies {{\n    {desugar_dependency}', 1)
+              else:
+                  text += f'\ndependencies {{\n    {desugar_dependency}\n}}\n'
           p.write_text(text)
           PY
           fi
