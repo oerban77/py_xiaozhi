@@ -282,6 +282,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 10),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.keyboard_voice_outlined),
+                  label: Text('Manual'),
+                ),
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.auto_awesome_outlined),
+                  label: Text('Auto'),
+                ),
+              ],
+              selected: {widget.controller.autoConversation},
+              onSelectionChanged: (selection) async {
+                if (selection.isEmpty) return;
+                await widget.controller.setAutoConversation(selection.first);
+              },
+              style: const ButtonStyle(
+                minimumSize: WidgetStatePropertyAll(Size.fromHeight(42)),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(

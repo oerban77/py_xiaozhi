@@ -14,11 +14,11 @@ class ProtocolMessages {
         },
       });
 
-  static Map<String, Object?> listenStart(String sessionId) => {
+  static Map<String, Object?> listenStart(String sessionId, [String mode = 'manual']) => {
         'session_id': sessionId,
         'type': 'listen',
         'state': 'start',
-        'mode': 'manual',
+        'mode': mode,
       };
 
   static Map<String, Object?> listenStop(String sessionId) => {

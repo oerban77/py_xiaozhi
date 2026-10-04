@@ -18,7 +18,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _tokenController;
   late final TextEditingController _deviceController;
   late final TextEditingController _clientController;
+  late final TextEditingController _localVlUrlController;
+  late final TextEditingController _vlApiKeyController;
+  late final TextEditingController _visionUrlController;
+  late final TextEditingController _visionTokenController;
+  late final TextEditingController _mcpDisabledController;
   late String _cameraFacing;
+  late bool _autoConversation;
   bool _saving = false;
 
   @override
@@ -28,7 +34,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _tokenController = TextEditingController(text: widget.controller.token);
     _deviceController = TextEditingController(text: widget.controller.deviceId);
     _clientController = TextEditingController(text: widget.controller.clientId);
+    _localVlUrlController = TextEditingController(text: widget.controller.localVlUrl);
+    _vlApiKeyController = TextEditingController(text: widget.controller.vlApiKey);
+    _visionUrlController = TextEditingController(text: widget.controller.visionUrl);
+    _visionTokenController = TextEditingController(text: widget.controller.visionToken);
+    _mcpDisabledController = TextEditingController(text: widget.controller.mcpDisabledRaw);
     _cameraFacing = widget.controller.cameraFacing;
+    _autoConversation = widget.controller.autoConversation;
   }
 
   @override
@@ -37,6 +49,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _tokenController.dispose();
     _deviceController.dispose();
     _clientController.dispose();
+    _localVlUrlController.dispose();
+    _vlApiKeyController.dispose();
+    _visionUrlController.dispose();
+    _visionTokenController.dispose();
+    _mcpDisabledController.dispose();
     super.dispose();
   }
 
@@ -54,6 +71,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newDeviceId: _deviceController.text,
       newClientId: _clientController.text,
       newCameraFacing: _cameraFacing,
+      newLocalVlUrl: _localVlUrlController.text,
+      newVlApiKey: _vlApiKeyController.text,
+      newVisionUrl: _visionUrlController.text,
+      newVisionToken: _visionTokenController.text,
+      newMcpDisabledRaw: _mcpDisabledController.text,
+      newAutoConversation: _autoConversation,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -129,6 +152,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 28),
               const Text(
+                'Auto Conversation',
+                style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _autoConversation,
+                title: const Text('Aktifkan auto conversation'),
+                subtitle: const Text('Mulai listening realtime saat mode otomatis aktif.'),
+                onChanged: (value) => setState(() => _autoConversation = value),
+                activeColor: AppColors.green,
+              ),
+              const SizedBox(height: 28),
+              const Text(
                 'Kamera',
                 style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
               ),
@@ -169,6 +206,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   foregroundColor: AppColors.green,
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Vision / Kamera AI',
+                style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              const _FieldLabel(label: 'Local VL URL'),
+              TextField(
+                controller: _localVlUrlController,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  hintText: 'https://your-vl.example/api',
+                  prefixIcon: Icon(Icons.link_rounded),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _FieldLabel(label: 'VL API Key'),
+              TextField(
+                controller: _vlApiKeyController,
+                obscureText: true,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  hintText: 'Token model vision',
+                  prefixIcon: Icon(Icons.key_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _FieldLabel(label: 'Vision Service URL'),
+              TextField(
+                controller: _visionUrlController,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  hintText: 'https://api.xiaozhi.me/vision',
+                  prefixIcon: Icon(Icons.image_search_rounded),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _FieldLabel(label: 'Vision Service Token'),
+              TextField(
+                controller: _visionTokenController,
+                obscureText: true,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  hintText: 'Bearer token untuk layanan vision',
+                  prefixIcon: Icon(Icons.shield_outlined),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'MCP Tools',
+                style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Pisahkan tool yang dinonaktifkan dengan koma atau baris baru, sama seperti bloklist MCP_TOOLS.DISABLED di Python.',
+                style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _mcpDisabledController,
+                minLines: 3,
+                maxLines: 6,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  hintText: 'camera,take_photo,music,smart_home',
+                  prefixIcon: Icon(Icons.precision_manufacturing_outlined),
                 ),
               ),
               const SizedBox(height: 28),

@@ -38,6 +38,13 @@ class XiaozhiController extends ChangeNotifier {
   String deviceId = '';
   String clientId = '';
   String cameraFacing = 'back';
+  String localVlUrl = '';
+  String vlApiKey = '';
+  String visionUrl = '';
+  String visionToken = '';
+  String mcpDisabledRaw = '';
+  bool autoConversation = false;
+  bool autoSessionActive = false;
   String status = 'Belum terhubung';
   String sessionId = '';
   String _assistantText = '';
@@ -56,7 +63,13 @@ class XiaozhiController extends ChangeNotifier {
     cameraFacing = _preferences?.getString('camera_facing') ?? 'back';
     deviceId = _preferences?.getString('device_id') ?? '';
     clientId = _preferences?.getString('client_id') ?? '';
+    localVlUrl = _preferences?.getString('camera_local_vl_url') ?? '';
+    visionUrl = _preferences?.getString('camera_explain_url') ?? '';
+    mcpDisabledRaw = _preferences?.getString('mcp_disabled_raw') ?? '';
+    autoConversation = _preferences?.getBool('auto_conversation') ?? false;
     token = await _secureStorage.read(key: 'access_token') ?? '';
+    vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
+    visionToken = await _secureStorage.read(key: 'camera_explain_token') ?? '';
     if (deviceId.isEmpty) {
       deviceId = _uuid.v4().replaceAll('-', '');
       await _preferences?.setString('device_id', deviceId);
@@ -74,6 +87,12 @@ class XiaozhiController extends ChangeNotifier {
     required String newDeviceId,
     required String newClientId,
     required String newCameraFacing,
+    required String newLocalVlUrl,
+    required String newVlApiKey,
+    required String newVisionUrl,
+    required String newVisionToken,
+    required String newMcpDisabledRaw,
+    required bool newAutoConversation,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim();
@@ -83,13 +102,52 @@ class XiaozhiController extends ChangeNotifier {
       : newDeviceId.trim();
     clientId = newClientId.trim().isEmpty ? _uuid.v4() : newClientId.trim();
     cameraFacing = newCameraFacing == 'front' ? 'front' : 'back';
+    localVlUrl = newLocalVlUrl.trim();
+    vlApiKey = newVlApiKey.trim();
+    visionUrl = newVisionUrl.trim();
+    visionToken = newVisionToken.trim();
+    mcpDisabledRaw = newMcpDisabledRaw.trim();
+    autoConversation = newAutoConversation;
+    autoSessionActive = false;
     await _preferences?.setString('server_url', endpoint);
     await _preferences?.setString('device_id', deviceId);
     await _preferences?.setString('client_id', clientId);
     await _preferences?.setString('camera_facing', cameraFacing);
+    await _preferences?.setString('camera_local_vl_url', localVlUrl);
+    await _preferences?.setString('camera_explain_url', visionUrl);
+    await _preferences?.setString('mcp_disabled_raw', mcpDisabledRaw);
+    await _preferences?.setBool('auto_conversation', autoConversation);
     await _secureStorage.write(key: 'access_token', value: token);
+    await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
+    await _secureStorage.write(key: 'camera_explain_token', value: visionToken);
     status = 'Pengaturan tersimpan';
     notifyListeners();
+  }
+
+  Future<void> setAutoConversation(bool enabled) async {
+    if (!isConnected) {
+      autoConversation = false;
+      autoSessionActive = false;
+      status = 'Hubungkan perangkat terlebih dahulu untuk auto conversation';
+      notifyListeners();
+      return;
+    }
+    autoConversation = enabled;
+    await _preferences?.setBool('auto_conversation', autoConversation);
+    if (enabled) {
+      autoSessionActive = true;
+      _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
+      status = 'Auto conversation aktif';
+    } else {
+      autoSessionActive = false;
+      _sendJson(ProtocolMessages.listenStop(sessionId));
+      status = 'Auto conversation dimatikan';
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleAutoConversation() async {
+    await setAutoConversation(!autoConversation);
   }
 
   Future<void> connect() async {
@@ -151,6 +209,8 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> disconnect() async {
     if (isRecording) await stopVoice();
+    autoConversation = false;
+    autoSessionActive = false;
     isConnected = false;
     isConnecting = false;
     await _closeSocket();
@@ -169,7 +229,7 @@ class XiaozhiController extends ChangeNotifier {
     messages.add(ChatMessage(text: text, isUser: true));
     status = 'Menunggu jawaban...';
     notifyListeners();
-    _sendJson(ProtocolMessages.listenStart(sessionId));
+    _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
     _sendJson(ProtocolMessages.detectText(sessionId, text));
   }
 
@@ -182,7 +242,7 @@ class XiaozhiController extends ChangeNotifier {
         return;
       }
       _pendingMicBytes.clear();
-      _sendJson(ProtocolMessages.listenStart(sessionId));
+      _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
       final stream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
