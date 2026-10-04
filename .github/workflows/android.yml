@@ -1,4 +1,4 @@
-name: Android APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -8,7 +8,6 @@ permissions:
 
 jobs:
   build:
-    name: Build Android release APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,14 +16,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
-          cache-key: flutter-${{ runner.os }}-${{ hashFiles('android_app/pubspec.lock') }}
 
-      - name: Install Android SDK platforms and build-tools
+      - name: Install Android SDK components
         shell: bash
         run: |
           set -euo pipefail
@@ -35,40 +38,48 @@ jobs:
             exit 1
           fi
 
+          # Accept licenses without failing on broken pipe
           set +o pipefail
           yes 2>/dev/null | "$SDKMANAGER" --licenses >/dev/null || true
           set -o pipefail
 
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.2" "platforms;android-36" "build-tools;36.0.0"
+          # Install platforms & build-tools used by the project (both 33 and 36 to support older plugins)
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.2" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
-      - name: Create Android platform files
-        run: flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
+      - name: Create Android project files (if missing)
+        run: |
+          # flutter create only when android folder is missing
+          if [ ! -d android ]; then
+            flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
+          fi
 
-      - name: Align Gradle and AGP versions with Android plugin requirements
+      - name: Ensure Gradle/AGP and Android settings are compatible
         shell: bash
         run: |
           set -euo pipefail
 
-          # AGP 8.9.x requires Gradle 9.3.1
+          # Force Gradle wrapper to 9.3.1 (matches AGP requirements)
+          mkdir -p android/gradle/wrapper
           cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip
-          EOF
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip
+EOF
 
+          # Pin Android Gradle Plugin to a version compatible with Gradle 9.3.1
           if [ -f android/build.gradle ]; then
             python - <<'PY'
 from pathlib import Path
 p = Path('android/build.gradle')
 text = p.read_text()
 if 'com.android.tools.build:gradle' in text:
-    text = text.replace("com.android.tools.build:gradle:8.7.2", "com.android.tools.build:gradle:8.9.2")
-    text = text.replace("com.android.tools.build:gradle:8.9.0", "com.android.tools.build:gradle:8.9.2")
-    text = text.replace("com.android.tools.build:gradle:8.10", "com.android.tools.build:gradle:8.9.2")
+    # replace any existing AGP version with a compatible one
+    import re
+    text = re.sub(r"com.android.tools.build:gradle:[0-9]+\.[0-9]+\.[0-9]+", 'com.android.tools.build:gradle:8.9.2', text)
 else:
-    text = """buildscript {
+    text = '''buildscript {
     repositories {
         google()
         mavenCentral()
@@ -78,33 +89,35 @@ else:
     }
 }
 
-""" + text
+'''+text
 p.write_text(text)
 PY
           fi
 
+          # Patch module build.gradle / build.gradle.kts to ensure Java 17, desugaring and legacy JNI packaging
           if [ -f android/app/build.gradle ]; then
             python - <<'PY'
 from pathlib import Path
 p = Path('android/app/build.gradle')
 text = p.read_text()
-replacements = {
-    'compileSdkVersion flutter.compileSdkVersion': 'compileSdkVersion 36',
-    'minSdkVersion flutter.minSdkVersion': 'minSdkVersion 24',
-    'sourceCompatibility JavaVersion.VERSION_1_8': 'sourceCompatibility JavaVersion.VERSION_17',
-    'targetCompatibility JavaVersion.VERSION_1_8': 'targetCompatibility JavaVersion.VERSION_17',
-    'sourceCompatibility JavaVersion.VERSION_11': 'sourceCompatibility JavaVersion.VERSION_17',
-    'targetCompatibility JavaVersion.VERSION_11': 'targetCompatibility JavaVersion.VERSION_17',
-}
-for old, new in replacements.items():
-    text = text.replace(old, new)
-
-if 'coreLibraryDesugaringEnabled true' not in text and 'compileOptions {' in text:
+# Ensure compileSdk/minSdk
+text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
+# Ensure Java 17
+text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
+text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
+text = text.replace('sourceCompatibility JavaVersion.VERSION_11', 'sourceCompatibility JavaVersion.VERSION_17')
+text = text.replace('targetCompatibility JavaVersion.VERSION_11', 'targetCompatibility JavaVersion.VERSION_17')
+# compileOptions desugaring
+if 'coreLibraryDesugaringEnabled true' not in text:
     text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
+# kotlinOptions jvmTarget
 if 'kotlinOptions' not in text and 'android {' in text:
     text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
+# packagingOptions legacy JNI
 if 'packagingOptions' not in text and 'android {' in text:
     text = text.replace('android {', 'android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+# add coreLibraryDesugaring dependency
 if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
     text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
 p.write_text(text)
@@ -118,13 +131,9 @@ p = Path('android/app/build.gradle.kts')
 text = p.read_text()
 text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
 text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-text = text.replace('sourceCompatibility = JavaVersion.VERSION_1_8', 'sourceCompatibility = JavaVersion.VERSION_17')
-text = text.replace('targetCompatibility = JavaVersion.VERSION_1_8', 'targetCompatibility = JavaVersion.VERSION_17')
-text = text.replace('sourceCompatibility = JavaVersion.VERSION_11', 'sourceCompatibility = JavaVersion.VERSION_17')
-text = text.replace('targetCompatibility = JavaVersion.VERSION_11', 'targetCompatibility = JavaVersion.VERSION_17')
 if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
     text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
-if 'jvmTarget = "17"' not in text and 'kotlinOptions {' in text:
+if 'jvmTarget = "17"' not in text and 'kotlinOptions' in text:
     text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
 if 'useLegacyPackaging = true' not in text and 'android {' in text:
     text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
@@ -134,28 +143,19 @@ p.write_text(text)
 PY
           fi
 
-          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
-
-      - name: Set Android app metadata and permissions
-        shell: bash
-        run: |
-          set -euo pipefail
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:label="py_xiaozhi_android"/android:label="Xiaozhi"/' "$MANIFEST" || true
-          sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST" || true
-          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST" || true
-          sed -i '/<\/application>/i\    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" />' "$MANIFEST" || true
+          # Suppress NDK minSdk property warning when needed
+          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties || true
 
       - name: Resolve packages
         run: flutter pub get
 
-      - name: Analyze Dart sources
+      - name: Analyze
         run: flutter analyze --fatal-infos
 
       - name: Run tests
         run: flutter test
 
-      - name: Build release APK (verbose)
+      - name: Build release APK
         run: flutter build apk --release -v
 
       - name: Upload APK
