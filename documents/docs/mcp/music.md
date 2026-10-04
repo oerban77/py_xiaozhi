@@ -188,6 +188,22 @@ Scans the local cache directory and returns a list of downloaded songs. Each ite
 - Quickly initiate playback based on cached songs
 - Debug or verify cache status
 
+### 5. Direct URL Playback Tool
+
+#### music_player.play_url - Play a Direct Audio URL
+
+Plays a direct audio URL (http/https), such as an MP3 link. The audio is decoded with FFmpeg, so any direct audio file link works.
+
+**Parameters:**
+
+- `url` (required): The direct audio URL, e.g. `https://cdn.equran.id/audio-full/Misyari-Rasyid-Al-Afasi/055.mp3`
+- `title` (optional): A display name for the song; if empty, the URL is used
+
+**Use Cases:**
+
+- User provides a direct audio link to play
+- Play audio from a specific URL (e.g. a Quran recitation MP3, a podcast, etc.)
+
 ## Usage Examples
 
 ### Online Music Playback Examples

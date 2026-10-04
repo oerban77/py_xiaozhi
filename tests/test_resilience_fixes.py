@@ -258,6 +258,7 @@ def test_music_tools_register_with_injected_player():
     names = {t.name for t in server.tools}
     assert "music_player.search_and_play" in names
     assert "music_player.stop" in names
+    assert "music_player.play_url" in names
 
     # 源码层：不再导出全局 get/bind
     import src.mcp.tools.music as music_pkg

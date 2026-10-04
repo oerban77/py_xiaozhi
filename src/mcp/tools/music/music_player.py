@@ -369,6 +369,47 @@ class MusicPlayer:
             logger.error(f"Failed to play the Opus stream: {e}", exc_info=True)
             return {"status": "error", "message": f"Playback failed: {e}"}
 
+    async def play_direct_url(self, url: str, title: str = "") -> dict:
+        """Play a direct audio URL (http/https, e.g. an MP3 link) with FFmpeg decoding."""
+        eng = self._engine
+        try:
+            u = (url or "").strip()
+            if not u:
+                return {"status": "error", "message": "The playback URL cannot be empty"}
+            if not (u.startswith("http://") or u.startswith("https://")):
+                return {
+                    "status": "error",
+                    "message": "Only http(s) audio URLs are supported",
+                }
+            self.prepare_for_io()
+
+            eng.current_song = title or u
+            eng.song_id = ""
+            eng.api_url = None
+            eng.total_duration = 0.0
+            self.current_url = u
+            self.lyrics = []
+
+            headers = self._downloader.media_headers(u)
+            duration = await MusicDecoder.get_duration(u, headers=headers)
+            if duration > 0:
+                eng.total_duration = duration
+                logger.info(f"Probed duration from URL: {duration:.2f}s")
+
+            success = await eng.start_playback(u, headers=headers)
+            if success:
+                return {
+                    "status": "success",
+                    "message": f"Now playing: {eng.current_song}",
+                    "song": eng.current_song,
+                    "duration": self._format_time(eng.total_duration),
+                    "total_seconds": eng.total_duration,
+                }
+            return {"status": "error", "message": "Playback failed"}
+        except Exception as e:
+            logger.error(f"Failed to play the URL: {e}", exc_info=True)
+            return {"status": "error", "message": f"Playback failed: {e}"}
+
     # ----- Lyrics -----
 
     async def _tick_lyrics(self) -> None:

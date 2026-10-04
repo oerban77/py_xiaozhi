@@ -85,6 +85,12 @@ def register_music_tools(
         result = await player.play_opus_song(url)
         return result.get("message", "Playback failed")
 
+    async def play_url(args: dict[str, Any]) -> str:
+        url = (args or {}).get("url", "")
+        title = (args or {}).get("title", "")
+        result = await player.play_direct_url(url, title)
+        return result.get("message", "Playback failed")
+
     tools: list[McpTool] = [
         McpTool(
             "music_player.search_and_play",
@@ -212,6 +218,23 @@ def register_music_tools(
             ),
             PropertyList([Property("url", PropertyType.STRING)]),
             play_opus_song,
+        ),
+        McpTool(
+            "music_player.play_url",
+            (
+                "Play a direct audio URL (http/https), e.g. an MP3 link such as "
+                "'https://cdn.equran.id/audio-full/Misyari-Rasyid-Al-Afasi/055.mp3'. "
+                "If music is already playing, it stops the current track first. "
+                "Use this when the user provides a direct audio link to play. "
+                "The optional title is used as the displayed song name."
+            ),
+            PropertyList(
+                [
+                    Property("url", PropertyType.STRING),
+                    Property("title", PropertyType.STRING, default_value=""),
+                ]
+            ),
+            play_url,
         ),
     ]
 
