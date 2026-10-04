@@ -63,46 +63,46 @@ jobs:
           # Configure app/build.gradle for Java 17
           if [ -f android/app/build.gradle ]; then
             python - <<'PY'
-from pathlib import Path
-p = Path('android/app/build.gradle')
-text = p.read_text()
-text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
-text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
-text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
-text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
-text = text.replace('sourceCompatibility JavaVersion.VERSION_11', 'sourceCompatibility JavaVersion.VERSION_17')
-text = text.replace('targetCompatibility JavaVersion.VERSION_11', 'targetCompatibility JavaVersion.VERSION_17')
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          text = p.read_text()
+          text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+          text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
+          text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
+          text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
+          text = text.replace('sourceCompatibility JavaVersion.VERSION_11', 'sourceCompatibility JavaVersion.VERSION_17')
+          text = text.replace('targetCompatibility JavaVersion.VERSION_11', 'targetCompatibility JavaVersion.VERSION_17')
 
-if 'coreLibraryDesugaringEnabled true' not in text:
-    text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
-if 'kotlinOptions' not in text and 'android {' in text:
-    text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
-if 'packagingOptions' not in text and 'android {' in text:
-    text = text.replace('android {', 'android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
-if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
-    text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
-p.write_text(text)
-PY
+          if 'coreLibraryDesugaringEnabled true' not in text:
+              text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
+          if 'kotlinOptions' not in text and 'android {' in text:
+              text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
+          if 'packagingOptions' not in text and 'android {' in text:
+              text = text.replace('android {', 'android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+          if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
+              text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
+          p.write_text(text)
+          PY
           fi
 
           # Configure app/build.gradle.kts for Kotlin DSL
           if [ -f android/app/build.gradle.kts ]; then
             python - <<'PY'
-from pathlib import Path
-p = Path('android/app/build.gradle.kts')
-text = p.read_text()
-text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
-text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
-    text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
-if 'jvmTarget = "17"' not in text and 'kotlinOptions' in text:
-    text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
-if 'useLegacyPackaging = true' not in text and 'android {' in text:
-    text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
-if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in text and 'dependencies {' in text:
-    text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
-p.write_text(text)
-PY
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          text = p.read_text()
+          text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+          text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
+              text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
+          if 'jvmTarget = "17"' not in text and 'kotlinOptions' in text:
+              text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
+          if 'useLegacyPackaging = true' not in text and 'android {' in text:
+              text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+          if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in text and 'dependencies {' in text:
+              text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
+          p.write_text(text)
+          PY
           fi
 
           # Suppress NDK minSdk warning
