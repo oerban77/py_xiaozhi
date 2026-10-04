@@ -1229,8 +1229,14 @@ class McpRuntime {
     Uri uri, {
     String method = 'GET',
     Map<String, Object?>? body,
+    Map<String, String> headers = const {},
   }) async {
-    final responseText = await _getTextFromUri(uri, method: method, body: body);
+    final responseText = await _getTextFromUri(
+      uri,
+      method: method,
+      body: body,
+      headers: headers,
+    );
     final decoded = jsonDecode(responseText);
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Invalid JSON API response');
