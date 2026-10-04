@@ -24,7 +24,7 @@ jobs:
           cache: true
           cache-key: flutter-${{ runner.os }}-${{ hashFiles('android_app/pubspec.lock') }}
 
-      - name: Install Android API 36
+      - name: Install Android SDK platforms and build-tools
         shell: bash
         run: |
           set -euo pipefail
@@ -40,7 +40,8 @@ jobs:
           yes 2>/dev/null | "$SDKMANAGER" --licenses >/dev/null || true
           set -o pipefail
 
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+          # Install multiple platforms so older plugins (compileSdkVersion 33) and newer compileSdk 36 both work.
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.2" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Create Android platform files
         run: flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
@@ -79,8 +80,8 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build release APK (verbose)
+        run: flutter build apk --release -v
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
