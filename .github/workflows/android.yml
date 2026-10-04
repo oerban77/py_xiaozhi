@@ -54,48 +54,11 @@ jobs:
             flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
           fi
 
-      - name: Configure Gradle and Android settings
+      - name: Configure Android app settings
         working-directory: android_app
         shell: bash
         run: |
           set -euo pipefail
-
-          # Ensure gradle/wrapper directory exists
-          mkdir -p android/gradle/wrapper
-
-          # Set Gradle wrapper to 9.3.1
-          cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip
-EOF
-
-          # Pin Android Gradle Plugin to compatible version
-          if [ -f android/build.gradle ]; then
-            python - <<'PY'
-from pathlib import Path
-import re
-p = Path('android/build.gradle')
-text = p.read_text()
-if 'com.android.tools.build:gradle' in text:
-    text = re.sub(r"com.android.tools.build:gradle:[0-9]+\.[0-9]+\.[0-9]+", 'com.android.tools.build:gradle:8.9.2', text)
-else:
-    text = '''buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.2'
-    }
-}
-
-'''+text
-p.write_text(text)
-PY
-          fi
 
           # Configure app/build.gradle for Java 17
           if [ -f android/app/build.gradle ]; then
