@@ -163,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('Mulai listening realtime saat mode otomatis aktif.'),
                 onChanged: (value) => setState(() => _autoConversation = value),
                 activeThumbColor: AppColors.green,
-                activeTrackColor: AppColors.green.withOpacity(0.35),
+                activeTrackColor: AppColors.green.withValues(alpha: 0.35),
               ),
               const SizedBox(height: 28),
               const Text(
