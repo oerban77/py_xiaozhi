@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -718,7 +719,7 @@ class McpRuntime {
           )
           .startClean();
 
-    StreamSubscription<List<MqttReceivedMessage<MqttMessage?>>?>? updates;
+    StreamSubscription<List<MqttReceivedMessage<MqttMessage>>>? updates;
     final states = <String, String>{};
     final online = <String, String>{};
     final discovered = <String, Map<String, Object?>>{};
@@ -728,7 +729,6 @@ class McpRuntime {
         throw StateError('Could not connect to MQTT broker $broker:$port');
       }
       updates = client.updates?.listen((messages) {
-        if (messages == null) return;
         for (final message in messages) {
           final packet = message.payload;
           if (packet is! MqttPublishMessage) continue;

@@ -240,11 +240,16 @@ class MusicRuntime {
 
   static Future<String> _playUrl(String url, String title) async {
     try {
-      await _player.setUrl(url, headers: const {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
-        'Accept': '*/*',
-        'Referer': 'https://www.kuwo.cn/',
-      });
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
+            'Accept': '*/*',
+            'Referer': 'https://www.kuwo.cn/',
+          },
+        ),
+      );
       await _player.setVolume(_volume / 100);
       _currentSong = title;
       _currentUrl = url;
