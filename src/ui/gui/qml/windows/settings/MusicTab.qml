@@ -203,6 +203,32 @@ ScrollView {
                     }
                     font.pixelSize: Theme.fontSizeSm
                 }
+
+                Text {
+                    text: "Music Volume"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    Layout.preferredWidth: 120
+                }
+                TextField {
+                    id: musicVolumeField
+                    Layout.preferredWidth: 150
+                    text: settingsModel ? String(settingsModel.musicVolume) : "100"
+                    validator: IntValidator { bottom: 0; top: 100 }
+                    onEditingFinished: {
+                        if (settingsModel) settingsModel.musicVolume = Number(text || 100)
+                    }
+                    onTextEdited: {
+                        if (settingsModel) settingsModel.musicVolume = Number(text || 100)
+                    }
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.inputText
+                    background: Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.backgroundSecondary
+                        border.color: musicVolumeField.activeFocus ? Theme.primary : "transparent"
+                    }
+                }
             }
         }
 

@@ -108,6 +108,20 @@ class SettingsSystemOptionsMixin:
     def _set_musicDefaultQuality(self, value: str):
         self._set_value("MUSIC.DEFAULT_QUALITY", value)
 
+    def _get_musicVolume(self) -> int:
+        try:
+            value = int(self._get_value("MUSIC.VOLUME", 100))
+        except (TypeError, ValueError):
+            value = 100
+        return max(0, min(100, value))
+
+    def _set_musicVolume(self, value: int):
+        try:
+            volume = int(value)
+        except (TypeError, ValueError):
+            volume = 100
+        self._set_value("MUSIC.VOLUME", max(0, min(100, volume)))
+
     def _get_musicOpusCatalogUrl(self) -> str:
         return self._get_value("MUSIC.OPUS_CATALOG_URL", "")
 

@@ -287,6 +287,17 @@ class AudioCodec:
         self._tts_armed = False
         self._tts_started = False
 
+    def _get_music_volume_gain(self) -> float:
+        """Volume gain for local/online music playback, independent of system TTS volume."""
+        try:
+            config = get_config()
+            value = config.get_config("MUSIC.VOLUME", 100)
+            volume = int(value)
+        except Exception:
+            volume = 100
+        volume = max(0, min(100, volume))
+        return volume / 100.0
+
     def _pull_mixed(self, n: int) -> np.ndarray | None:
         """Output callback thread: fetches n samples from each TTS/music FIFO and mixes them.
 
@@ -308,6 +319,9 @@ class AudioCodec:
 
         tts = self._tts_fifo.pull(n)
         music = self._music_fifo.pull(n)
+        music_volume_gain = self._get_music_volume_gain()
+        if music is not None:
+            music = music * music_volume_gain
         if self._music_muted:
             music = None
 

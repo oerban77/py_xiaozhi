@@ -214,6 +214,7 @@ class ConfigManager:
             "LYRICS_URL": "",
             "DEFAULT_PLATFORM": "kw",
             "DEFAULT_QUALITY": "320k",
+            "VOLUME": 100,
             # Online Opus song catalog (reference-app style); empty = built-in default
             "OPUS_CATALOG_URL": "",
             "OPUS_STREAM_BASE": "",

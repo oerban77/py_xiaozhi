@@ -300,6 +300,9 @@ class SettingsModel(
     musicDefaultQuality = Property(
         str, SettingsSystemOptionsMixin._get_musicDefaultQuality, SettingsSystemOptionsMixin._set_musicDefaultQuality, notify=settingsChanged
     )
+    musicVolume = Property(
+        int, SettingsSystemOptionsMixin._get_musicVolume, SettingsSystemOptionsMixin._set_musicVolume, notify=settingsChanged
+    )
     musicOpusCatalogUrl = Property(
         str, SettingsSystemOptionsMixin._get_musicOpusCatalogUrl, SettingsSystemOptionsMixin._set_musicOpusCatalogUrl, notify=settingsChanged
     )

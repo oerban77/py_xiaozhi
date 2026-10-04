@@ -46,6 +46,15 @@ def register_music_tools(
         result = await player.seek(**kwargs)
         return result.get("message", "Seek complete")
 
+    async def set_volume(args: dict[str, Any]) -> str:
+        volume = int(args.get("volume", 100))
+        result = player.set_volume(volume)
+        return result.get("message", "Failed to set music volume")
+
+    async def get_volume(args: dict[str, Any]) -> str:
+        value = player.get_volume()
+        return f"Current music volume: {value}%"
+
     async def get_status(args: dict[str, Any]) -> str:
         result = await player.get_status()
         return result.get("message", "Cannot get status")
@@ -150,6 +159,24 @@ def register_music_tools(
                 ]
             ),
             seek,
+        ),
+        McpTool(
+            "music_player.set_volume",
+            (
+                "Set the playback volume for the local/online music player (0-100). "
+                "This does not change the system TTS speaker volume; it only changes the music playback gain."
+            ),
+            PropertyList([Property("volume", PropertyType.INTEGER, min_value=0, max_value=100)]),
+            set_volume,
+        ),
+        McpTool(
+            "music_player.get_volume",
+            (
+                "Read the current music player volume in percent (0-100). "
+                "Use this when the user asks how loud the music is or to confirm the music volume after adjusting it."
+            ),
+            PropertyList(),
+            get_volume,
         ),
         McpTool(
             "music_player.get_status",

@@ -31,6 +31,14 @@ def load_music_config() -> dict:
     cm = get_config()
     pick = _cfg_str
 
+    volume = 100
+    try:
+        value = cm.get_config("MUSIC.VOLUME", 100)
+        volume = int(100 if value is None else value)
+    except (TypeError, ValueError):
+        volume = 100
+    volume = max(0, min(100, volume))
+
     return {
         "SEARCH_URL": pick(cm, "MUSIC.SEARCH_URL", DEFAULT_SEARCH_URL),
         "URL_API": pick(cm, "MUSIC.URL_API", DEFAULT_URL_API),
@@ -38,6 +46,7 @@ def load_music_config() -> dict:
         "LYRICS_URL": pick(cm, "MUSIC.LYRICS_URL", DEFAULT_LYRICS_URL),
         "DEFAULT_SOURCE": pick(cm, "MUSIC.DEFAULT_PLATFORM", "kw") or "kw",
         "DEFAULT_BR": pick(cm, "MUSIC.DEFAULT_QUALITY", "320k") or "320k",
+        "VOLUME": volume,
         "OPUS_CATALOG_URL": pick(
             cm, "MUSIC.OPUS_CATALOG_URL", DEFAULT_OPUS_CATALOG_URL
         ),

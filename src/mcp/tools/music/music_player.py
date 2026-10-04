@@ -117,9 +117,32 @@ class MusicPlayer:
             "MusicPlayer config loaded: "
             f"search={self._config['SEARCH_URL']}, "
             f"direct-link={self._config['URL_API']}, "
-            f"platform={self._config['DEFAULT_SOURCE']}"
+            f"platform={self._config['DEFAULT_SOURCE']}, "
+            f"volume={self._config['VOLUME']}"
         )
         return self._config
+
+    def get_volume(self) -> int:
+        try:
+            from src.utils.config_manager import get_config
+
+            value = get_config().get_config("MUSIC.VOLUME", 100)
+            volume = int(100 if value is None else value)
+            return max(0, min(100, volume))
+        except Exception:
+            return 100
+
+    def set_volume(self, volume: int) -> dict:
+        try:
+            from src.utils.config_manager import get_config
+
+            value = max(0, min(100, int(volume)))
+            get_config().update_config("MUSIC.VOLUME", value, save=True)
+            self.reload_config()
+            return {"status": "success", "message": f"Music volume set to {value}%", "volume": value}
+        except Exception as e:
+            logger.error(f"Failed to set music volume: {e}", exc_info=True)
+            return {"status": "error", "message": f"Set volume failed: {str(e)}"}
 
     # ----- Lifecycle / play delegation -----
 

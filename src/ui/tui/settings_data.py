@@ -195,6 +195,7 @@ SETTING_SECTIONS: list[tuple[str, list[SettingField]]] = [
             SettingField("MUSIC.OPUS_CATALOG_URL", "Opus Catalog URL"),
             SettingField("MUSIC.OPUS_STREAM_BASE", "Opus Stream Base"),
             SettingField("MUSIC.DEFAULT_QUALITY", "Default Quality", kind="choice", choices=("128k", "320k")),
+            SettingField("MUSIC.VOLUME", "Music Volume", kind="int", help="Playback volume for online/local songs (0-100)"),
         ],
     ),
 ]
