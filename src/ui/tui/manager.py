@@ -36,6 +36,8 @@ class TuiViewManager:
         self._chat_text = ""
         self._music_line = ""
         self._emotion = "neutral"
+        self._pending_app_attrs: dict[str, object] = {}
+        self._pending_app_attr_flush_scheduled = False
 
     async def start(self, mode: str = "tui"):
         """Start the TUI (awaits until the user quits or the task is cancelled)."""
@@ -198,24 +200,34 @@ class TuiViewManager:
         if app is None:
             return
 
-        def _apply() -> None:
-            setattr(app, name, value)
+        self._pending_app_attrs[name] = value
 
-        # Schedule the update on the Textual event loop without blocking.
-        # call_from_thread() blocks the calling thread on future.result(), which
-        # can deadlock the app when a worker thread updates the UI while the
-        # event loop is busy (e.g. during heavy RTL rendering or log floods).
+        def _flush_pending() -> None:
+            pending = self._pending_app_attrs
+            self._pending_app_attrs = {}
+            self._pending_app_attr_flush_scheduled = False
+            for attr_name, attr_value in pending.items():
+                try:
+                    setattr(app, attr_name, attr_value)
+                except Exception as e:
+                    logger.debug(f"TUI set {attr_name} failed: {e}")
+
+        # Coalesce many rapid UI updates into a single flush on the Textual event loop.
+        # This avoids a flood of redundant re-renders when TTS or chat text streams in chunks.
         loop = getattr(app, "_loop", None)
         if loop is not None and not loop.is_closed():
             try:
-                loop.call_soon_threadsafe(_apply)
+                if not self._pending_app_attr_flush_scheduled:
+                    self._pending_app_attr_flush_scheduled = True
+                    loop.call_soon_threadsafe(_flush_pending)
                 return
             except Exception:
                 pass
+
         try:
-            _apply()
+            _flush_pending()
         except Exception as e:
-            logger.debug(f"TUI set {name} failed: {e}")
+            logger.debug(f"TUI flush pending attrs failed: {e}")
 
     # ----- ViewPort -----
 
