@@ -44,13 +44,12 @@ jobs:
       - name: Create Android platform files
         run: flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
 
-      - name: Pin Gradle/AGP to a compatible version
+      - name: Pin Android toolchain to compatible versions
         shell: bash
         run: |
           set -euo pipefail
 
-          # Flutter 3.47.x is compatible with AGP 8.7.x / Gradle 8.7.x.
-          # Force the generated app to use a compatible wrapper to avoid Gradle 9.x failures.
+          # Match Flutter 3.47.x with AGP 8.7.x / Gradle 8.7.x.
           cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -59,41 +58,72 @@ jobs:
           distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
           EOF
 
-          if [ -f android/settings.gradle ]; then
-            grep -q "com.android.tools.build:gradle" android/settings.gradle || true
-          fi
-
-          if [ -f android/build.gradle ]; then
-            python - <<'PY'
+          # Patch generated Gradle files for compatibility and native packaging.
+          python - <<'PY'
 from pathlib import Path
-p = Path('android/build.gradle')
-text = p.read_text() if p.exists() else ''
-if 'com.android.tools.build:gradle:8.7.2' not in text:
-    if 'dependencies {' in text:
-        text = text.replace("dependencies {", "dependencies {\n        classpath 'com.android.tools.build:gradle:8.7.2'\n", 1)
-    else:
-        text += "\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n"
-    p.write_text(text)
-PY
-          fi
 
-          # Ensure generated app uses Java 17 and correctly configured desugaring.
-          if [ -f android/app/build.gradle ]; then
-            python - <<'PY'
-from pathlib import Path
-p = Path('android/app/build.gradle')
-text = p.read_text()
-if 'sourceCompatibility JavaVersion.VERSION_17' not in text:
+# Root build.gradle / settings.gradle patches
+root_build = Path('android/build.gradle')
+if root_build.exists():
+    text = root_build.read_text()
+    if "com.android.tools.build:gradle:8.7.2" not in text:
+        text = text.replace("classpath 'com.android.tools.build:gradle:", "classpath 'com.android.tools.build:gradle:8.7.2'") if "com.android.tools.build:gradle:" in text else text
+        if "dependencies {" in text and "classpath 'com.android.tools.build:gradle:8.7.2'" not in text:
+            text = text.replace("dependencies {", "dependencies {\n        classpath 'com.android.tools.build:gradle:8.7.2'", 1)
+        root_build.write_text(text)
+
+settings = Path('android/settings.gradle')
+if settings.exists():
+    text = settings.read_text()
+    if 'com.android.application' in text:
+        text = text.replace('com.android.application', 'com.android.application')
+    if 'version "8.7.2"' not in text and 'com.android.application' in text:
+        text = text.replace('id "com.android.application"', 'id "com.android.application" version "8.7.2" apply false')
+        text = text.replace('id "com.android.library"', 'id "com.android.library" version "8.7.2" apply false')
+    settings.write_text(text)
+
+# App build.gradle patches
+app_build = Path('android/app/build.gradle')
+if app_build.exists():
+    text = app_build.read_text()
+
+    text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+    text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
     text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
     text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
-    text = text.replace('coreLibraryDesugaringEnabled true', 'coreLibraryDesugaringEnabled true')
-    if 'compileOptions {' in text and 'coreLibraryDesugaringEnabled true' not in text:
+    text = text.replace('targetCompatibility JavaVersion.VERSION_11', 'targetCompatibility JavaVersion.VERSION_17')
+    text = text.replace('sourceCompatibility JavaVersion.VERSION_11', 'sourceCompatibility JavaVersion.VERSION_17')
+
+    if 'coreLibraryDesugaringEnabled true' not in text and 'compileOptions {' in text:
         text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
-    if 'dependencies {' in text and 'coreLibraryDesugaring' not in text:
+    if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
         text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
-    p.write_text(text)
+    if 'useLegacyPackaging = true' not in text and 'android {' in text:
+        insertion = '\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n'
+        text = text.replace('android {', 'android {' + insertion, 1)
+    if 'kotlinOptions {' not in text and 'android {' in text:
+        text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
+    app_build.write_text(text)
+
+# Kotlin DSL build.gradle.kts fallback
+app_build_kts = Path('android/app/build.gradle.kts')
+if app_build_kts.exists():
+    text = app_build_kts.read_text()
+    text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+    text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+    if 'sourceCompatibility = JavaVersion.VERSION_17' not in text:
+        text = text.replace('sourceCompatibility = JavaVersion.VERSION_1_8', 'sourceCompatibility = JavaVersion.VERSION_17')
+        text = text.replace('targetCompatibility = JavaVersion.VERSION_1_8', 'targetCompatibility = JavaVersion.VERSION_17')
+    if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
+        text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
+    if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in text and 'dependencies {' in text:
+        text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
+    if 'useLegacyPackaging = true' not in text and 'android {' in text:
+        text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+    if 'jvmTarget = "17"' not in text and 'kotlinOptions' in text:
+        text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
+    app_build_kts.write_text(text)
 PY
-          fi
 
           printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 
@@ -106,19 +136,6 @@ PY
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST"
           sed -i '/<\/application>/i\    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" />' "$MANIFEST"
-
-          if [ -f android/app/build.gradle.kts ]; then
-            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
-            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
-            perl -0777 -i -pe 's/compileOptions\s*\{\s*/$&\n        isCoreLibraryDesugaringEnabled = true\n/s' android/app/build.gradle.kts
-            perl -0777 -i -pe 's/(dependencies\s*\{\s*)/$1\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n/s' android/app/build.gradle.kts
-
-          elif [ -f android/app/build.gradle ]; then
-            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' android/app/build.gradle
-            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
-            perl -0777 -i -pe 's/compileOptions\s*\{\s*/$&\n        coreLibraryDesugaringEnabled true\n/s' android/app/build.gradle
-            perl -0777 -i -pe 's/(dependencies\s*\{\s*)/$1\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n/s' android/app/build.gradle
-          fi
 
       - name: Resolve packages
         run: flutter pub get
