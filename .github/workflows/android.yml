@@ -120,6 +120,31 @@ jobs:
         working-directory: android_app
         run: flutter pub get
 
+      - name: Align file_picker Android compile SDK
+        working-directory: android_app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          from urllib.parse import unquote, urlparse
+
+          config_path = Path('.dart_tool/package_config.json')
+          packages = json.loads(config_path.read_text())['packages']
+          package = next(item for item in packages if item['name'] == 'file_picker')
+          root_uri = urlparse(package['rootUri'])
+          package_root = Path(unquote(root_uri.path)) if root_uri.scheme == 'file' else (config_path.parent / package['rootUri']).resolve()
+          gradle_file = package_root / 'android' / 'build.gradle'
+          text = gradle_file.read_text()
+          pattern = re.compile(r'(?m)^(\s*compileSdk(?:Version)?\s+)(\d+)\b')
+          updated, count = pattern.subn(lambda match: f'{match.group(1)}36', text, count=1)
+          if not count:
+              raise SystemExit(f'Could not find compileSdk declaration in {gradle_file}')
+          gradle_file.write_text(updated)
+          PY
+
       - name: Analyze code
         working-directory: android_app
         run: flutter analyze --fatal-infos
