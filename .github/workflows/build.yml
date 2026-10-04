@@ -1,8 +1,6 @@
 name: Build & Upload Release Assets
 
 on:
-  push:
-    tags: ["v*.*.*"]
   # Manual build: Actions -> "Build & Upload Release Assets" -> Run workflow
   # Builds without pushing a tag; artifacts are uploaded to a build-<run_number> prerelease
   workflow_dispatch:
@@ -40,12 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Tag push: build all platforms; manual build: filter by inputs.platforms
-          if [ "${{ github.event_name }}" = "push" ]; then
-            SELECTED="all"
-          else
-            SELECTED="${{ github.event.inputs.platforms }}"
-          fi
+          SELECTED="${{ github.event.inputs.platforms }}"
           echo "Selected platforms: $SELECTED"
 
           # Full matrix; mac x64 builds the Intel package on the arm runner via Rosetta
@@ -209,16 +202,8 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            # Tag push: v2.1.2 -> 2.1.2
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            # Manual build: read APP_VERSION from src/constants/system.py
-            # Extract only the quoted value: the spaces around " = " break sed matching
-            # (unifypy would treat 'APP_VERSION = "2.1.2"' as extra args -> unrecognized arguments)
-            LINE="$(grep -E '^[[:space:]]*APP_VERSION[[:space:]]*=' src/constants/system.py | head -1)"
-            VERSION="$(printf '%s' "$LINE" | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
-          fi
+          LINE="$(grep -E '^[[:space:]]*APP_VERSION[[:space:]]*=' src/constants/system.py | head -1)"
+          VERSION="$(printf '%s' "$LINE" | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
           if [ -z "$VERSION" ]; then
             echo "::error::Could not determine the version (missing tag or APP_VERSION)"
             exit 1
@@ -413,23 +398,15 @@ jobs:
           done
           ls -lh dist/release
 
-      # Tag push: use the triggering tag; manual build: a separate build-<run_number> prerelease
       # Note: do not put a format() template containing { } inside ${{ }}
-      # (e.g. 'Build #{0} (v{1})'); the GitHub workflow parser fails with
-      # "The expression is not closed", so tag/name/prerelease are computed in the shell instead
+      # Compute the release name in the shell instead.
       - name: Compute release metadata
         id: release
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            NAME="$TAG"
-            PRE="false"
-          else
-            TAG="build-${GITHUB_RUN_NUMBER}"
-            NAME="Build #${GITHUB_RUN_NUMBER} (v${{ steps.version.outputs.version }})"
-            PRE="true"
-          fi
+          TAG="build-${GITHUB_RUN_NUMBER}"
+          NAME="Build #${GITHUB_RUN_NUMBER} (v${{ steps.version.outputs.version }})"
+          PRE="true"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
