@@ -40,6 +40,7 @@ jobs:
           elif [ -f android/app/build.gradle ]; then
             sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
           fi
+          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 
       - name: Resolve packages
         run: flutter pub get
