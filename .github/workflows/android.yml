@@ -34,7 +34,9 @@ jobs:
             echo "::error::Android sdkmanager was not found under $SDK_ROOT"
             exit 1
           fi
+          set +o pipefail
           yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
           "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Create Android platform files
