@@ -111,15 +111,16 @@ def test_parse_args_supports_starting_minimized():
     assert args.start_minimized is True
 
 
-def test_gui_mode_hides_console_on_windows(monkeypatch):
+def test_gui_mode_keeps_terminal_available_on_windows(monkeypatch):
     called = {}
 
     monkeypatch.setattr(main.sys, "platform", "win32")
+    monkeypatch.setattr(main.sys, "stdout", object())
     monkeypatch.setattr(main, "_free_console", lambda: called.setdefault("free", True))
 
     main._configure_gui_console_visibility("gui")
 
-    assert called == {"free": True}
+    assert called == {}
 
 
 def test_tui_bootstrap_logging_does_not_write_to_terminal():

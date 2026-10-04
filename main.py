@@ -110,8 +110,8 @@ def _free_console() -> None:
 
 
 def _configure_gui_console_visibility(mode: str) -> None:
-    """Hide the terminal window for GUI mode on Windows."""
-    if mode == "gui" and sys.platform == "win32":
+    """Detach an existing console only when standard output is unavailable."""
+    if mode == "gui" and sys.platform == "win32" and sys.stdout is None:
         _free_console()
 
 
