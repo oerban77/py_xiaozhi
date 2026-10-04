@@ -42,7 +42,7 @@ class XiaozhiController extends ChangeNotifier {
   String sessionId = '';
   String _assistantText = '';
   int? _assistantMessageIndex;
-  int _outputSampleRate = 24000;
+  final int _outputSampleRate = 24000;
   bool isConnected = false;
   bool isConnecting = false;
   bool isRecording = false;
@@ -312,7 +312,7 @@ class XiaozhiController extends ChangeNotifier {
       _decoder = SimpleOpusDecoder(sampleRate: _outputSampleRate, channels: 1);
       _opusInitialized = true;
     }
-    if (!_player.isOpen) await _player.openPlayer();
+    if (!_player.isOpen()) await _player.openPlayer();
     await _startPlayerStream();
   }
 

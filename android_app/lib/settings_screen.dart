@@ -82,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: Color(0xFF71817C), height: 1.45),
               ),
               const SizedBox(height: 22),
-              _FieldLabel(label: 'Alamat WebSocket'),
+              const _FieldLabel(label: 'Alamat WebSocket'),
               TextField(
                 controller: _urlController,
                 keyboardType: TextInputType.url,
@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              _FieldLabel(label: 'Access token'),
+              const _FieldLabel(label: 'Access token'),
               TextField(
                 controller: _tokenController,
                 obscureText: true,
@@ -109,14 +109,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 14),
-              _FieldLabel(label: 'Device ID'),
+              const _FieldLabel(label: 'Device ID'),
               TextField(
                 controller: _deviceController,
                 autocorrect: false,
                 decoration: const InputDecoration(prefixIcon: Icon(Icons.phone_android_rounded)),
               ),
               const SizedBox(height: 16),
-              _FieldLabel(label: 'Client ID'),
+              const _FieldLabel(label: 'Client ID'),
               TextField(
                 controller: _clientController,
                 autocorrect: false,
