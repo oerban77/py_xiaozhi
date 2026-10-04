@@ -35,16 +35,67 @@ jobs:
             exit 1
           fi
 
-          # Accept Android SDK licenses without tripping bash pipefail on the broken-pipe from `yes`.
           set +o pipefail
           yes 2>/dev/null | "$SDKMANAGER" --licenses >/dev/null || true
           set -o pipefail
 
-          # Install multiple platforms so older plugins (compileSdkVersion 33) and newer compileSdk 36 both work.
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.2" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Create Android platform files
         run: flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
+
+      - name: Pin Gradle/AGP to a compatible version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Flutter 3.47.x is compatible with AGP 8.7.x / Gradle 8.7.x.
+          # Force the generated app to use a compatible wrapper to avoid Gradle 9.x failures.
+          cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
+          EOF
+
+          if [ -f android/settings.gradle ]; then
+            grep -q "com.android.tools.build:gradle" android/settings.gradle || true
+          fi
+
+          if [ -f android/build.gradle ]; then
+            python - <<'PY'
+from pathlib import Path
+p = Path('android/build.gradle')
+text = p.read_text() if p.exists() else ''
+if 'com.android.tools.build:gradle:8.7.2' not in text:
+    if 'dependencies {' in text:
+        text = text.replace("dependencies {", "dependencies {\n        classpath 'com.android.tools.build:gradle:8.7.2'\n", 1)
+    else:
+        text += "\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n"
+    p.write_text(text)
+PY
+          fi
+
+          # Ensure generated app uses Java 17 and correctly configured desugaring.
+          if [ -f android/app/build.gradle ]; then
+            python - <<'PY'
+from pathlib import Path
+p = Path('android/app/build.gradle')
+text = p.read_text()
+if 'sourceCompatibility JavaVersion.VERSION_17' not in text:
+    text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
+    text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
+    text = text.replace('coreLibraryDesugaringEnabled true', 'coreLibraryDesugaringEnabled true')
+    if 'compileOptions {' in text and 'coreLibraryDesugaringEnabled true' not in text:
+        text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
+    if 'dependencies {' in text and 'coreLibraryDesugaring' not in text:
+        text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
+    p.write_text(text)
+PY
+          fi
+
+          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 
       - name: Set Android app metadata and permissions
         shell: bash
@@ -68,8 +119,6 @@ jobs:
             perl -0777 -i -pe 's/compileOptions\s*\{\s*/$&\n        coreLibraryDesugaringEnabled true\n/s' android/app/build.gradle
             perl -0777 -i -pe 's/(dependencies\s*\{\s*)/$1\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n/s' android/app/build.gradle
           fi
-
-          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 
       - name: Resolve packages
         run: flutter pub get
