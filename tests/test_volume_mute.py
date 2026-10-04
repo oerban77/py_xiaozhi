@@ -156,7 +156,7 @@ def test_gui_manager_refresh_muted_reads_backend():
 
 
 def test_music_player_volume_is_clamped_and_persisted(monkeypatch):
-    """播放器音量必须以 0..100 保存，并保持与本地/在线音乐播放一致。"""
+    """播放器增益必须以 0..200 保存，并保持与本地/在线音乐播放一致。"""
     from src.mcp.tools.music.music_player import MusicPlayer
 
     class _FakeConfig:
@@ -170,7 +170,7 @@ def test_music_player_volume_is_clamped_and_persisted(monkeypatch):
 
         def update_config(self, path, value, save=True):
             assert path == "MUSIC.VOLUME"
-            self.value = max(0, min(100, int(value)))
+            self.value = max(0, min(200, int(value)))
             return True
 
     fake_cfg = _FakeConfig()
@@ -180,9 +180,9 @@ def test_music_player_volume_is_clamped_and_persisted(monkeypatch):
     player._config = None
     player.reload_config = lambda: {"VOLUME": fake_cfg.value}
 
-    result = player.set_volume(125)
+    result = player.set_volume(250)
     assert result["status"] == "success"
-    assert player.get_volume() == 100
+    assert player.get_volume() == 200
 
     result = player.set_volume(-10)
     assert result["status"] == "success"

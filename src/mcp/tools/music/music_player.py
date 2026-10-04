@@ -128,7 +128,7 @@ class MusicPlayer:
 
             value = get_config().get_config("MUSIC.VOLUME", 100)
             volume = int(100 if value is None else value)
-            return max(0, min(100, volume))
+            return max(0, min(200, volume))
         except Exception:
             return 100
 
@@ -136,7 +136,7 @@ class MusicPlayer:
         try:
             from src.utils.config_manager import get_config
 
-            value = max(0, min(100, int(volume)))
+            value = max(0, min(200, int(volume)))
             get_config().update_config("MUSIC.VOLUME", value, save=True)
             self.reload_config()
             return {"status": "success", "message": f"Music volume set to {value}%", "volume": value}

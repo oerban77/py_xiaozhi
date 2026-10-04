@@ -295,7 +295,7 @@ class AudioCodec:
             volume = int(value)
         except Exception:
             volume = 100
-        volume = max(0, min(100, volume))
+        volume = max(0, min(200, volume))
         return volume / 100.0
 
     def _pull_mixed(self, n: int) -> np.ndarray | None:
@@ -338,8 +338,11 @@ class AudioCodec:
         if tts is None:
             if self._duck_hold > 0:
                 music *= _MUSIC_DUCK_GAIN
-            return music
-        return np.clip(tts + music * _MUSIC_DUCK_GAIN, -1.0, 1.0)
+            return np.clip(music, -1.0, 1.0)
+
+        music *= _MUSIC_DUCK_GAIN
+        music = np.clip(music, -1.0 - tts, 1.0 - tts)
+        return tts + music
 
     def _setup_aec(self):
         """Create / rebuild the AEC engine according to AEC_OPTIONS.ENABLED (self far).

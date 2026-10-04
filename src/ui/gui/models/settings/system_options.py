@@ -113,14 +113,14 @@ class SettingsSystemOptionsMixin:
             value = int(self._get_value("MUSIC.VOLUME", 100))
         except (TypeError, ValueError):
             value = 100
-        return max(0, min(100, value))
+        return max(0, min(200, value))
 
     def _set_musicVolume(self, value: int):
         try:
             volume = int(value)
         except (TypeError, ValueError):
             volume = 100
-        self._set_value("MUSIC.VOLUME", max(0, min(100, volume)))
+        self._set_value("MUSIC.VOLUME", max(0, min(200, volume)))
 
     def _get_musicOpusCatalogUrl(self) -> str:
         return self._get_value("MUSIC.OPUS_CATALOG_URL", "")

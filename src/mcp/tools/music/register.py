@@ -163,7 +163,7 @@ def register_music_tools(
         McpTool(
             "music_player.set_volume",
             (
-                "Set the playback volume for the local/online music player (0-100). "
+                "Set the playback gain for the local/online music player (0-200%). This changes music only, not system speaker or TTS volume. "
                 "This does not change the system TTS speaker volume; it only changes the music playback gain."
             ),
             PropertyList([Property("volume", PropertyType.INTEGER, min_value=0, max_value=100)]),
@@ -172,7 +172,7 @@ def register_music_tools(
         McpTool(
             "music_player.get_volume",
             (
-                "Read the current music player volume in percent (0-100). "
+                "Read the current local/online music playback gain in percent (0-200%); this is separate from system speaker and TTS volume. "
                 "Use this when the user asks how loud the music is or to confirm the music volume after adjusting it."
             ),
             PropertyList(),

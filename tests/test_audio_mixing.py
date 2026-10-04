@@ -171,6 +171,21 @@ class TestMixing:
         out = codec._pull_mixed(n)
         assert np.allclose(out, 0.4)
 
+    def test_music_gain_boost_does_not_change_tts(self, codec, monkeypatch):
+        monkeypatch.setattr(
+            "src.audio_codecs.audio_codec.get_config",
+            lambda: SimpleNamespace(get_config=lambda _path, _default=100: 200),
+        )
+        n = codec._mix_chunk
+        codec._tts_fifo.push(np.full(n, 0.8, dtype=np.float32))
+        codec._music_fifo.push(np.full(n, 0.4, dtype=np.float32))
+
+        out = codec._pull_mixed(n)
+
+        expected_music = min(0.4 * 2 * _MUSIC_DUCK_GAIN, 1.0 - 0.8)
+        assert np.allclose(out, 0.8 + expected_music)
+        assert np.all(out <= 1.0)
+
     def test_muted_music_does_not_mask_tts(self, codec):
         n = codec._mix_chunk
         codec._music_fifo.push(np.full(n, 0.4, dtype=np.float32))

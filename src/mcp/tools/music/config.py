@@ -37,7 +37,7 @@ def load_music_config() -> dict:
         volume = int(100 if value is None else value)
     except (TypeError, ValueError):
         volume = 100
-    volume = max(0, min(100, volume))
+    volume = max(0, min(200, volume))
 
     return {
         "SEARCH_URL": pick(cm, "MUSIC.SEARCH_URL", DEFAULT_SEARCH_URL),

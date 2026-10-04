@@ -214,7 +214,7 @@ ScrollView {
                     id: musicVolumeField
                     Layout.preferredWidth: 150
                     text: settingsModel ? String(settingsModel.musicVolume) : "100"
-                    validator: IntValidator { bottom: 0; top: 100 }
+                    validator: IntValidator { bottom: 0; top: 200 }
                     onEditingFinished: {
                         if (settingsModel) settingsModel.musicVolume = Number(text || 100)
                     }
