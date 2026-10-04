@@ -29,6 +29,7 @@ void main() {
     expect(names, contains('music_player.search_and_play'));
     expect(names, contains('music_player.pause'));
     expect(names, contains('music_player.get_status'));
+    expect(names, contains('music_player.get_lyrics'));
   });
 
   test('hides disabled prayer module tools', () async {

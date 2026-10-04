@@ -16,6 +16,7 @@ class MusicRuntime {
     'music_player.set_volume',
     'music_player.get_volume',
     'music_player.get_status',
+    'music_player.get_lyrics',
     'music_player.play_url',
   };
 
@@ -76,6 +77,11 @@ class MusicRuntime {
       'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
     },
     {
+      'name': 'music_player.get_lyrics',
+      'description': 'Get lyrics for the currently playing song.',
+      'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
+    },
+    {
       'name': 'music_player.play_url',
       'description': 'Play a direct HTTP or HTTPS audio URL.',
       'inputSchema': {
@@ -95,6 +101,7 @@ class MusicRuntime {
   static final AudioPlayer _player = AudioPlayer();
   static String _currentSong = '';
   static String _currentUrl = '';
+  static List<String> _lyrics = [];
   static int _volume = 100;
   static bool _initialized = false;
 
@@ -121,6 +128,7 @@ class MusicRuntime {
       case 'music_player.stop':
         await _player.stop();
         _currentUrl = '';
+        _lyrics = [];
         return 'Music stopped.';
       case 'music_player.seek':
         return _seek(arguments);
@@ -130,12 +138,15 @@ class MusicRuntime {
         return 'Current music volume: $_volume%';
       case 'music_player.get_status':
         return _getStatus();
+      case 'music_player.get_lyrics':
+        return _getLyrics();
       case 'music_player.play_url':
         final url = _requiredString(arguments, 'url');
         final uri = Uri.tryParse(url);
         if (uri == null || !{'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) {
           throw ArgumentError('Only valid HTTP/HTTPS audio URLs are supported.');
         }
+        _lyrics = [];
         return _playUrl(url, _optionalString(arguments['title']).isEmpty
             ? url
             : _optionalString(arguments['title']));
@@ -181,6 +192,7 @@ class MusicRuntime {
     final album = '${hit['ALBUM'] ?? ''}'.trim();
     var displayName = artist.isEmpty ? title : '$title - $artist';
     if (album.isNotEmpty) displayName += ' ($album)';
+    _lyrics = await _fetchLyrics(songId);
 
     final apiUrl = Uri.parse('$_resolveBase/url/kw/$songId/320k');
     String? audioUrl;
@@ -283,6 +295,41 @@ class MusicRuntime {
         'Total duration (s): ${duration.inSeconds}\n'
         'Current position (s): ${position.inSeconds}\n'
         'Progress: $percent%';
+  }
+
+  static String _getLyrics() => _lyrics.isEmpty
+      ? 'No lyrics available for the current song.'
+      : 'Lyrics content:\n${_lyrics.join('\n')}';
+
+  static Future<List<String>> _fetchLyrics(String songId) async {
+    final uri = Uri.parse('http://m.kuwo.cn/newh5/singles/songinfoandlrc')
+        .replace(queryParameters: {'musicId': songId});
+    try {
+      final response = await _requestJson(uri, headers: const {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
+        'Referer': 'https://www.kuwo.cn/',
+      });
+      if (response['status'] != 200 || response['data'] is! Map) return [];
+      final lines = (response['data'] as Map)['lrclist'];
+      if (lines is! List) return [];
+      final lyrics = <String>[];
+      for (final line in lines.whereType<Map>()) {
+        final text = '${line['lineLyric'] ?? ''}'.trim();
+        final time = double.tryParse('${line['time'] ?? ''}');
+        if (text.isEmpty || time == null ||
+            const ['by:', 'ar:', 'al:', 'ti:', 'offset:', 'id:', 'hash:']
+                .any(text.startsWith)) {
+          continue;
+        }
+        final timestamp = _formatDuration(
+          Duration(milliseconds: (time * 1000).round()),
+        );
+        lyrics.add('[$timestamp] $text');
+      }
+      return lyrics;
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<Map<String, dynamic>> _requestJson(
