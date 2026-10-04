@@ -44,55 +44,97 @@ jobs:
       - name: Create Android platform files
         run: flutter create --platforms=android --project-name=py_xiaozhi_android --org=com.pyxiaozhi .
 
-      - name: Force Gradle wrapper to 8.7 and pin AGP to 8.7.2
+      - name: Align Gradle and AGP versions with Android plugin requirements
         shell: bash
         run: |
           set -euo pipefail
 
-          # Ensure gradle wrapper uses Gradle 8.7
-          mkdir -p android/gradle/wrapper
-          # Use the generated wrapper to update itself to the requested version (ignore failures first run)
-          if [ -x android/gradlew ]; then
-            android/gradlew wrapper --gradle-version 8.7 --distribution-type all || true
-          fi
-          # Overwrite distributionUrl as a fallback
-          if [ -f android/gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip#' android/gradle/wrapper/gradle-wrapper.properties || true
-          fi
+          # AGP 8.9.x requires Gradle 9.3.1
+          cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip
+          EOF
 
-          # Ensure Android Gradle Plugin (AGP) is pinned to 8.7.2 in android/build.gradle
           if [ -f android/build.gradle ]; then
-            if grep -q "com.android.tools.build:gradle" android/build.gradle; then
-              sed -i -E "s/(com.android.tools.build:gradle:)[0-9]+\.[0-9]+\.[0-9]+/\18.7.2/" android/build.gradle || true
-            else
-              # Insert classpath into the first dependencies block
-              perl -0777 -i -pe 's/(dependencies\s*\{)/$1\n        classpath "com.android.tools.build:gradle:8.7.2"/s' android/build.gradle || true
-            fi
+            python - <<'PY'
+from pathlib import Path
+p = Path('android/build.gradle')
+text = p.read_text()
+if 'com.android.tools.build:gradle' in text:
+    text = text.replace("com.android.tools.build:gradle:8.7.2", "com.android.tools.build:gradle:8.9.2")
+    text = text.replace("com.android.tools.build:gradle:8.9.0", "com.android.tools.build:gradle:8.9.2")
+    text = text.replace("com.android.tools.build:gradle:8.10", "com.android.tools.build:gradle:8.9.2")
+else:
+    text = """buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.2'
+    }
+}
+
+""" + text
+p.write_text(text)
+PY
           fi
 
-          # Patch android/app/build.gradle to use Java 17, enable desugaring and legacy JNI packaging
           if [ -f android/app/build.gradle ]; then
-            perl -0777 -i -pe 's/compileSdkVersion\s+flutter.compileSdkVersion/compileSdkVersion 36/s' android/app/build.gradle || true
-            perl -0777 -i -pe 's/minSdkVersion\s+flutter.minSdkVersion/minSdkVersion 24/s' android/app/build.gradle || true
+            python - <<'PY'
+from pathlib import Path
+p = Path('android/app/build.gradle')
+text = p.read_text()
+replacements = {
+    'compileSdkVersion flutter.compileSdkVersion': 'compileSdkVersion 36',
+    'minSdkVersion flutter.minSdkVersion': 'minSdkVersion 24',
+    'sourceCompatibility JavaVersion.VERSION_1_8': 'sourceCompatibility JavaVersion.VERSION_17',
+    'targetCompatibility JavaVersion.VERSION_1_8': 'targetCompatibility JavaVersion.VERSION_17',
+    'sourceCompatibility JavaVersion.VERSION_11': 'sourceCompatibility JavaVersion.VERSION_17',
+    'targetCompatibility JavaVersion.VERSION_11': 'targetCompatibility JavaVersion.VERSION_17',
+}
+for old, new in replacements.items():
+    text = text.replace(old, new)
 
-            # Replace or add compileOptions with Java 17 + desugaring
-            perl -0777 -i -pe '
-                if (/compileOptions\s*\{[\s\S]*?\}/) {
-                    s/compileOptions\s*\{[\s\S]*?\}/compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n        coreLibraryDesugaringEnabled true\n    }/s;
-                } else {
-                    s/(android\s*\{)/$1\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n        coreLibraryDesugaringEnabled true\n    }/s;
-                }
-            ' android/app/build.gradle || true
-
-            # Ensure kotlinOptions jvmTarget = '17'
-            perl -0777 -i -pe 'if (/kotlinOptions\s*\{/) { s/kotlinOptions\s*\{[^}]*\}/kotlinOptions {\n        jvmTarget = "17"\n    }/s } else { s/(android\s*\{)/$1\n    kotlinOptions {\n        jvmTarget = "17"\n    }/s }' android/app/build.gradle || true
-
-            # Add packagingOptions -> jniLibs useLegacyPackaging = true
-            perl -0777 -i -pe 'if (/packagingOptions\s*\{[\s\S]*?\}/) { } else { s/(android\s*\{)/$1\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }/s }' android/app/build.gradle || true
-
-            # Add coreLibraryDesugaring dependency if dependencies block exists
-            perl -0777 -i -pe 'if (/dependencies\s*\{/) { unless (/coreLibraryDesugaring/) { s/dependencies\s*\{\s*/dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n/ } }' android/app/build.gradle || true
+if 'coreLibraryDesugaringEnabled true' not in text and 'compileOptions {' in text:
+    text = text.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
+if 'kotlinOptions' not in text and 'android {' in text:
+    text = text.replace('android {', 'android {\n    kotlinOptions {\n        jvmTarget = "17"\n    }', 1)
+if 'packagingOptions' not in text and 'android {' in text:
+    text = text.replace('android {', 'android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+if 'coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"' not in text and 'dependencies {' in text:
+    text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"', 1)
+p.write_text(text)
+PY
           fi
+
+          if [ -f android/app/build.gradle.kts ]; then
+            python - <<'PY'
+from pathlib import Path
+p = Path('android/app/build.gradle.kts')
+text = p.read_text()
+text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+text = text.replace('sourceCompatibility = JavaVersion.VERSION_1_8', 'sourceCompatibility = JavaVersion.VERSION_17')
+text = text.replace('targetCompatibility = JavaVersion.VERSION_1_8', 'targetCompatibility = JavaVersion.VERSION_17')
+text = text.replace('sourceCompatibility = JavaVersion.VERSION_11', 'sourceCompatibility = JavaVersion.VERSION_17')
+text = text.replace('targetCompatibility = JavaVersion.VERSION_11', 'targetCompatibility = JavaVersion.VERSION_17')
+if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
+    text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
+if 'jvmTarget = "17"' not in text and 'kotlinOptions {' in text:
+    text = text.replace('jvmTarget = "11"', 'jvmTarget = "17"')
+if 'useLegacyPackaging = true' not in text and 'android {' in text:
+    text = text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }', 1)
+if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in text and 'dependencies {' in text:
+    text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
+p.write_text(text)
+PY
+          fi
+
+          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties
 
       - name: Set Android app metadata and permissions
         shell: bash
