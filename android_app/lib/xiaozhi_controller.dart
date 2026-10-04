@@ -42,7 +42,7 @@ class XiaozhiController extends ChangeNotifier {
   String vlApiKey = '';
   String visionUrl = '';
   String visionToken = '';
-  String mcpDisabledRaw = '';
+  List<String> disabledMcpModules = [];
   bool autoConversation = false;
   bool autoSessionActive = false;
   String status = 'Belum terhubung';
@@ -65,7 +65,7 @@ class XiaozhiController extends ChangeNotifier {
     clientId = _preferences?.getString('client_id') ?? '';
     localVlUrl = _preferences?.getString('camera_local_vl_url') ?? '';
     visionUrl = _preferences?.getString('camera_explain_url') ?? '';
-    mcpDisabledRaw = _preferences?.getString('mcp_disabled_raw') ?? '';
+    disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
     autoConversation = _preferences?.getBool('auto_conversation') ?? false;
     token = await _secureStorage.read(key: 'access_token') ?? '';
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
@@ -91,7 +91,7 @@ class XiaozhiController extends ChangeNotifier {
     required String newVlApiKey,
     required String newVisionUrl,
     required String newVisionToken,
-    required String newMcpDisabledRaw,
+    required List<String> newDisabledMcpModules,
     required bool newAutoConversation,
   }) async {
     await disconnect();
@@ -106,7 +106,7 @@ class XiaozhiController extends ChangeNotifier {
     vlApiKey = newVlApiKey.trim();
     visionUrl = newVisionUrl.trim();
     visionToken = newVisionToken.trim();
-    mcpDisabledRaw = newMcpDisabledRaw.trim();
+    disabledMcpModules = List.of(newDisabledMcpModules);
     autoConversation = newAutoConversation;
     autoSessionActive = false;
     await _preferences?.setString('server_url', endpoint);
@@ -115,7 +115,7 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setString('camera_facing', cameraFacing);
     await _preferences?.setString('camera_local_vl_url', localVlUrl);
     await _preferences?.setString('camera_explain_url', visionUrl);
-    await _preferences?.setString('mcp_disabled_raw', mcpDisabledRaw);
+    await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_conversation', autoConversation);
     await _secureStorage.write(key: 'access_token', value: token);
     await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
@@ -248,6 +248,12 @@ class XiaozhiController extends ChangeNotifier {
           encoder: AudioEncoder.pcm16bits,
           sampleRate: 16000,
           numChannels: 1,
+          echoCancel: true,
+          noiseSuppress: true,
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.voiceCommunication,
+            audioManagerMode: AudioManagerMode.modeInCommunication,
+          ),
         ),
       );
       _micSubscription = stream.listen(_handleMicData);
