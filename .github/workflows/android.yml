@@ -79,6 +79,9 @@ jobs:
           sed -i 's/compileSdkVersion 33/compileSdkVersion 36/' "$PLUGIN_GRADLE"
           grep -n 'compileSdkVersion' "$PLUGIN_GRADLE"
 
+      - name: Resolve packages again
+        run: flutter pub get
+
       - name: Analyze Dart sources
         run: flutter analyze --fatal-infos
 
