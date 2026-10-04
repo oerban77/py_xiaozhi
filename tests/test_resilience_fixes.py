@@ -607,9 +607,16 @@ async def test_music_stop_cancels_task_and_clears_output_queue():
     class DummyAudioCodec:
         def __init__(self):
             self.clear_calls = 0
+            self.events = []
 
         async def clear_music_queue(self):
             self.clear_calls += 1
+            self.events.append("clear")
+
+    class DummyDecoder:
+        async def stop(self):
+            codec.events.append("decoder_stop")
+            eng._music_queue.put_nowait("late frame")
 
     eng = PlaybackEngine(
         PlaybackDeps(
@@ -621,6 +628,7 @@ async def test_music_stop_cancels_task_and_clears_output_queue():
     )
     codec = DummyAudioCodec()
     eng.audio_codec = codec
+    eng.decoder = DummyDecoder()
     eng.is_playing = True
     eng.current_song = "test track"
     eng.is_opus_source = True
@@ -634,6 +642,7 @@ async def test_music_stop_cancels_task_and_clears_output_queue():
     assert result["status"] == "success"
     assert task.cancelled()
     assert codec.clear_calls == 1
+    assert codec.events == ["decoder_stop", "clear"]
     assert eng._music_queue.empty()
     assert eng.is_playing is False
     assert eng._opus_resume_event is None

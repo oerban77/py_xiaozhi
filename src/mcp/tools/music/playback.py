@@ -127,16 +127,18 @@ class PlaybackEngine:
             if self._playback_task and not self._playback_task.done():
                 self._playback_task.cancel()
 
+            await self._cancel_playback_task()
+
+            if self.decoder:
+                await self.decoder.stop()
+                self.decoder = None
+
+            # Stop producers before clearing so decoder shutdown cannot leave a final frame queued.
             cleared = await self._clear_music_queue()
             audio_codec = self._get_audio_codec()
             if audio_codec:
                 await audio_codec.clear_music_queue()
             logger.debug(f"Cleared {cleared} frame(s) of music data")
-
-            if self.decoder:
-                await self.decoder.stop()
-                self.decoder = None
-            await self._cancel_playback_task()
 
             self.start_play_time = 0.0
             self.current_position = 0
