@@ -60,6 +60,66 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Ensure the app can open sockets and reach HTTP-only media endpoints
+          python - <<'PY'
+          from pathlib import Path
+
+          manifest_path = Path('android/app/src/main/AndroidManifest.xml')
+          manifest_path.parent.mkdir(parents=True, exist_ok=True)
+          text = manifest_path.read_text(encoding='utf-8') if manifest_path.exists() else (
+              '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+              '    <application\n        android:label="py_xiaozhi_android"\n        android:name="${applicationName}"\n'
+              '        android:icon="@mipmap/ic_launcher">\n'
+              '        <activity\n            android:name=".MainActivity"\n'
+              '            android:exported="true"\n'
+              '            android:launchMode="singleTop"\n'
+              '            android:theme="@style/LaunchTheme"\n'
+              '            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"\n'
+              '            android:hardwareAccelerated="true"\n'
+              '            android:windowSoftInputMode="adjustResize">\n'
+              '            <meta-data\n              android:name="io.flutter.embedding.android.NormalTheme"\n'
+              '              android:resource="@style/NormalTheme" />\n'
+              '            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n'
+              '                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n'
+              '        </activity>\n        <meta-data\n            android:name="flutterEmbedding"\n'
+              '            android:value="2" />\n    </application>\n</manifest>\n'
+          )
+
+          if 'android.permission.INTERNET' not in text:
+              text = text.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+                  '    <uses-permission android:name="android.permission.INTERNET" />\n'
+                  '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+                  '    <uses-permission android:name="android.permission.CAMERA" />\n',
+                  1,
+              )
+
+          if 'android:networkSecurityConfig' not in text:
+              text = text.replace(
+                  '<application',
+                  '<application\n        android:networkSecurityConfig="@xml/network_security_config"',
+                  1,
+              )
+
+          manifest_path.write_text(text, encoding='utf-8')
+
+          xml_dir = Path('android/app/src/main/res/xml')
+          xml_dir.mkdir(parents=True, exist_ok=True)
+          security_path = xml_dir / 'network_security_config.xml'
+          security_path.write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<network-security-config>\n'
+              '    <base-config cleartextTrafficPermitted="true">\n'
+              '        <trust-anchors>\n'
+              '            <certificates src="system" />\n'
+              '        </trust-anchors>\n'
+              '    </base-config>\n'
+              '</network-security-config>\n',
+              encoding='utf-8',
+          )
+          PY
+
           # Configure app/build.gradle for Java 17
           if [ -f android/app/build.gradle ]; then
             python - <<'PY'

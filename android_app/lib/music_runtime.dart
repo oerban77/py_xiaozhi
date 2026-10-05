@@ -95,8 +95,9 @@ class MusicRuntime {
     },
   ];
 
-  static const _searchUrl = 'http://search.kuwo.cn/r.s';
+  static const _searchUrl = 'https://search.kuwo.cn/r.s';
   static const _resolveBase = 'https://lxmusicapi.onrender.com';
+  static const _lyricsUrl = 'https://m.kuwo.cn/newh5/singles/songinfoandlrc';
   static const _preferencesKey = 'android_music_volume';
   static final AudioPlayer _player = AudioPlayer();
   static String _currentSong = '';
@@ -123,7 +124,9 @@ class MusicRuntime {
         return 'Music paused.';
       case 'music_player.resume':
         if (_currentUrl.isEmpty) return 'No paused music to resume.';
-        unawaited(_player.play());
+        // After stop() the player needs play() to restart the stream; pause()/play()
+        // alone does not resume on Android once the source was stopped.
+        if (!_player.playing) unawaited(_player.play());
         return 'Music resumed.';
       case 'music_player.stop':
         await _player.stop();
@@ -206,25 +209,28 @@ class MusicRuntime {
 
     audioUrl ??= await _resolveOfficialKuwo(songId);
     if (audioUrl == null) return 'Could not resolve a playable URL for $displayName.';
-    return _playUrl(audioUrl, displayName);
+    return _playUrl(_upgradeToHttps(audioUrl), displayName);
   }
 
   static Future<String?> _resolveOfficialKuwo(String songId) async {
-    final uri = Uri.https('wapi.kuwo.cn', '/api/v1/www/music/playUrl', {
-      'mid': songId,
-      'type': 'music',
-      'httpsStatus': '1',
-      'br': '320kmp3',
-    });
-    try {
-      final data = await _requestJson(uri, headers: const {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
-        'Referer': 'https://www.kuwo.cn/',
+    // Mirrors src/mcp/tools/music/download.py: try 320k first, then the 128k preview.
+    for (final br in const ['320kmp3', '128kmp3']) {
+      final uri = Uri.https('wapi.kuwo.cn', '/api/v1/www/music/playUrl', {
+        'mid': songId,
+        'type': 'music',
+        'httpsStatus': '1',
+        'br': br,
       });
-      return _extractAudioUrl(data);
-    } catch (_) {
-      return null;
+      try {
+        final data = await _requestJson(uri, headers: const {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
+          'Referer': 'https://www.kuwo.cn/',
+        });
+        final url = _extractAudioUrl(data);
+        if (url != null) return url;
+      } catch (_) {}
     }
+    return null;
   }
 
   static String? _extractAudioUrl(Map<String, dynamic> data) {
@@ -238,8 +244,21 @@ class MusicRuntime {
     return null;
   }
 
+  static String _upgradeToHttps(String url) {
+    // Kuwo CDN hosts serve the same media over https; Android blocks cleartext by default.
+    if (url.startsWith('http://')) return 'https://${url.substring(7)}';
+    return url;
+  }
+
   static Future<String> _playUrl(String url, String title) async {
     try {
+      // Stop and clear the previous source first: setAudioSource while another source is
+      // loaded can keep the old stream alive on Android and stall the new track.
+      if (_currentUrl.isNotEmpty) {
+        try {
+          await _player.stop();
+        } catch (_) {}
+      }
       await _player.setAudioSource(
         AudioSource.uri(
           Uri.parse(url),
@@ -257,6 +276,7 @@ class MusicRuntime {
       return 'Now playing: $title';
     } catch (error) {
       _currentUrl = '';
+      _currentSong = '';
       return 'Music playback failed: $error';
     }
   }
@@ -307,8 +327,7 @@ class MusicRuntime {
       : 'Lyrics content:\n${_lyrics.join('\n')}';
 
   static Future<List<String>> _fetchLyrics(String songId) async {
-    final uri = Uri.parse('http://m.kuwo.cn/newh5/singles/songinfoandlrc')
-        .replace(queryParameters: {'musicId': songId});
+    final uri = Uri.parse(_lyricsUrl).replace(queryParameters: {'musicId': songId});
     try {
       final response = await _requestJson(uri, headers: const {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',

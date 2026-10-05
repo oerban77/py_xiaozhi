@@ -60,7 +60,13 @@ class XiaozhiController extends ChangeNotifier {
   Uint8List? _pendingImageAttachment;
   String _pendingImageQuestion = '';
   int? _assistantMessageIndex;
-  final int _outputSampleRate = 24000;
+  /// Opus decode sample rate. The server's encode rate is configurable
+  /// (AUDIO_DEVICES.opus_output_sample_rate: 24000 official / 16000 third-party);
+  /// the decoder must match it, otherwise frames decode at the wrong size and TTS
+  /// sounds distorted. Mirrors src/ui/tui/settings_data.py.
+  int _outputSampleRate = 24000;
+  static const List<int> supportedOutputSampleRates = [24000, 16000];
+  int get outputSampleRate => _outputSampleRate;
   bool isConnected = false;
   bool isConnecting = false;
   bool isRecording = false;
@@ -69,6 +75,29 @@ class XiaozhiController extends ChangeNotifier {
   bool _playerStarted = false;
   bool mcpInitialized = false;
   bool mcpToolsListed = false;
+
+  /// Jitter buffer for incoming TTS PCM frames. Network frames arrive at an uneven
+  /// pace; feeding them straight to the player one-by-one makes playback stutter
+  /// ("brebet"). Releasing them in fixed-size bursts smooths that out.
+  static const int _ttsFeedFrames = 4;
+  static const int _ttsBufferMaxFrames = 60;
+  /// Frames to accumulate before the first feed of an utterance, mirroring
+  /// _TTS_PREBUFFER_S = 0.12s in src/audio_codecs/audio_codec.py. Without this the
+  /// OS playback buffer underruns at the start of speech and the first syllables
+  /// come out chopped.
+  static const int _ttsPrebufferFrames = 6;
+  final List<Int16List> _ttsBuffer = [];
+  bool _ttsFeeding = false;
+  bool _ttsNeedsPrebuffer = true;
+
+  /// Mirrors src/plugins/audio.py: while the speaker is still draining its TTS
+  /// buffer the microphone must stay suppressed, otherwise in auto/realtime mode
+  /// the assistant hears its own voice out of the speaker and answers itself.
+  static const Duration _silencePeriodMax = Duration(seconds: 3);
+  static const Duration _silencePeriodHold = Duration(milliseconds: 900);
+  bool _suppressMic = false;
+  Timer? _silencePollTimer;
+  DateTime? _lastTtsFrameAt;
 
   Future<void> initialize() async {
     await McpRuntime.initializeNotifications();
@@ -86,6 +115,8 @@ class XiaozhiController extends ChangeNotifier {
     smartHomeDevicesJson = _preferences?.getString('smart_home_devices') ?? '[]';
     disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
     autoConversation = _preferences?.getBool('auto_conversation') ?? false;
+    final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
+    _outputSampleRate = supportedOutputSampleRates.contains(storedRate) ? storedRate : 24000;
     token = await _secureStorage.read(key: 'access_token') ?? '';
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
     visionToken = await _secureStorage.read(key: 'camera_explain_token') ?? '';
@@ -119,6 +150,7 @@ class XiaozhiController extends ChangeNotifier {
     required String newSmartHomeDevicesJson,
     required List<String> newDisabledMcpModules,
     required bool newAutoConversation,
+    required int newOutputSampleRate,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim();
@@ -156,6 +188,7 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setString('smart_home_devices', smartHomeDevicesJson);
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_conversation', autoConversation);
+    await setOutputSampleRate(newOutputSampleRate);
     await _secureStorage.write(key: 'access_token', value: token);
     await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
     await _secureStorage.write(key: 'camera_explain_token', value: visionToken);
@@ -255,6 +288,9 @@ class XiaozhiController extends ChangeNotifier {
     isConnecting = false;
     mcpInitialized = false;
     mcpToolsListed = false;
+    _silencePollTimer?.cancel();
+    _suppressMic = false;
+    _ttsBuffer.clear();
     await _closeSocket();
     if (_playerStarted) {
       await _player.stopPlayer();
@@ -377,6 +413,9 @@ class XiaozhiController extends ChangeNotifier {
     if (!isConnected) return;
     if (isRecording) await stopVoice();
     _sendJson(ProtocolMessages.abort(sessionId));
+    _silencePollTimer?.cancel();
+    _suppressMic = false;
+    _ttsBuffer.clear();
     if (_playerStarted) {
       await _player.stopPlayer();
       _playerStarted = false;
@@ -507,6 +546,12 @@ class XiaozhiController extends ChangeNotifier {
         _assistantText = '';
         _assistantMessageIndex = null;
         status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
+        // Android has no AEC, so unlike the Python client (which keeps the mic open
+        // during SPEAKING only when AEC is enabled) we must gate the mic for the
+        // whole playback window. Otherwise the speaker output leaks into the mic and
+        // the server's VAD interrupts the assistant mid-sentence in realtime mode.
+        _beginTtsPlayback();
+        _ttsNeedsPrebuffer = true;
       }
       final text = data['text'];
       if (text is String && text.isNotEmpty) _appendAssistantText(text);
@@ -514,6 +559,7 @@ class XiaozhiController extends ChangeNotifier {
         isSpeaking = false;
         status = 'Terhubung';
         _assistantMessageIndex = null;
+        unawaited(_handleTtsStop());
       }
     } else if (type == 'error') {
       status = (data['message'] ?? data['error'] ?? 'Kesalahan server').toString();
@@ -548,6 +594,24 @@ class XiaozhiController extends ChangeNotifier {
     await _startPlayerStream();
   }
 
+  /// Changes the Opus decode sample rate. The decoder and the player stream are
+  /// bound to this rate, so both must be rebuilt when it changes.
+  Future<void> setOutputSampleRate(int rate) async {
+    if (!supportedOutputSampleRates.contains(rate) || rate == _outputSampleRate) return;
+    _outputSampleRate = rate;
+    await _preferences?.setInt('opus_output_sample_rate', rate);
+    if (_opusInitialized) {
+      _decoder?.destroy();
+      _decoder = SimpleOpusDecoder(sampleRate: rate, channels: 1);
+    }
+    if (_playerStarted) {
+      await _player.stopPlayer();
+      _playerStarted = false;
+      await _startPlayerStream();
+    }
+    notifyListeners();
+  }
+
   Future<void> _startPlayerStream() async {
     await _player.startPlayerFromStream(
       codec: Codec.pcm16,
@@ -567,7 +631,9 @@ class XiaozhiController extends ChangeNotifier {
       _pendingMicBytes.removeRange(0, frameBytes);
       final samples = Int16List.view(bytes.buffer, bytes.offsetInBytes, 320);
       final packet = _encoder?.encode(input: samples);
-      if (packet != null && isConnected) _channel?.sink.add(packet);
+      // During the post-TTS silence period the speaker is still draining; sending mic
+      // audio now makes the assistant hear and answer itself in realtime mode.
+      if (packet != null && isConnected && !_suppressMic) _channel?.sink.add(packet);
     }
   }
 
@@ -576,11 +642,102 @@ class XiaozhiController extends ChangeNotifier {
     if (decoder == null || !_playerStarted || packet.isEmpty) return;
     try {
       final pcm = decoder.decode(input: packet);
-      if (pcm.isNotEmpty) await _player.feedInt16FromStream([pcm]);
+      if (pcm.isEmpty) return;
+      _lastTtsFrameAt = DateTime.now();
+      _ttsBuffer.add(pcm);
+      // Guard the buffer: if the consumer stalls, never grow unbounded.
+      if (_ttsBuffer.length > _ttsBufferMaxFrames) {
+        _ttsBuffer.removeRange(0, _ttsBuffer.length - _ttsBufferMaxFrames);
+      }
+      unawaited(_feedTtsFromBuffer());
     } catch (_) {
       status = 'Paket audio tidak dapat diputar';
       notifyListeners();
     }
+  }
+
+  Future<void> _feedTtsFromBuffer() async {
+    if (_ttsFeeding) return;
+    _ttsFeeding = true;
+    try {
+      // Hold the first frames of an utterance until the prebuffer is filled; the
+      // player drains faster than the network delivers at speech onset.
+      final threshold = _ttsNeedsPrebuffer ? _ttsPrebufferFrames : _ttsFeedFrames;
+      while (_ttsBuffer.length >= threshold) {
+        if (_ttsNeedsPrebuffer) _ttsNeedsPrebuffer = false;
+        final burst = _ttsBuffer.sublist(0, _ttsFeedFrames);
+        _ttsBuffer.removeRange(0, _ttsFeedFrames);
+        final merged = _mergeInt16(burst);
+        await _player.feedInt16FromStream([merged]);
+      }
+    } finally {
+      _ttsFeeding = false;
+    }
+  }
+
+  Int16List _mergeInt16(List<Int16List> chunks) {
+    final total = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+    final merged = Int16List(total);
+    var offset = 0;
+    for (final chunk in chunks) {
+      merged.setAll(offset, chunk);
+      offset += chunk.length;
+    }
+    return merged;
+  }
+
+  /// Called when the server signals the end of a TTS utterance. The last frames may
+  /// still be sitting in the jitter buffer or the OS playback buffer, so flush what
+  /// we have and hold the mic off until playback has actually drained.
+  Future<void> _handleTtsStop() async {
+    await _flushTtsBuffer();
+    _beginSilencePeriod();
+  }
+
+  /// Called on tts "start". The mic must stay suppressed for the entire playback
+  /// window (not just the post-stop tail), because Android has no acoustic echo
+  /// cancellation: any audio sent now is the assistant's own voice coming out of
+  /// the speaker, which the server reads as user speech and interrupts.
+  void _beginTtsPlayback() {
+    _suppressMic = true;
+    _silencePollTimer?.cancel();
+    _lastTtsFrameAt = DateTime.now();
+  }
+
+  Future<void> _flushTtsBuffer() async {
+    if (_ttsBuffer.isEmpty) return;
+    final remaining = _mergeInt16(List<Int16List>.from(_ttsBuffer));
+    _ttsBuffer.clear();
+    try {
+      await _player.feedInt16FromStream([remaining]);
+      // The drain clock must start from the moment the final PCM actually reaches
+      // the player, not from the last network frame, otherwise the hold can expire
+      // while buffered audio is still playing out of the speaker.
+      _lastTtsFrameAt = DateTime.now();
+    } catch (_) {}
+  }
+
+  void _beginSilencePeriod() {
+    _suppressMic = true;
+    _silencePollTimer?.cancel();
+    final startedAt = _lastTtsFrameAt ?? DateTime.now();
+    final deadline = startedAt.add(_silencePeriodMax);
+    _silencePollTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
+      final now = DateTime.now();
+      // Safety cap, identical in spirit to _SILENCE_PERIOD_MAX_S in the Python client.
+      if (now.isAfter(deadline) || !_playerStarted) {
+        timer.cancel();
+        _suppressMic = false;
+        return;
+      }
+      // FlutterSound exposes no "buffer empty" query, so approximate "drained" by
+      // holding the mic off for a fixed window after the final frame was fed.
+      final lastFrame = _lastTtsFrameAt;
+      if (lastFrame != null && now.difference(lastFrame) >= _silencePeriodHold) {
+        timer.cancel();
+        _suppressMic = false;
+      }
+    });
   }
 
   void _sendJson(Map<String, Object?> message) {
@@ -598,6 +755,9 @@ class XiaozhiController extends ChangeNotifier {
     isRecording = false;
     mcpInitialized = false;
     mcpToolsListed = false;
+    _silencePollTimer?.cancel();
+    _suppressMic = false;
+    _ttsBuffer.clear();
     status = reason;
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError(reason));
@@ -626,6 +786,7 @@ class XiaozhiController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _silencePollTimer?.cancel();
     unawaited(_socketSubscription?.cancel());
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());

@@ -30,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String _cameraFacing;
   late bool _autoConversation;
   late bool _smartHomeUseTls;
+  late int _outputSampleRate;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
 
@@ -77,6 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     };
     _cameraFacing = widget.controller.cameraFacing;
     _autoConversation = widget.controller.autoConversation;
+    _outputSampleRate = widget.controller.outputSampleRate;
   }
 
   @override
@@ -123,6 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newSmartHomeDevicesJson: _smartHomeDevicesController.text,
       newDisabledMcpModules: _disabledMcpModules.toList()..sort(),
       newAutoConversation: _autoConversation,
+      newOutputSampleRate: _outputSampleRate,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -220,6 +223,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (value) => setState(() => _autoConversation = value),
                       activeThumbColor: AppColors.green,
                       activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Audio',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Sample rate decode Opus harus cocok dengan encode rate server. '
+                      'Server resmi 24000 Hz; server pihak ketiga biasanya 16000 Hz. '
+                      'Jika TTS terdengar robotic/terganggu, coba ganti nilai ini.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    SegmentedButton<int>(
+                      segments: const [
+                        ButtonSegment<int>(
+                          value: 24000,
+                          label: Text('24000 Hz'),
+                        ),
+                        ButtonSegment<int>(
+                          value: 16000,
+                          label: Text('16000 Hz'),
+                        ),
+                      ],
+                      selected: {_outputSampleRate},
+                      onSelectionChanged: (selection) {
+                        if (selection.isEmpty) return;
+                        setState(() => _outputSampleRate = selection.first);
+                      },
                     ),
                     const SizedBox(height: 28),
                     const Text(
