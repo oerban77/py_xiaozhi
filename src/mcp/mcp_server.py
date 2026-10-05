@@ -323,7 +323,7 @@ class McpServer:
         # Return server information
         result = {
             "protocolVersion": "2024-11-05",
-            "capabilities": {"tools": {}},
+            "capabilities": {"tools": {"listChanged": True}},
             "serverInfo": {
                 "name": SystemConstants.APP_NAME,
                 "version": SystemConstants.APP_VERSION,
@@ -372,14 +372,14 @@ class McpServer:
             raw = get_config().get_config("MCP_TOOLS.CALL_TIMEOUT", 45)
             value = float(raw)
         except Exception:
-            return 30.0
+            return 45.0
         if value < 0:
             # A negative value is a typo, not a request to disable the limit;
             # fall back to the smallest sane budget instead of running unbounded.
             return 1.0
         if value == 0:
             return 0.0
-        return max(1.0, min(value, 30.0))
+        return max(1.0, min(value, 600.0))
 
     async def _handle_tools_list(
         self, request_id: int, params: dict[str, Any]

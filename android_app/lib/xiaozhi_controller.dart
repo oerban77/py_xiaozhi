@@ -421,9 +421,26 @@ class XiaozhiController extends ChangeNotifier {
 
     if (type == 'mcp') {
       final payload = data['payload'];
+      Map<String, dynamic>? request;
+
       if (payload is Map) {
+        request = Map<String, dynamic>.from(payload);
+      } else if (payload is String && payload.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(payload);
+          if (decoded is Map) {
+            request = Map<String, dynamic>.from(decoded);
+          }
+        } on FormatException {
+          status = 'Payload MCP tidak valid';
+          notifyListeners();
+          return;
+        }
+      }
+
+      if (request != null) {
         final response = await McpRuntime.handle(
-          Map<String, dynamic>.from(payload),
+          request,
           disabledModules: disabledMcpModules.toSet(),
           pendingTextAttachment: _pendingTextAttachment,
           pendingImageAttachment: _pendingImageAttachment,
@@ -447,8 +464,8 @@ class XiaozhiController extends ChangeNotifier {
           },
         );
         if (response != null) {
-          final params = payload['params'];
-          if (payload['method'] == 'tools/call' &&
+          final params = request['params'];
+          if (request['method'] == 'tools/call' &&
               params is Map &&
               (params['name'] == 'manage_document' || params['name'] == 'take_photo') &&
               response['result'] is Map) {

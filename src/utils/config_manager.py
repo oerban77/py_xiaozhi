@@ -161,7 +161,7 @@ class ConfigManager:
             # Wall-clock budget for a single tools/call. Keep a safety margin below the
             # transport/session timeout so a tool returns an MCP error instead of tearing
             # down the xiaozhi session. 0 = no limit.
-            "CALL_TIMEOUT": 30,
+            "CALL_TIMEOUT": 45,
         },
         # Web search backend used by the web_search / read_article MCP tools.
         # SEARCH_ENGINE selects the keyless backend: "anysearch" (default) or

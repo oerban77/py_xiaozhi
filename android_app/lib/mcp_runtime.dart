@@ -241,7 +241,9 @@ class McpRuntime {
             'id': id,
             'result': {
               'protocolVersion': '2024-11-05',
-              'capabilities': {'tools': <String, Object?>{}},
+              'capabilities': {
+                'tools': {'listChanged': true},
+              },
               'serverInfo': {'name': 'py-xiaozhi-android', 'version': '1.0.0'},
             },
           };
