@@ -67,6 +67,8 @@ class XiaozhiController extends ChangeNotifier {
   bool isSpeaking = false;
   bool _opusInitialized = false;
   bool _playerStarted = false;
+  bool mcpInitialized = false;
+  bool mcpToolsListed = false;
 
   Future<void> initialize() async {
     await McpRuntime.initializeNotifications();
@@ -251,6 +253,8 @@ class XiaozhiController extends ChangeNotifier {
     autoSessionActive = false;
     isConnected = false;
     isConnecting = false;
+    mcpInitialized = false;
+    mcpToolsListed = false;
     await _closeSocket();
     if (_playerStarted) {
       await _player.stopPlayer();
@@ -465,7 +469,13 @@ class XiaozhiController extends ChangeNotifier {
         );
         if (response != null) {
           final params = request['params'];
-          if (request['method'] == 'tools/call' &&
+          final method = request['method'];
+          if (method == 'initialize') {
+            mcpInitialized = true;
+          } else if (method == 'tools/list') {
+            mcpToolsListed = true;
+          }
+          if (method == 'tools/call' &&
               params is Map &&
               (params['name'] == 'manage_document' || params['name'] == 'take_photo') &&
               response['result'] is Map) {
@@ -496,7 +506,7 @@ class XiaozhiController extends ChangeNotifier {
         isSpeaking = true;
         _assistantText = '';
         _assistantMessageIndex = null;
-        status = 'Xiaozhi sedang berbicara';
+        status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
       }
       final text = data['text'];
       if (text is String && text.isNotEmpty) _appendAssistantText(text);
@@ -574,14 +584,20 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   void _sendJson(Map<String, Object?> message) {
+    // Send whenever the socket exists. The server sends its MCP "initialize" request
+    // immediately after the hello handshake, before isConnected becomes true; gating on
+    // it silently dropped that response, so the server never asked for tools/list and only
+    // its own built-in tools stayed registered.
     final channel = _channel;
-    if (channel != null && isConnected) channel.sink.add(jsonEncode(message));
+    if (channel != null) channel.sink.add(jsonEncode(message));
   }
 
   void _handleConnectionFailure(String reason) {
     isConnected = false;
     isConnecting = false;
     isRecording = false;
+    mcpInitialized = false;
+    mcpToolsListed = false;
     status = reason;
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError(reason));
