@@ -1,11 +1,9 @@
 # Workflow name (can be customized)
 name: Deploy GitHub Pages
 
-# Trigger: runs automatically when code is pushed to the main branch
+# Trigger: manual run only (Actions tab -> "Run workflow"), like the other workflows
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 # ghaction-github-pages needs contents:write to push the gh-pages branch
 permissions:

@@ -26,7 +26,8 @@ class BpeKeywordConverter {
   String get language => 'en';
 
   /// Loads tokens.txt. Each line is `<token> <id>`; the English model has no
-  // tokens containing spaces (verified), so splitting on whitespace is safe.  Future<void> _ensureTokensLoaded() async {
+  /// tokens containing spaces (verified), so splitting on whitespace is safe.
+  Future<void> _ensureTokensLoaded() async {
     if (_tokenToId != null) return;
     final file = File(tokensPath);
     final lines = await file.readAsLines(encoding: utf8);
