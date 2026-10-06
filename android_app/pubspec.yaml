@@ -9,7 +9,7 @@ environment:
 dependencies:
   archive: ^4.3.0
   camera: ^0.12.1
-  pdfrx: ^2.6.5
+  pdfrx: 2.4.8
   flutter_local_notifications: ^18.0.1
   flutter_music_picker: ^0.0.9
   flutter:
