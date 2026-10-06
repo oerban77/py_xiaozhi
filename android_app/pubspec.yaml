@@ -46,3 +46,7 @@ flutter:
     # Bundled as assets and copied to a writable dir at runtime (see
     # lib/wake_word_detector.dart) because Android apps are sandboxed.
     - assets/models/en/
+    # Emotion animations, mirroring assets/emojis in the Python client
+    # (src/ui/gui/services/emotion_service.py). Shown in the chat header next to
+    # the status and the live TTS text, exactly like the desktop GUI.
+    - assets/emojis/

@@ -14,6 +14,7 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'chat_message.dart';
+import 'emotion_service.dart';
 import 'mcp_runtime.dart';
 import 'protocol_messages.dart';
 import 'wake_word_detector.dart';
@@ -64,6 +65,16 @@ class XiaozhiController extends ChangeNotifier {
   bool wakeWordListening = false;
   String wakeWordError = '';
   String status = 'Belum terhubung';
+  /// Current emotion name, mirroring mainModel.emotionUrl in the desktop GUI.
+  /// Driven by the `llm` message's `emotion` field (see UiPresenter
+  /// show_protocol_message) and reset to "neutral" on device-state changes, like
+  /// UiPresenter.show_device_state does. Empty while disconnected so the UI can
+  /// show the dimmed placeholder from EmotionDisplay.qml.
+  String emotion = '';
+  /// Live assistant text, mirroring mainModel.ttsText in the desktop GUI: the
+  /// streaming TTS text the chat panel shows under the emotion animation while
+  /// the assistant is speaking.
+  String liveText = '';
   String sessionId = '';
   String _assistantText = '';
   String? _pendingTextAttachment;
@@ -442,6 +453,10 @@ class XiaozhiController extends ChangeNotifier {
       isConnected = true;
       isConnecting = false;
       status = 'Terhubung';
+      // Mirrors UiPresenter.show_device_state, which resets the emotion to
+      // "neutral" whenever the device state changes.
+      emotion = EmotionService.hasAnimation(emotion) ? emotion : 'neutral';
+      liveText = '';
       // Arm the wake word detector after the handshake so the model load does not
       // compete with the connection for CPU (WakeWordPlugin.start runs after the
       // protocol is up for the same reason).
@@ -453,6 +468,8 @@ class XiaozhiController extends ChangeNotifier {
       isConnected = false;
       isConnecting = false;
       status = 'Gagal terhubung: ${error.toString()}';
+      emotion = '';
+      liveText = '';
     }
     notifyListeners();
   }
@@ -477,6 +494,9 @@ class XiaozhiController extends ChangeNotifier {
     }
     sessionId = '';
     status = 'Terputus';
+    // Back to the dimmed placeholder, like the disconnected desktop GUI.
+    emotion = '';
+    liveText = '';
     notifyListeners();
   }
 
@@ -607,6 +627,9 @@ class XiaozhiController extends ChangeNotifier {
       _micSubscription = stream.listen(_handleMicData);
       isRecording = true;
       status = 'Mendengarkan...';
+      // DeviceState.LISTENING in the desktop GUI resets the emotion to neutral.
+      emotion = 'neutral';
+      liveText = '';
     } catch (error) {
       status = 'Mikrofon gagal dimulai: ${error.toString()}';
     }
@@ -769,6 +792,9 @@ class XiaozhiController extends ChangeNotifier {
         if (messages.isEmpty || !messages.last.isUser || messages.last.text != text) {
           messages.add(ChatMessage(text: text, isUser: true));
         }
+        // Mirrors UiPresenter.show_protocol_message: stt text also updates the
+        // live chat panel line (mainModel.ttsText) in the desktop GUI.
+        liveText = text;
       }
     } else if (type == 'tts') {
       final state = data['state'];
@@ -776,6 +802,7 @@ class XiaozhiController extends ChangeNotifier {
         isSpeaking = true;
         _assistantText = '';
         _assistantMessageIndex = null;
+        liveText = '';
         status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
         // Android has no AEC, so unlike the Python client (which keeps the mic open
         // during SPEAKING only when AEC is enabled) we must gate the mic for the
@@ -785,12 +812,22 @@ class XiaozhiController extends ChangeNotifier {
         _ttsNeedsPrebuffer = true;
       }
       final text = data['text'];
-      if (text is String && text.isNotEmpty) _appendAssistantText(text);
+      if (text is String && text.isNotEmpty) {
+        _appendAssistantText(text);
+        liveText = _assistantText;
+      }
       if (state == 'stop') {
         isSpeaking = false;
         status = 'Terhubung';
         _assistantMessageIndex = null;
         unawaited(_handleTtsStop());
+      }
+    } else if (type == 'llm') {
+      // Mirrors UiPresenter.show_protocol_message's llm branch: the LLM's emotion
+      // updates the animation shown next to the chat text.
+      final value = data['emotion'];
+      if (value is String && value.trim().isNotEmpty) {
+        emotion = value.trim();
       }
     } else if (type == 'error') {
       status = (data['message'] ?? data['error'] ?? 'Kesalahan server').toString();

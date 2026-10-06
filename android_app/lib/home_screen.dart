@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'camera_screen.dart';
 import 'chat_message.dart';
+import 'emotion_display.dart';
 import 'settings_screen.dart';
 import 'xiaozhi_controller.dart';
 
@@ -167,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 _buildHeader(),
-                _buildStatus(),
+                _buildEmotionPanel(),
                 Expanded(child: _buildConversation()),
                 _buildComposer(),
               ],
@@ -240,48 +241,135 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  Widget _buildStatus() {
-    final connected = widget.controller.isConnected;
-    final recording = widget.controller.isRecording;
-    final color = recording ? const Color(0xFFCC634F) : connected ? AppColors.green : const Color(0xFF899691);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+  /// The status + emotion animation + live TTS text block, mirroring the desktop
+  /// GUI's status card area in windows/MainWindow.qml (status label, then the
+  /// emotion AnimatedImage, then the scrolling ttsText line) plus the connection
+  /// dot from StatusBadge.qml.
+  Widget _buildEmotionPanel() {
+    final controller = widget.controller;
+    final connected = controller.isConnected;
+    final connecting = controller.isConnecting;
+    final recording = controller.isRecording;
+    final hasEmotion = connected && controller.emotion.isNotEmpty;
+    final hasLiveText = controller.liveText.isNotEmpty;
+    final dotColor = recording
+        ? const Color(0xFFCC634F)
+        : connected
+            ? AppColors.green
+            : const Color(0xFF899691);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 2, 20, 6),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      decoration: BoxDecoration(
+        color: AppColors.mint,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
+          // Emotion animation / emoji / placeholder.
+          hasEmotion
+              ? EmotionDisplay(emotion: controller.emotion, size: 84)
+              : const SizedBox(width: 84, height: 84, child: Center(child: EmotionPlaceholder(size: 84))),
+          const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              widget.controller.status,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Status label, like the rounded status Rectangle in
+                // MainWindow.qml with the StatusBadge.qml dot in front of it.
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          controller.status,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: dotColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Live TTS text, mirroring mainModel.ttsText in ChatPanel.qml.
+                // While idle this is the placeholder the desktop GUI shows
+                // ("Waiting for conversation...").
+                Text(
+                  hasLiveText
+                      ? controller.liveText
+                      : (connected ? 'Menunggu percakapan...' : 'Belum terhubung'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: hasLiveText ? AppColors.ink : const Color(0xFF71817C),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Connect / disconnect action, previously the standalone status row.
+                _buildConnectionAction(connected, connecting),
+              ],
             ),
           ),
-          if (!connected && !widget.controller.isConnecting)
-            TextButton.icon(
-              onPressed: widget.controller.connect,
-              icon: const Icon(Icons.link_rounded, size: 16),
-              label: const Text('Hubungkan'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.green),
-            )
-          else if (widget.controller.isConnecting)
-            const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            IconButton(
-              tooltip: 'Putuskan koneksi',
-              onPressed: widget.controller.disconnect,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.link_off_rounded, size: 19),
-            ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionAction(bool connected, bool connecting) {
+    if (connecting) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (!connected) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: widget.controller.connect,
+          icon: const Icon(Icons.link_rounded, size: 16),
+          label: const Text('Hubungkan'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.green,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+          ),
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: IconButton(
+        tooltip: 'Putuskan koneksi',
+        onPressed: widget.controller.disconnect,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        icon: const Icon(Icons.link_off_rounded, size: 19),
       ),
     );
   }
