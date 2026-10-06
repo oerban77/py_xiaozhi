@@ -109,51 +109,51 @@ jobs:
                   1,
               )
 
-            for permission in (
+          for permission in (
               'android.permission.RECEIVE_BOOT_COMPLETED',
               'android.permission.SCHEDULE_EXACT_ALARM',
-            ):
+          ):
               if f'android:name="{permission}"' not in text:
-                text = text.replace(
-                  '</manifest>',
-                  f'    <uses-permission android:name="{permission}" />\n</manifest>',
-                  1,
-                )
+                  text = text.replace(
+                      '</manifest>',
+                      f'    <uses-permission android:name="{permission}" />\n</manifest>',
+                      1,
+                  )
 
-            if 'android.permission.READ_EXTERNAL_STORAGE' not in text:
+          if 'android.permission.READ_EXTERNAL_STORAGE' not in text:
               text = text.replace(
-                '</manifest>',
-                '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n</manifest>',
-                1,
+                  '</manifest>',
+                  '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n</manifest>',
+                  1,
               )
 
-              if 'android.permission.WRITE_EXTERNAL_STORAGE' not in text:
-                text = text.replace(
+          if 'android.permission.WRITE_EXTERNAL_STORAGE' not in text:
+              text = text.replace(
                   '</manifest>',
                   '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n</manifest>',
                   1,
-                )
+              )
 
-              if 'android.permission.READ_MEDIA_AUDIO' not in text:
-                text = text.replace(
+          if 'android.permission.READ_MEDIA_AUDIO' not in text:
+              text = text.replace(
                   '</manifest>',
                   '    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n</manifest>',
                   1,
-                )
+              )
 
-            if 'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver' not in text:
+          if 'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver' not in text:
               text = text.replace(
-                '</application>',
-                '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n'
-                '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n'
-                '            <intent-filter>\n'
-                '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
-                '                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n'
-                '                <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n'
-                '                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />\n'
-                '            </intent-filter>\n'
-                '        </receiver>\n</application>',
-                1,
+                  '</application>',
+                  '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n'
+                  '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n'
+                  '            <intent-filter>\n'
+                  '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
+                  '                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n'
+                  '                <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n'
+                  '                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />\n'
+                  '            </intent-filter>\n'
+                  '        </receiver>\n</application>',
+                  1,
               )
 
           manifest_path.write_text(text, encoding='utf-8')
