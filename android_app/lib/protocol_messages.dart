@@ -34,8 +34,12 @@ class ProtocolMessages {
         'text': text,
       };
 
-  static Map<String, Object?> abort(String sessionId) => {
+  /// [reason] mirrors src/protocols/protocol.py send_abort_speaking, which adds
+  /// reason "wake_word_detected" so the server knows the interrupt came from the
+  /// wake word plugin rather than the user tapping stop.
+  static Map<String, Object?> abort(String sessionId, [String? reason]) => {
         'session_id': sessionId,
         'type': 'abort',
+        if (reason != null) 'reason': reason,
       };
 }

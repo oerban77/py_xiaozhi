@@ -20,6 +20,9 @@ dependencies:
   opus_flutter: ^3.0.3
   record: ^7.1.1
   shared_preferences: ^2.5.3
+  sherpa_onnx: ^1.13.8
+  path_provider: ^2.1.5
+  path: ^1.9.1
   uuid: ^4.5.1
   flutter_timezone: ^5.1.1
   web_socket_channel: ^3.0.3
@@ -35,3 +38,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    # Wake word (keyword spotting) model, mirroring models/en in the Python client.
+    # Bundled as assets and copied to a writable dir at runtime (see
+    # lib/wake_word_detector.dart) because Android apps are sandboxed.
+    - assets/models/en/

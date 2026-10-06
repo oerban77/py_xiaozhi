@@ -16,6 +16,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'chat_message.dart';
 import 'mcp_runtime.dart';
 import 'protocol_messages.dart';
+import 'wake_word_detector.dart';
 
 class XiaozhiController extends ChangeNotifier {
   static const maxTextAttachmentChars = 24000;
@@ -26,6 +27,7 @@ class XiaozhiController extends ChangeNotifier {
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
   final List<ChatMessage> messages = [];
   final List<int> _pendingMicBytes = [];
+  final WakeWordDetector wakeWordDetector = WakeWordDetector();
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _socketSubscription;
@@ -53,6 +55,14 @@ class XiaozhiController extends ChangeNotifier {
   List<String> disabledMcpModules = [];
   bool autoConversation = false;
   bool autoSessionActive = false;
+  /// Mirrors WAKE_WORD_OPTIONS in src/utils/config_manager.py. The wake word
+  /// starts a conversation and interrupts TTS, exactly like src/plugins/wake_word.py.
+  WakeWordOptions wakeWordOptions = const WakeWordOptions();
+  /// True while the wake word detector is armed and listening. Separate from
+  /// WakeWordDetector.isRunning so the UI can show "status listening" even while
+  /// the spotter is briefly paused for a cooldown or a TTS window.
+  bool wakeWordListening = false;
+  String wakeWordError = '';
   String status = 'Belum terhubung';
   String sessionId = '';
   String _assistantText = '';
@@ -80,13 +90,25 @@ class XiaozhiController extends ChangeNotifier {
   /// Jitter buffer for incoming TTS PCM frames. Network frames arrive at an uneven
   /// pace; feeding them straight to the player one-by-one makes playback stutter
   /// ("brebet"). Releasing them in fixed-size bursts smooths that out.
-  static const int _ttsFeedFrames = 4;
-  static const int _ttsBufferMaxFrames = 60;
+  ///
+  /// Latency matters as much as smoothness: a large burst or a large prebuffer
+  /// holds back the first syllables, so in auto mode the answer sounds like it only
+  /// starts near the end of the sentence. Keep both small.
+  static const int _ttsFeedFrames = 2;
+  /// Mirrors _TTS_FIFO_MAX_S = 10.0 in src/audio_codecs/audio_codec.py. This is a
+  /// safety valve for a stalled consumer, not a jitter target: it has to be large
+  /// that a slow feed never drops the *head* of an utterance. Dropping the head is
+  /// exactly what makes TTS sound like it begins mid-sentence.
+  static const int _ttsBufferMaxFrames = 500;
   /// Frames to accumulate before the first feed of an utterance, mirroring
-  /// _TTS_PREBUFFER_S = 0.12s in src/audio_codecs/audio_codec.py. Without this the
-  /// OS playback buffer underruns at the start of speech and the first syllables
-  /// come out chopped.
-  static const int _ttsPrebufferFrames = 6;
+  /// _TTS_PREBUFFER_S in src/audio_codecs/audio_codec.py but kept smaller: the
+  /// Android OS playback buffer already adds its own start-up latency on top, so a
+  /// full 0.12s hold here delays the first syllable noticeably.
+  static const int _ttsPrebufferFrames = 2;
+  /// Wall-clock cap for a single player feed. feedInt16FromStream can exert
+  /// backpressure; without a cap a future that never returns leaves _ttsFeeding true
+  /// forever, every later frame is skipped, and only the tail of the sentence plays.
+  static const Duration _ttsFeedTimeout = Duration(milliseconds: 500);
   final List<Int16List> _ttsBuffer = [];
   bool _ttsFeeding = false;
   bool _ttsNeedsPrebuffer = true;
@@ -97,6 +119,10 @@ class XiaozhiController extends ChangeNotifier {
   static const Duration _silencePeriodMax = Duration(seconds: 3);
   static const Duration _silencePeriodHold = Duration(milliseconds: 900);
   bool _suppressMic = false;
+  /// True when the mic recorder was started by auto conversation rather than by
+  /// the user pressing "Mulai bicara", so disabling auto conversation can stop it
+  /// again without touching a manually started recording.
+  bool _micAutoManaged = false;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
 
@@ -118,6 +144,10 @@ class XiaozhiController extends ChangeNotifier {
     autoConversation = _preferences?.getBool('auto_conversation') ?? false;
     final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
     _outputSampleRate = supportedOutputSampleRates.contains(storedRate) ? storedRate : 24000;
+    wakeWordOptions = WakeWordOptions(
+      enabled: _preferences?.getBool('wake_word_enabled') ?? false,
+      wakeWord: _preferences?.getString('wake_word_text') ?? 'Hello Xiaozhi',
+    );
     token = await _secureStorage.read(key: 'access_token') ?? '';
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
     visionToken = await _secureStorage.read(key: 'camera_explain_token') ?? '';
@@ -152,6 +182,8 @@ class XiaozhiController extends ChangeNotifier {
     required List<String> newDisabledMcpModules,
     required bool newAutoConversation,
     required int newOutputSampleRate,
+    required bool newWakeWordEnabled,
+    required String newWakeWordText,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim();
@@ -190,6 +222,12 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_conversation', autoConversation);
     await setOutputSampleRate(newOutputSampleRate);
+    // disconnect() above stopped the detector and cleared isConnected, so arm it
+    // directly here; setWakeWordOptions would no-op because it sees no connection.
+    await setWakeWordOptions(enabled: newWakeWordEnabled, wakeWord: newWakeWordText);
+    if (wakeWordOptions.enabled) {
+      await _startWakeWordDetector();
+    }
     await _secureStorage.write(key: 'access_token', value: token);
     await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
     await _secureStorage.write(key: 'camera_explain_token', value: visionToken);
@@ -211,10 +249,24 @@ class XiaozhiController extends ChangeNotifier {
     if (enabled) {
       autoSessionActive = true;
       _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
+      // Realtime mode needs a live microphone for the whole session. The uplink is
+      // gated by _suppressMic while the assistant speaks (see _beginTtsPlayback), so
+      // the state machine ends up exactly as expected: speaking -> the answer plays
+      // out of the speaker, listening -> the mic reaches the server. Without starting
+      // the recorder here the server waits for user audio that never arrives once
+      // the assistant stops talking.
+      if (!isRecording) {
+        await startVoice();
+        _micAutoManaged = isRecording;
+      }
       status = 'Auto conversation aktif';
     } else {
       autoSessionActive = false;
       _sendJson(ProtocolMessages.listenStop(sessionId));
+      if (_micAutoManaged && isRecording) {
+        await stopVoice();
+      }
+      _micAutoManaged = false;
       status = 'Auto conversation dimatikan';
     }
     notifyListeners();
@@ -222,6 +274,96 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> toggleAutoConversation() async {
     await setAutoConversation(!autoConversation);
+  }
+
+  /// Applies new wake word settings and persists them, mirroring the
+  /// CONFIG_CHANGED handler in src/plugins/wake_word.py which hot-reloads the model.
+  /// Passing [enabled] or [wakeWord] as null leaves the current value untouched.
+  Future<void> setWakeWordOptions({bool? enabled, String? wakeWord}) async {
+    final wasEnabled = wakeWordOptions.enabled;
+    wakeWordOptions = wakeWordOptions.copyWith(
+      enabled: enabled ?? wakeWordOptions.enabled,
+      wakeWord: wakeWord?.trim().isNotEmpty == true ? wakeWord!.trim() : wakeWordOptions.wakeWord,
+    );
+    await _preferences?.setBool('wake_word_enabled', wakeWordOptions.enabled);
+    await _preferences?.setString('wake_word_text', wakeWordOptions.wakeWord);
+    wakeWordError = '';
+    // Only reload when something that affects the loaded model changed; flipping
+    // the text while disabled just waits for the next connect.
+    if (wakeWordOptions.enabled) {
+      if (isConnected) {
+        await _startWakeWordDetector();
+      }
+    } else if (wasEnabled) {
+      await _stopWakeWordDetector();
+    }
+    notifyListeners();
+  }
+
+  /// Arms the wake word detector. Mirrors WakeWordPlugin.start: the model loads
+  /// here, and the detector subscribes to the audio stream.
+  Future<void> _startWakeWordDetector() async {
+    if (!isConnected) return;
+    wakeWordDetector.onDetected = _handleWakeWordDetected;
+    final result = await wakeWordDetector.start(wakeWordOptions);
+    switch (result) {
+      case WakeWordStartResult.started:
+        wakeWordListening = true;
+        wakeWordError = '';
+        break;
+      case WakeWordStartResult.disabled:
+        wakeWordListening = false;
+        break;
+      case WakeWordStartResult.invalidKeyword:
+      case WakeWordStartResult.modelMissing:
+      case WakeWordStartResult.initFailed:
+        wakeWordListening = false;
+        wakeWordError = wakeWordDetector.lastError;
+        status = 'Wake word gagal dimulai: $wakeWordError';
+        break;
+    }
+  }
+
+  Future<void> _stopWakeWordDetector() async {
+    await wakeWordDetector.stop();
+    wakeWordListening = false;
+  }
+
+  /// Mirrors WakeWordPlugin._on_detected: interrupt TTS, or start a voice session
+  /// so the speech following the wake word reaches the server.
+  void _handleWakeWordDetected(String keyword) {
+    if (!isConnected) return;
+    if (isSpeaking) {
+      // AbortReason.WAKE_WORD_DETECTED + clear_audio_queue in Python.
+      _sendJson(ProtocolMessages.abort(sessionId, 'wake_word_detected'));
+      _silencePollTimer?.cancel();
+      _suppressMic = false;
+      _ttsBuffer.clear();
+      _ttsFeeding = false;
+      _ttsNeedsPrebuffer = true;
+      if (_playerStarted) {
+        _player.stopPlayer().then((_) {
+          if (isConnected) _startPlayerStream();
+        });
+        _playerStarted = false;
+      }
+      isSpeaking = false;
+      status = 'Wake word terdeteksi, TTS dihentikan';
+      notifyListeners();
+      // The abort flow needs the mic live so the user's next sentence is heard.
+      // startVoice is a no-op when already recording.
+      startVoice();
+      return;
+    }
+    // Not speaking: tell the server the wake word fired and open the mic, so the
+    // conversation starts without a tap (send_wake_word_detected + start_listening
+    // with AUTO_STOP, since Android has no AEC).
+    _sendJson(ProtocolMessages.detectText(sessionId, wakeWordOptions.wakeWord));
+    if (!isRecording) {
+      startVoice();
+    }
+    status = 'Wake word terdeteksi: ${wakeWordOptions.wakeWord}';
+    notifyListeners();
   }
 
   Future<void> connect() async {
@@ -272,6 +414,12 @@ class XiaozhiController extends ChangeNotifier {
       isConnected = true;
       isConnecting = false;
       status = 'Terhubung';
+      // Arm the wake word detector after the handshake so the model load does not
+      // compete with the connection for CPU (WakeWordPlugin.start runs after the
+      // protocol is up for the same reason).
+      if (wakeWordOptions.enabled) {
+        await _startWakeWordDetector();
+      }
     } catch (error) {
       await _closeSocket();
       isConnected = false;
@@ -283,8 +431,10 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> disconnect() async {
     if (isRecording) await stopVoice();
+    await _stopWakeWordDetector();
     autoConversation = false;
     autoSessionActive = false;
+    _micAutoManaged = false;
     isConnected = false;
     isConnecting = false;
     mcpInitialized = false;
@@ -438,6 +588,7 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> stopVoice() async {
     if (!isRecording) return;
     isRecording = false;
+    _micAutoManaged = false;
     await _micSubscription?.cancel();
     _micSubscription = null;
     await _recorder.stop();
@@ -658,12 +809,23 @@ class XiaozhiController extends ChangeNotifier {
       numChannels: 1,
       sampleRate: _outputSampleRate,
       interleaved: false,
-      bufferSize: 8192,
+      // 8192 bytes is ~170ms of PCM16 at 24kHz; the OS will not emit a sound until
+      // this much is queued, which alone delays the start of every answer. 2048
+      // bytes (~43ms) is small enough to start promptly while the 2-frame prebuffer
+      // keeps it from underrunning.
+      bufferSize: 2048,
     );
     _playerStarted = true;
   }
 
   void _handleMicData(Uint8List data) {
+    // The wake word detector taps the same 16 kHz PCM16 stream the uplink uses,
+    // so no second recorder is opened. It must see the audio even while the uplink
+    // is suppressed: the whole point of the wake word is to interrupt TTS, and
+    // _suppressMic is true for that entire window.
+    if (wakeWordDetector.isRunning) {
+      wakeWordDetector.feed(data);
+    }
     _pendingMicBytes.addAll(data);
     const frameBytes = 320 * 2;
     while (_pendingMicBytes.length >= frameBytes) {
@@ -679,13 +841,27 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> _handleAudio(Uint8List packet) async {
     final decoder = _decoder;
-    if (decoder == null || !_playerStarted || packet.isEmpty) return;
+    if (decoder == null || packet.isEmpty) return;
+    if (!_playerStarted && isSpeaking) {
+      // The stream is torn down by an interrupt or a sample-rate change while the
+      // server keeps sending frames; re-arm it instead of dropping the utterance.
+      // Gated on isSpeaking so an abort (which clears that flag) cannot resurrect
+      // playback of frames that are still in flight.
+      try {
+        if (!_player.isOpen()) await _player.openPlayer();
+        await _startPlayerStream();
+      } catch (_) {
+        return;
+      }
+    }
     try {
       final pcm = decoder.decode(input: packet);
       if (pcm.isEmpty) return;
       _lastTtsFrameAt = DateTime.now();
       _ttsBuffer.add(pcm);
-      // Guard the buffer: if the consumer stalls, never grow unbounded.
+      // Guard the buffer: if the consumer stalls, never grow unbounded. The 10s cap
+      // means this only trips on a genuine stall, and dropping the oldest then
+      // matches PcmFifo.push in src/audio_codecs/audio_buffer.py.
       if (_ttsBuffer.length > _ttsBufferMaxFrames) {
         _ttsBuffer.removeRange(0, _ttsBuffer.length - _ttsBufferMaxFrames);
       }
@@ -701,14 +877,25 @@ class XiaozhiController extends ChangeNotifier {
     _ttsFeeding = true;
     try {
       // Hold the first frames of an utterance until the prebuffer is filled; the
-      // player drains faster than the network delivers at speech onset.
+      // player drains faster than the network delivers at speech onset. After that
+      // the threshold is the burst size, so steady-state frames are batched and the
+      // tts-stop flush handles whatever tail is left over.
       final threshold = _ttsNeedsPrebuffer ? _ttsPrebufferFrames : _ttsFeedFrames;
       while (_ttsBuffer.length >= threshold) {
         if (_ttsNeedsPrebuffer) _ttsNeedsPrebuffer = false;
         final burst = _ttsBuffer.sublist(0, _ttsFeedFrames);
         _ttsBuffer.removeRange(0, _ttsFeedFrames);
         final merged = _mergeInt16(burst);
-        await _player.feedInt16FromStream([merged]);
+        try {
+          // The timeout is the important part: a feed that never returns would keep
+          // _ttsFeeding true, so every later frame would be skipped and the
+          // utterance would be reduced to what the tts-stop flush managed to push.
+          await _player.feedInt16FromStream([merged]).timeout(_ttsFeedTimeout);
+        } catch (_) {
+          // The stream was closed or the feed stalled. Drop this burst and let the
+          // next network frame retry instead of deadlocking the whole utterance.
+          break;
+        }
       }
     } finally {
       _ttsFeeding = false;
@@ -749,7 +936,7 @@ class XiaozhiController extends ChangeNotifier {
     final remaining = _mergeInt16(List<Int16List>.from(_ttsBuffer));
     _ttsBuffer.clear();
     try {
-      await _player.feedInt16FromStream([remaining]);
+      await _player.feedInt16FromStream([remaining]).timeout(_ttsFeedTimeout);
       // The drain clock must start from the moment the final PCM actually reaches
       // the player, not from the last network frame, otherwise the hold can expire
       // while buffered audio is still playing out of the speaker.

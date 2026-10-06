@@ -31,6 +31,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _autoConversation;
   late bool _smartHomeUseTls;
   late int _outputSampleRate;
+  late bool _wakeWordEnabled;
+  late final TextEditingController _wakeWordController;
+  // Live validation result for the typed wake word; empty string means valid.
+  String _wakeWordHint = '';
+  bool _wakeWordValid = false;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
 
@@ -79,6 +84,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _cameraFacing = widget.controller.cameraFacing;
     _autoConversation = widget.controller.autoConversation;
     _outputSampleRate = widget.controller.outputSampleRate;
+    _wakeWordEnabled = widget.controller.wakeWordOptions.enabled;
+    _wakeWordController = TextEditingController(text: widget.controller.wakeWordOptions.wakeWord);
+    // Validate the initial value once so the helper text explains what the
+    // detector will actually load.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _validateWakeWord());
   }
 
   @override
@@ -96,6 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _smartHomeUsernameController.dispose();
     _smartHomePasswordController.dispose();
     _smartHomeDevicesController.dispose();
+    _wakeWordController.dispose();
     super.dispose();
   }
 
@@ -126,8 +137,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newDisabledMcpModules: _disabledMcpModules.toList()..sort(),
       newAutoConversation: _autoConversation,
       newOutputSampleRate: _outputSampleRate,
+      newWakeWordEnabled: _wakeWordEnabled,
+      newWakeWordText: _wakeWordController.text,
     );
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Validates the typed wake word against the bundled BPE tokens without loading
+  /// the ONNX models, so the user sees a bad keyword before saving.
+  Future<void> _validateWakeWord() async {
+    final text = _wakeWordController.text.trim();
+    if (text.isEmpty) {
+      setState(() {
+        _wakeWordValid = false;
+        _wakeWordHint = 'Kata wake word tidak boleh kosong.';
+      });
+      return;
+    }
+    final error = await widget.controller.wakeWordDetector.validateKeyword(text);
+    if (!mounted) return;
+    setState(() {
+      _wakeWordValid = error == null;
+      _wakeWordHint = error ?? '';
+    });
   }
 
   @override
@@ -223,6 +255,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (value) => setState(() => _autoConversation = value),
                       activeThumbColor: AppColors.green,
                       activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Wake Word',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _wakeWordEnabled,
+                      title: const Text('Aktifkan wake word'),
+                      subtitle: const Text(
+                        'Ucapkan kata kunci untuk memulai percakapan atau menghentikan TTS '
+                        'tanpa menekan tombol mikrofon.',
+                      ),
+                      onChanged: (value) => setState(() => _wakeWordEnabled = value),
+                      activeThumbColor: AppColors.green,
+                      activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Hanya bahasa Inggris yang didukung (model bahasa Mandarin butuh '
+                      'pinyin yang tidak tersedia di Android). Contoh: "Hello Xiaozhi".',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _wakeWordController,
+                      enabled: _wakeWordEnabled,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Kata wake word',
+                        prefixIcon: const Icon(Icons.mic),
+                        helperText: _wakeWordEnabled
+                            ? (_wakeWordHint.isEmpty
+                                ? 'Kata akan dideteksi saat terhubung ke server.'
+                                : _wakeWordHint)
+                            : 'Aktifkan dulu untuk mengatur kata wake word.',
+                        helperStyle: TextStyle(
+                          color: _wakeWordHint.isEmpty ? const Color(0xFF71817C) : Colors.red,
+                        ),
+                        errorText: _wakeWordEnabled && !_wakeWordValid ? '' : null,
+                      ),
+                      onChanged: (value) {
+                        _validateWakeWord();
+                        setState(() {});
+                      },
                     ),
                     const SizedBox(height: 28),
                     const Text(
