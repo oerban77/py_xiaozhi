@@ -69,7 +69,15 @@ class McpRuntime {
     },
     {
       'name': 'take_photo',
-      'description': 'Take a photo with the selected Android camera and answer a question about it.',
+      'description': '[Photo Recognition] Take a photo with the selected Android camera and analyze its '
+          'content, answering the user\'s question about the image.\n'
+          'If the app has queued an attached image, analyze that selected file instead of capturing the '
+          'camera. For requests like \'analisa gambar\', \'gambar yang saya lampirkan\', or questions about '
+          'an uploaded image, you MUST call this tool. The app supplies the selected image and the user\'s '
+          'exact question.\n'
+          'Use cases: taking a photo to look at something, object or scene recognition, text recognition '
+          '(OCR), and image Q&A.\n'
+          'Args: `question` - The question that you want to ask about the photo.',
       'inputSchema': {
         'type': 'object',
         'properties': {'question': {'type': 'string'}},
@@ -199,7 +207,13 @@ class McpRuntime {
 
   static const _pendingTextAttachmentTool = <String, Object?>{
     'name': 'manage_document',
-    'description': '[ATTACHED TEXT READER] The user sent a long text attachment. You MUST call this tool with action=read and no path before answering. Treat the returned text as the user request and follow it.',
+    'description': '[ATTACHED DOCUMENT READER - use this for attached files] '
+        'When a document/file is attached, uploaded, or sent in the chat, you MUST call this tool with '
+        'action=read and NO path to read it. This is the ONLY tool that can read a document attached in the '
+        'chat. Never use take_screenshot, read_file, or image_read for an attached document. If the user '
+        'asks to read, analyze, summarize, explain, translate, or answer questions about an attached '
+        'document, call manage_document(action=read) FIRST, then answer from the returned content. Treat '
+        'the returned text as the user request and follow it.',
     'inputSchema': {
       'type': 'object',
       'properties': {
@@ -225,6 +239,7 @@ class McpRuntime {
     String? pendingTextAttachment,
     Uint8List? pendingImageAttachment,
     String pendingImageQuestion = '',
+    String pendingAttachmentName = '',
   }) async {
     final id = request['id'];
     final method = request['method'];
@@ -248,26 +263,37 @@ class McpRuntime {
             },
           };
         case 'tools/list':
+          final hasTextAttachment =
+              pendingTextAttachment != null && pendingTextAttachment.isNotEmpty;
+          final hasImageAttachment = pendingImageAttachment != null;
           final tools = _tools.where((tool) {
             return !disabledModules.contains(_moduleForTool(tool['name'] as String));
           }).map((tool) {
-            if (tool['name'] == 'take_photo' && pendingImageAttachment != null) {
+            if (tool['name'] == 'take_photo' && hasImageAttachment) {
               return <String, Object?>{
                 ...tool,
-                'description': '[ATTACHED IMAGE READER] The user attached an image and asked: '
-                    '"$pendingImageQuestion". You MUST call take_photo to analyze the attached image; '
-                    'do not capture a new photo.',
+                'description': '[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] '
+                    'The user attached \'$pendingAttachmentName\' and asked: '
+                    '"$pendingImageQuestion". You MUST call take_photo to analyze the attached '
+                    'image; do not capture a new photo. Treat its contents as the user\'s current '
+                    'request and carry it out.\n'
+                    '${tool['description']}',
               };
             }
             return tool;
           }).toList();
           final attachmentTool = Map<String, Object?>.from(_pendingTextAttachmentTool);
-          if (pendingTextAttachment == null || pendingTextAttachment.isEmpty) {
+          if (hasTextAttachment) {
             attachmentTool['description'] =
-                'Read the long text attachment sent in the current chat. '
-                'Call with action=read and no path after receiving the short prompt "baca lampiran".';
+                '[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] '
+                'The user attached \'$pendingAttachmentName\'. You MUST call manage_document with '
+                'action=read and NO path before answering. Treat its contents as the user\'s current '
+                'request and carry it out using available tools; do not merely summarize it.\n'
+                '${attachmentTool['description']}';
           }
-          tools.insert(0, attachmentTool);
+          if (hasTextAttachment) {
+            tools.insert(0, attachmentTool);
+          }
           return _result(id, {'tools': tools});
         case 'tools/call':
           final params = request['params'];

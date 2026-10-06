@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 
@@ -88,5 +90,38 @@ void main() {
     final callResult = callResponse!['result'] as Map<String, dynamic>;
     final content = callResult['content'] as List<dynamic>;
     expect((content.single as Map)['text'], attachedText);
+  });
+
+  test('does not offer the attachment reader without a pending attachment', () async {
+    final response = await McpRuntime.handle(
+      {'jsonrpc': '2.0', 'id': 6, 'method': 'tools/list'},
+      disabledModules: <String>{},
+    );
+
+    final result = response!['result'] as Map<String, dynamic>;
+    final names = (result['tools'] as List<dynamic>)
+        .map((tool) => (tool as Map)['name'])
+        .toList();
+    expect(names, isNot(contains('manage_document')));
+  });
+
+  test('promotes take_photo with the attached-image banner', () async {
+    final response = await McpRuntime.handle(
+      {'jsonrpc': '2.0', 'id': 7, 'method': 'tools/list'},
+      disabledModules: <String>{},
+      pendingImageAttachment: Uint8List.fromList(<int>[1, 2, 3]),
+      pendingImageQuestion: 'analisa',
+      pendingAttachmentName: 'struk.jpg',
+    );
+
+    final result = response!['result'] as Map<String, dynamic>;
+    final tools = result['tools'] as List<dynamic>;
+    final takePhoto = tools.firstWhere(
+      (tool) => (tool as Map)['name'] == 'take_photo',
+    ) as Map<String, dynamic>;
+    final description = takePhoto['description'] as String;
+    expect(description, contains('ATTACHED MESSAGE'));
+    expect(description, contains('struk.jpg'));
+    expect(description, contains('analisa gambar'));
   });
 }

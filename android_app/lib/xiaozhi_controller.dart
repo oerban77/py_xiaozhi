@@ -59,6 +59,7 @@ class XiaozhiController extends ChangeNotifier {
   String? _pendingTextAttachment;
   Uint8List? _pendingImageAttachment;
   String _pendingImageQuestion = '';
+  String? _pendingAttachmentName;
   int? _assistantMessageIndex;
   /// Opus decode sample rate. The server's encode rate is configurable
   /// (AUDIO_DEVICES.opus_output_sample_rate: 24000 official / 16000 third-party);
@@ -324,6 +325,7 @@ class XiaozhiController extends ChangeNotifier {
       displayText: 'Lampiran teks: $fileName\n$request',
       detectText: 'baca lampiran',
       pendingText: 'Nama file: $fileName\nPermintaan pengguna: $request\n\n$content',
+      attachmentName: fileName,
     );
   }
 
@@ -333,13 +335,47 @@ class XiaozhiController extends ChangeNotifier {
     required String question,
   }) {
     if (imageBytes.isEmpty) return Future.value(false);
-    final request = question.trim().isEmpty ? 'Jelaskan isi gambar ini.' : question.trim();
+    final request = question.trim().isEmpty ? 'analisa' : question.trim();
+    // Mirror src/plugins/ui_session.py _should_use_document_tool_for_image: text-heavy
+    // image requests (OCR, receipts, invoices, account numbers) go through the document
+    // reader flow, scene/object photos go through the vision flow.
+    if (_isTextHeavyImageRequest(request)) {
+      return _sendChatRequest(
+        displayText: 'Lampiran gambar: $fileName\n$request',
+        detectText: 'baca lampiran',
+        pendingText: 'Nama file: $fileName\nPermintaan pengguna: $request\n\n'
+            '[Lampiran adalah gambar dengan teks. Ekstrak dan baca teksnya, lalu jalankan '
+            'permintaan pengguna.]',
+        attachmentName: fileName,
+      );
+    }
     return _sendChatRequest(
       displayText: 'Lampiran gambar: $fileName\n$request',
-      detectText: 'lihat lampiran',
+      detectText: 'analisa gambar',
       imageBytes: imageBytes,
       imageQuestion: request,
+      attachmentName: fileName,
     );
+  }
+
+  /// True when an image request is really about reading text (OCR), so it must be
+  /// routed through the document reader instead of the vision model. Mirrors
+  /// src/plugins/ui_session.py `_should_use_document_tool_for_image`.
+  static const List<String> _textHeavyImageKeywords = [
+    'ocr', 'read text', 'baca teks', 'baca tulisan', 'baca kuitansi', 'baca struk',
+    'baca slip', 'baca nota', 'cek struk', 'cek kuitansi', 'cek nota', 'extract text',
+    'what is written', 'what does it say', 'struk', 'receipt', 'bank note', 'invoice',
+    'nota', 'kuitansi', 'slip', 'transfer', 'nomor rekening', 'rekening', 'kode',
+    'read the text', 'text on the image', 'text in this image', 'tulisan', 'nomor',
+    'transaksi', 'dokumen', 'total bayar', 'jumlah pembayaran', 'jumlah transfer',
+    'faktur', 'bukti pembayaran', 'bukti transfer', 'saldo', 'nominal', 'norek',
+    'no rekening', 'no. rekening',
+  ];
+
+  static bool _isTextHeavyImageRequest(String question) {
+    final q = question.trim().toLowerCase();
+    if (q.isEmpty) return false;
+    return _textHeavyImageKeywords.any((keyword) => q.contains(keyword));
   }
 
   Future<bool> _sendChatRequest({
@@ -348,6 +384,7 @@ class XiaozhiController extends ChangeNotifier {
     String? pendingText,
     Uint8List? imageBytes,
     String imageQuestion = '',
+    String attachmentName = '',
   }) async {
     if (!isConnected) return false;
     _pendingTextAttachment = pendingText == null
@@ -358,6 +395,7 @@ class XiaozhiController extends ChangeNotifier {
     _pendingImageAttachment = imageBytes;
     _pendingImageQuestion = imageQuestion;
     final hasAttachment = pendingText != null || imageBytes != null;
+    _pendingAttachmentName = hasAttachment ? attachmentName : null;
     messages.add(ChatMessage(text: displayText, isUser: true));
     status = hasAttachment ? 'Mengirim attachment...' : 'Menunggu jawaban...';
     notifyListeners();
@@ -488,6 +526,7 @@ class XiaozhiController extends ChangeNotifier {
           pendingTextAttachment: _pendingTextAttachment,
           pendingImageAttachment: _pendingImageAttachment,
           pendingImageQuestion: _pendingImageQuestion,
+          pendingAttachmentName: _pendingAttachmentName ?? '',
           smartHomeConfig: {
             'broker': smartHomeBroker,
             'port': smartHomePort,
@@ -521,6 +560,7 @@ class XiaozhiController extends ChangeNotifier {
             _pendingTextAttachment = null;
             _pendingImageAttachment = null;
             _pendingImageQuestion = '';
+            _pendingAttachmentName = null;
           }
           _sendJson({
             'type': 'mcp',
