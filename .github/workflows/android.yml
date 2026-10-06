@@ -75,7 +75,6 @@ jobs:
               '            android:launchMode="singleTop"\n'
               '            android:theme="@style/LaunchTheme"\n'
               '            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"\n'
-              '            android:screenOrientation="landscape"\n'
               '            android:hardwareAccelerated="true"\n'
               '            android:windowSoftInputMode="adjustResize">\n'
               '            <meta-data\n              android:name="io.flutter.embedding.android.NormalTheme"\n'

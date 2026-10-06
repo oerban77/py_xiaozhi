@@ -11,10 +11,7 @@ import 'xiaozhi_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  await SystemChrome.setPreferredOrientations([]);
 
   final controller = XiaozhiController();
   await controller.initialize();
