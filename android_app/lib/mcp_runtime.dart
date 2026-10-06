@@ -18,6 +18,8 @@ import 'volume_runtime.dart';
 class McpRuntime {
   static const _baseUrl = 'https://equran.id/api/v2/shalat';
   static const _holidayBaseUrl = 'https://api.kemendesa.link/libur-nasional';
+  static String _discoveredSmartHomeBroker = '';
+  static List<Map<String, Object?>> _discoveredSmartHomeDevices = [];
 
   static const _tools = <Map<String, Object?>>[
     {
@@ -200,7 +202,9 @@ class McpRuntime {
     },
     {
       'name': 'discover_devices',
-      'description': 'Listen for Tasmota MQTT discovery announcements.',
+      'description': 'Scan the configured MQTT broker for Tasmota devices. '
+          'After scanning, discovered devices are immediately available to device_status, '
+          'device_control, lights_all, and room_control; no Devices JSON entry is required.',
       'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
     },
     ...MusicRuntime.tools,
@@ -271,7 +275,9 @@ class McpRuntime {
               pendingTextAttachment != null && pendingTextAttachment.isNotEmpty;
           final hasImageAttachment = pendingImageAttachment != null;
           final tools = _tools.where((tool) {
-            return !disabledModules.contains(_moduleForTool(tool['name'] as String));
+            final name = tool['name'] as String;
+            if (hasTextAttachment && name == 'take_photo') return false;
+            return !disabledModules.contains(_moduleForTool(name));
           }).map((tool) {
             if (tool['name'] == 'take_photo' && hasImageAttachment) {
               return <String, Object?>{
@@ -737,9 +743,23 @@ class McpRuntime {
     if (broker.isEmpty) {
       throw StateError('Set the Smart Home MQTT broker IP/host in Android settings first.');
     }
+    if (_discoveredSmartHomeBroker != broker) {
+      _discoveredSmartHomeBroker = broker;
+      _discoveredSmartHomeDevices = [];
+    }
     final port = _optionalInt(config['port']) ?? 1883;
     if (port < 1 || port > 65535) throw ArgumentError('Invalid MQTT port: $port');
-    final devices = _parseSmartHomeDevices('${config['devices'] ?? '[]'}');
+    List<Map<String, Object?>> configuredDevices;
+    try {
+      configuredDevices = _parseSmartHomeDevices('${config['devices'] ?? '[]'}');
+    } on FormatException {
+      if (name != 'discover_devices') rethrow;
+      configuredDevices = [];
+    }
+    var devices = _mergeSmartHomeDevices(
+      configuredDevices,
+      _discoveredSmartHomeDevices,
+    );
     final clientId = 'xz${DateTime.now().microsecondsSinceEpoch % 1000000000000}';
     final client = MqttServerClient(broker, clientId)
       ..port = port
@@ -795,6 +815,17 @@ class McpRuntime {
         }
       });
 
+      if (devices.isEmpty && name != 'discover_devices') {
+        client.subscribe('tasmota/discovery/#', MqttQos.atMostOnce);
+        client.subscribe('tele/+/LWT', MqttQos.atMostOnce);
+        await Future<void>.delayed(const Duration(seconds: 4));
+        _discoveredSmartHomeDevices = _mergeSmartHomeDevices(
+          _discoveredSmartHomeDevices,
+          discovered.values.toList(),
+        );
+        devices = _mergeSmartHomeDevices(configuredDevices, _discoveredSmartHomeDevices);
+      }
+
       if (name == 'discover_devices') {
         client.subscribe('tasmota/discovery/#', MqttQos.atMostOnce);
         client.subscribe('tele/+/LWT', MqttQos.atMostOnce);
@@ -802,15 +833,26 @@ class McpRuntime {
         final found = discovered.values.toList();
         if (found.isEmpty) {
           return devices.isEmpty
-              ? 'No Tasmota discovery announcement received. Configure devices in the Devices JSON setting or retry while devices are online.'
+              ? 'No Tasmota device found. Check that the broker host, port, credentials, and TLS settings are correct and that Tasmota devices are online on this broker.'
               : 'No new devices discovered. ${devices.length} configured device(s) remain available.';
         }
+        _discoveredSmartHomeDevices = _mergeSmartHomeDevices(
+          _discoveredSmartHomeDevices,
+          found,
+        );
+        final availableDevices = _mergeSmartHomeDevices(
+          configuredDevices,
+          _discoveredSmartHomeDevices,
+        );
         return 'Discovered ${found.length} device(s):\n${jsonEncode(found)}\n'
-            'Add these entries to the Devices JSON setting to use device controls.';
+            '${availableDevices.length} device(s) are now available for device_status, '
+            'device_control, lights_all, and room_control. No JSON copy is needed.';
       }
 
       if (devices.isEmpty) {
-        throw StateError('No devices configured. Add Tasmota topics in the Devices JSON setting.');
+        throw StateError(
+          'No Tasmota devices were discovered on this broker. Check that the devices are online and announce Tasmota MQTT discovery, or enter device topics manually in Smart Home settings.',
+        );
       }
       for (final device in devices) {
         client.subscribe(
@@ -895,6 +937,17 @@ class McpRuntime {
       });
     }
     return devices;
+  }
+
+  static List<Map<String, Object?>> _mergeSmartHomeDevices(
+    List<Map<String, Object?>> configured,
+    List<Map<String, Object?>> discovered,
+  ) {
+    final merged = <String, Map<String, Object?>>{};
+    for (final device in [...discovered, ...configured]) {
+      merged['${device['topic']}/${device['powerCmd']}'] = device;
+    }
+    return merged.values.toList();
   }
 
   static List<Map<String, Object?>> _devicesFromTasmotaConfig(Map config) {

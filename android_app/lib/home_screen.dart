@@ -1,13 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'attachment_text_reader.dart';
 import 'camera_screen.dart';
-import 'chat_message.dart';
 import 'emotion_display.dart';
 import 'settings_screen.dart';
 import 'xiaozhi_controller.dart';
@@ -86,8 +86,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
-          'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp',
-          'txt', 'md', 'json', 'csv', 'log', 'ini', 'yaml', 'yml', 'xml',
+          'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff',
+          'txt', 'md', 'json', 'csv', 'log', 'ini', 'yaml', 'yml', 'xml', 'html', 'htm',
+          'pdf', 'docx',
         ],
         allowMultiple: false,
         withData: true,
@@ -100,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
         throw const FormatException('File kosong atau tidak dapat dibaca.');
       }
       final extension = (file.extension ?? '').toLowerCase();
-      final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}.contains(extension);
+        final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'}
+          .contains(extension);
       if (isImage && bytes.length > 10 * 1024 * 1024) {
         throw const FormatException('Ukuran gambar maksimal 10 MB.');
       }
@@ -123,7 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _sendingAttachment = true);
     try {
       final extension = (file.extension ?? '').toLowerCase();
-      final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'}.contains(extension);
+      final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'}
+          .contains(extension);
       final question = _textController.text.trim();
       final sent = isImage
           ? await widget.controller.sendImageAttachment(
@@ -133,7 +136,10 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : await widget.controller.sendTextAttachment(
               fileName: file.name,
-              content: utf8.decode(bytes, allowMalformed: true),
+              content: await AttachmentTextReader.extract(
+                fileName: file.name,
+                bytes: bytes,
+              ),
               question: question,
             );
       if (sent && mounted) {
@@ -164,11 +170,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) => Scaffold(
+          backgroundColor: Colors.white,
           body: SafeArea(
             child: Column(
               children: [
                 _buildHeader(),
-                _buildEmotionPanel(),
+                _buildStatusBar(),
                 Expanded(child: _buildConversation()),
                 _buildComposer(),
               ],
@@ -241,95 +248,39 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  /// The status + emotion animation + live TTS text block, mirroring the desktop
-  /// GUI's status card area in windows/MainWindow.qml (status label, then the
-  /// emotion AnimatedImage, then the scrolling ttsText line) plus the connection
-  /// dot from StatusBadge.qml.
-  Widget _buildEmotionPanel() {
+  Widget _buildStatusBar() {
     final controller = widget.controller;
-    final connected = controller.isConnected;
-    final connecting = controller.isConnecting;
-    final recording = controller.isRecording;
-    final hasEmotion = connected && controller.emotion.isNotEmpty;
-    final hasLiveText = controller.liveText.isNotEmpty;
-    final dotColor = recording
-        ? const Color(0xFFCC634F)
-        : connected
-            ? AppColors.green
-            : const Color(0xFF899691);
-
+    final status = controller.status == 'Belum terhubung'
+        ? 'Idle'
+        : controller.status;
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 2, 20, 6),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: BoxDecoration(
-        color: AppColors.mint,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      color: const Color(0xFFE8F2FF),
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          // Emotion animation / emoji / placeholder.
-          hasEmotion
-              ? EmotionDisplay(emotion: controller.emotion, size: 84)
-              : const SizedBox(width: 84, height: 84, child: Center(child: EmotionPlaceholder(size: 84))),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Status label, like the rounded status Rectangle in
-                // MainWindow.qml with the StatusBadge.qml dot in front of it.
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          controller.status,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: dotColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Live TTS text, mirroring mainModel.ttsText in ChatPanel.qml.
-                // While idle this is the placeholder the desktop GUI shows
-                // ("Waiting for conversation...").
-                Text(
-                  hasLiveText
-                      ? controller.liveText
-                      : (connected ? 'Menunggu percakapan...' : 'Belum terhubung'),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: hasLiveText ? AppColors.ink : const Color(0xFF71817C),
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Connect / disconnect action, previously the standalone status row.
-                _buildConnectionAction(connected, connecting),
-              ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 36),
+            child: Text(
+              status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: controller.isRecording
+                    ? const Color(0xFFCC634F)
+                    : const Color(0xFF2583E8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildConnectionAction(
+              controller.isConnected,
+              controller.isConnecting,
             ),
           ),
         ],
@@ -339,79 +290,84 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildConnectionAction(bool connected, bool connecting) {
     if (connecting) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: SizedBox.square(
-          dimension: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+      return const SizedBox.square(
+        dimension: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
     if (!connected) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: widget.controller.connect,
-          icon: const Icon(Icons.link_rounded, size: 16),
-          label: const Text('Hubungkan'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.green,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-          ),
-        ),
+      return IconButton(
+        tooltip: 'Hubungkan',
+        onPressed: widget.controller.connect,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        iconSize: 18,
+        color: AppColors.green,
+        icon: const Icon(Icons.link_rounded),
       );
     }
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: IconButton(
-        tooltip: 'Putuskan koneksi',
-        onPressed: widget.controller.disconnect,
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
-        icon: const Icon(Icons.link_off_rounded, size: 19),
-      ),
+    return IconButton(
+      tooltip: 'Putuskan koneksi',
+      onPressed: widget.controller.disconnect,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: const Icon(Icons.link_off_rounded, size: 18),
     );
   }
 
   Widget _buildConversation() {
-    final messages = widget.controller.messages;
-    if (messages.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 42),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: const BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
-                child: const Icon(Icons.waves_rounded, color: AppColors.green, size: 37),
-              ),
-              const SizedBox(height: 22),
-              const Text(
-                'Mulai percakapan',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.ink, fontSize: 22, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Kirim pesan atau tekan tombol mikrofon untuk berbicara.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF71817C), height: 1.45),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final controller = widget.controller;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final emotionSize = math.min(
+          176.0,
+          math.min(constraints.maxWidth * 0.62, constraints.maxHeight * 0.42),
+        );
+        final emotion = controller.emotion.isEmpty ? 'neutral' : controller.emotion;
+        final textMaxWidth = math.min(constraints.maxWidth * 0.88, 560.0);
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-      itemCount: messages.length,
-      itemBuilder: (context, index) => _MessageBubble(message: messages[index]),
+        return Column(
+          children: [
+            Expanded(
+              flex: 6,
+              child: Align(
+                alignment: const Alignment(0, -0.08),
+                child: EmotionDisplay(emotion: emotion, size: emotionSize),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: LayoutBuilder(
+                builder: (context, textConstraints) => SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: textConstraints.maxHeight),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: textMaxWidth),
+                        child: Text(
+                          controller.liveText.isEmpty
+                              ? 'Ada yang bisa aku bantu hari ini?'
+                              : controller.liveText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF394B60),
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -559,43 +515,4 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       );
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
-
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = message.isUser;
-    return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.82),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-        decoration: BoxDecoration(
-          color: user ? AppColors.green : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(18),
-            topRight: const Radius.circular(18),
-            bottomLeft: Radius.circular(user ? 18 : 5),
-            bottomRight: Radius.circular(user ? 5 : 18),
-          ),
-          boxShadow: user
-              ? null
-              : const [BoxShadow(color: Color(0x0D172B28), blurRadius: 12, offset: Offset(0, 3))],
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: user ? Colors.white : AppColors.ink,
-            fontSize: 15,
-            height: 1.4,
-          ),
-        ),
-      ),
-    );
-  }
 }

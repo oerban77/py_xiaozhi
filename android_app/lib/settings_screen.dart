@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 import 'camera_screen.dart';
+import 'mcp_runtime.dart';
+import 'smart_home_scanner.dart';
 import 'xiaozhi_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -38,6 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _wakeWordValid = false;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
+  bool _scanningSmartHome = false;
+  bool _scanningMqttBrokers = false;
 
   static const _mcpModules = <_McpModule>[
     _McpModule('app', 'App', 'Pengelolaan aplikasi'),
@@ -141,6 +145,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newWakeWordText: _wakeWordController.text,
     );
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _scanSmartHomeDevices() async {
+    final broker = _smartHomeBrokerController.text.trim();
+    if (broker.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Masukkan broker MQTT sebelum scan perangkat.')),
+      );
+      return;
+    }
+    setState(() => _scanningSmartHome = true);
+    try {
+      final response = await McpRuntime.handle(
+        {
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'tools/call',
+          'params': {'name': 'discover_devices', 'arguments': <String, Object?>{}},
+        },
+        disabledModules: const <String>{},
+        smartHomeConfig: {
+          'broker': broker,
+          'port': int.tryParse(_smartHomePortController.text) ?? 1883,
+          'username': _smartHomeUsernameController.text,
+          'password': _smartHomePasswordController.text,
+          'useTls': _smartHomeUseTls,
+          'devices': _smartHomeDevicesController.text,
+        },
+      );
+      final error = response?['error'];
+      final result = response?['result'];
+      final content = result is Map ? result['content'] : null;
+      final first = content is List && content.isNotEmpty ? content.first : null;
+      final message = error is Map
+          ? '${error['message'] ?? 'Scan gagal.'}'
+          : first is Map
+              ? '${first['text'] ?? 'Scan selesai.'}'
+              : 'Scan selesai.';
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scan smart home gagal: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _scanningSmartHome = false);
+    }
+  }
+
+  Future<void> _scanMqttBrokers() async {
+    final port = int.tryParse(_smartHomePortController.text) ?? 1883;
+    setState(() => _scanningMqttBrokers = true);
+    try {
+      final hosts = await SmartHomeScanner.findMqttBrokers(port);
+      if (!mounted) return;
+      if (hosts.isNotEmpty) _smartHomeBrokerController.text = hosts.first;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hosts.isEmpty
+                ? 'Tidak ditemukan broker MQTT pada port $port.'
+                : 'Broker ditemukan: ${hosts.join(', ')}',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scan broker MQTT gagal: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _scanningMqttBrokers = false);
+    }
   }
 
   /// Validates the typed wake word against the bundled BPE tokens without loading
@@ -486,6 +564,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.router_outlined),
                       ),
                     ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: _scanningMqttBrokers ? null : _scanMqttBrokers,
+                        icon: _scanningMqttBrokers
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.wifi_find_rounded, size: 18),
+                        label: Text(_scanningMqttBrokers ? 'Memindai jaringan...' : 'Cari broker di Wi-Fi'),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     const _FieldLabel(label: 'Port'),
                     TextField(
@@ -521,7 +612,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       activeTrackColor: AppColors.green.withValues(alpha: 0.35),
                     ),
                     const SizedBox(height: 14),
-                    const _FieldLabel(label: 'Devices (JSON)'),
+                    const _FieldLabel(label: 'Devices (opsional, JSON)'),
                     TextField(
                       controller: _smartHomeDevicesController,
                       minLines: 3,
@@ -533,8 +624,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: _scanningSmartHome ? null : _scanSmartHomeDevices,
+                        icon: _scanningSmartHome
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.radar_rounded, size: 18),
+                        label: Text(_scanningSmartHome ? 'Memindai...' : 'Scan perangkat Tasmota'),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     const Text(
-                      'Setiap perangkat memerlukan topic; name, room, type, dan power_cmd opsional.',
+                      'Scan menyimpan perangkat yang ditemukan untuk kontrol otomatis. JSON hanya diperlukan jika discovery broker tidak tersedia; setiap entri manual memerlukan topic.',
                       style: TextStyle(color: Color(0xFF71817C), fontSize: 12, height: 1.4),
                     ),
                   ],

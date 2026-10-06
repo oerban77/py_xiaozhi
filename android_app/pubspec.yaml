@@ -7,7 +7,9 @@ environment:
   sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
+  archive: ^4.3.0
   camera: ^0.12.1
+  pdfrx: ^2.6.5
   flutter_local_notifications: ^18.0.1
   flutter:
     sdk: flutter
@@ -17,6 +19,7 @@ dependencies:
   flutter_sound: ^9.30.0
   mqtt_client: ^10.2.1
   mobile_scanner: ^7.4.2
+  network_info_plus: ^6.1.4
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
   permission_handler: ^11.0.0

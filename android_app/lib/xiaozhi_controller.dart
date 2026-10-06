@@ -23,6 +23,16 @@ class XiaozhiController extends ChangeNotifier {
   static const maxTextAttachmentChars = 24000;
   static const _secureStorage = FlutterSecureStorage();
   static const _uuid = Uuid();
+  static const _micConfig = RecordConfig(
+    encoder: AudioEncoder.pcm16bits,
+    sampleRate: 16000,
+    numChannels: 1,
+    echoCancel: true,
+    noiseSuppress: true,
+    androidConfig: AndroidRecordConfig(
+      audioSource: AndroidAudioSource.voiceCommunication,
+    ),
+  );
 
   final AudioRecorder _recorder = AudioRecorder();
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
@@ -92,6 +102,7 @@ class XiaozhiController extends ChangeNotifier {
   bool isConnected = false;
   bool isConnecting = false;
   bool isRecording = false;
+  bool _wakeWordMicActive = false;
   bool isSpeaking = false;
   bool _opusInitialized = false;
   bool _playerStarted = false;
@@ -184,7 +195,7 @@ class XiaozhiController extends ChangeNotifier {
     final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
     _outputSampleRate = supportedOutputSampleRates.contains(storedRate) ? storedRate : 24000;
     wakeWordOptions = WakeWordOptions(
-      enabled: _preferences?.getBool('wake_word_enabled') ?? false,
+      enabled: _preferences?.getBool('wake_word_enabled') ?? true,
       wakeWord: _preferences?.getString('wake_word_text') ?? 'Hello Xiaozhi',
     );
     token = await _secureStorage.read(key: 'access_token') ?? '';
@@ -347,8 +358,18 @@ class XiaozhiController extends ChangeNotifier {
     final result = await wakeWordDetector.start(wakeWordOptions);
     switch (result) {
       case WakeWordStartResult.started:
-        wakeWordListening = true;
-        wakeWordError = '';
+        try {
+          if (!isRecording && !_wakeWordMicActive) await _openMicStream();
+          _wakeWordMicActive = !isRecording;
+          wakeWordListening = true;
+          wakeWordError = '';
+          if (!isRecording) status = 'Wake word aktif';
+        } catch (error) {
+          await wakeWordDetector.stop();
+          wakeWordListening = false;
+          wakeWordError = error.toString();
+          status = 'Wake word gagal dimulai: $wakeWordError';
+        }
         break;
       case WakeWordStartResult.disabled:
         wakeWordListening = false;
@@ -366,6 +387,7 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> _stopWakeWordDetector() async {
     await wakeWordDetector.stop();
     wakeWordListening = false;
+    if (_wakeWordMicActive) await _closeMicStream();
   }
 
   /// Mirrors WakeWordPlugin._on_detected: interrupt TTS, or start a voice session
@@ -397,10 +419,10 @@ class XiaozhiController extends ChangeNotifier {
     // Not speaking: tell the server the wake word fired and open the mic, so the
     // conversation starts without a tap (send_wake_word_detected + start_listening
     // with AUTO_STOP, since Android has no AEC).
-    _sendJson(ProtocolMessages.detectText(sessionId, wakeWordOptions.wakeWord));
     if (!isRecording) {
-      startVoice();
+      unawaited(startVoice());
     }
+    _sendJson(ProtocolMessages.detectText(sessionId, wakeWordOptions.wakeWord));
     status = 'Wake word terdeteksi: ${wakeWordOptions.wakeWord}';
     notifyListeners();
   }
@@ -604,27 +626,19 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> startVoice() async {
     if (!isConnected || isRecording) return;
-    try {
-      if (!await _recorder.hasPermission()) {
-        status = 'Izin mikrofon diperlukan';
-        notifyListeners();
-        return;
-      }
-      _pendingMicBytes.clear();
+    if (_wakeWordMicActive) {
+      _wakeWordMicActive = false;
+      isRecording = true;
       _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
-      final stream = await _recorder.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
-          numChannels: 1,
-          echoCancel: true,
-          noiseSuppress: true,
-          androidConfig: AndroidRecordConfig(
-            audioSource: AndroidAudioSource.voiceCommunication,
-          ),
-        ),
-      );
-      _micSubscription = stream.listen(_handleMicData);
+      status = 'Mendengarkan...';
+      emotion = 'neutral';
+      liveText = '';
+      notifyListeners();
+      return;
+    }
+    try {
+      await _openMicStream();
+      _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
       isRecording = true;
       status = 'Mendengarkan...';
       // DeviceState.LISTENING in the desktop GUI resets the emotion to neutral.
@@ -640,13 +654,34 @@ class XiaozhiController extends ChangeNotifier {
     if (!isRecording) return;
     isRecording = false;
     _micAutoManaged = false;
+    _sendJson(ProtocolMessages.listenStop(sessionId));
+    if (isConnected && wakeWordOptions.enabled && wakeWordListening) {
+      _wakeWordMicActive = true;
+      status = 'Wake word aktif';
+    } else {
+      await _closeMicStream();
+      status = 'Menunggu jawaban...';
+    }
+    notifyListeners();
+  }
+
+  Future<void> _openMicStream() async {
+    if (!await _recorder.hasPermission()) {
+      throw StateError('Izin mikrofon diperlukan');
+    }
+    _pendingMicBytes.clear();
+    final stream = await _recorder.startStream(_micConfig);
+    _micSubscription = stream.listen(_handleMicData);
+  }
+
+  Future<void> _closeMicStream() async {
+    _wakeWordMicActive = false;
     await _micSubscription?.cancel();
     _micSubscription = null;
-    await _recorder.stop();
+    try {
+      if (await _recorder.isRecording()) await _recorder.stop();
+    } catch (_) {}
     _pendingMicBytes.clear();
-    _sendJson(ProtocolMessages.listenStop(sessionId));
-    status = 'Menunggu jawaban...';
-    notifyListeners();
   }
 
   Future<void> interrupt() async {
@@ -903,6 +938,7 @@ class XiaozhiController extends ChangeNotifier {
     if (wakeWordDetector.isRunning) {
       wakeWordDetector.feed(data);
     }
+    if (!isRecording) return;
     _pendingMicBytes.addAll(data);
     const frameBytes = 320 * 2;
     while (_pendingMicBytes.length >= frameBytes) {
@@ -1057,6 +1093,8 @@ class XiaozhiController extends ChangeNotifier {
     isConnected = false;
     isConnecting = false;
     isRecording = false;
+    wakeWordListening = false;
+    _wakeWordMicActive = false;
     mcpInitialized = false;
     mcpToolsListed = false;
     _silencePollTimer?.cancel();
@@ -1066,6 +1104,7 @@ class XiaozhiController extends ChangeNotifier {
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError(reason));
     }
+    unawaited(wakeWordDetector.stop());
     unawaited(_closeSocket());
     if (_playerStarted) unawaited(_stopPlayer());
     notifyListeners();

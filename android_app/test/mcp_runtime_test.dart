@@ -81,6 +81,7 @@ void main() {
     final listResult = listResponse!['result'] as Map<String, dynamic>;
     final listedTools = listResult['tools'] as List<dynamic>;
     expect(listedTools.map((tool) => (tool as Map)['name']), contains('manage_document'));
+    expect(listedTools.map((tool) => (tool as Map)['name']), isNot(contains('take_photo')));
 
     final callResponse = await McpRuntime.handle(
       {
