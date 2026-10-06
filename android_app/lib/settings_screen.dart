@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'app_theme.dart';
 import 'camera_screen.dart';
 import 'mcp_runtime.dart';
+import 'reminder_runtime.dart';
 import 'smart_home_scanner.dart';
 import 'xiaozhi_controller.dart';
 
