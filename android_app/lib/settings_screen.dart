@@ -1,4 +1,14 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_music_picker/flutter_music_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:media_store_plus/media_store_plus.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'app_theme.dart';
 import 'camera_screen.dart';
@@ -16,6 +26,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static Future<void>? _mediaStoreInitialization;
+
   late final TextEditingController _urlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _deviceController;
@@ -42,6 +54,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _saving = false;
   bool _scanningSmartHome = false;
   bool _scanningMqttBrokers = false;
+  final AudioPlayer _reminderPreviewPlayer = AudioPlayer();
+  String _reminderSoundUri = ReminderRuntime.defaultAlarmSoundUri;
+  String _reminderSoundName = 'Suara bawaan perangkat';
+  bool _loadingReminderSound = false;
+  bool _previewingReminderSound = false;
 
   static const _mcpModules = <_McpModule>[
     _McpModule('app', 'App', 'Pengelolaan aplikasi'),
@@ -90,6 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _outputSampleRate = widget.controller.outputSampleRate;
     _wakeWordEnabled = widget.controller.wakeWordOptions.enabled;
     _wakeWordController = TextEditingController(text: widget.controller.wakeWordOptions.wakeWord);
+    unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
     WidgetsBinding.instance.addPostFrameCallback((_) => _validateWakeWord());
@@ -111,7 +129,194 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _smartHomePasswordController.dispose();
     _smartHomeDevicesController.dispose();
     _wakeWordController.dispose();
+    unawaited(_reminderPreviewPlayer.dispose());
+    unawaited(FlutterMusicPicker.stopRingtone());
     super.dispose();
+  }
+
+  Future<void> _loadReminderSound() async {
+    final (uri, name) = await ReminderRuntime.getAlarmSound();
+    if (!mounted) return;
+    setState(() {
+      _reminderSoundUri = uri;
+      _reminderSoundName = name;
+    });
+  }
+
+  Future<bool> _requestReminderAudioPermission() async {
+    var status = await Permission.audio.request();
+    if (!status.isGranted) status = await Permission.storage.request();
+    if (status.isGranted) return true;
+    if (!mounted) return false;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Izin audio diperlukan untuk membaca nada alarm di HP.')),
+    );
+    return false;
+  }
+
+  Future<void> _pickSystemReminderSound() async {
+    if (!await _requestReminderAudioPermission()) return;
+    setState(() => _loadingReminderSound = true);
+    try {
+      final sounds = await FlutterMusicPicker.getRingtones();
+      if (!mounted) return;
+      if (sounds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Daftar nada alarm HP kosong.')),
+        );
+        return;
+      }
+      final selected = await showModalBottomSheet<MusicItem>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.72,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                  child: Text(
+                    'Nada alarm di HP',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: sounds.length,
+                    itemBuilder: (context, index) {
+                      final sound = sounds[index];
+                      return ListTile(
+                        leading: Icon(sound.isRingtone ? Icons.alarm_rounded : Icons.notifications_active_outlined),
+                        title: Text(sound.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(sound.album, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        onTap: () => Navigator.of(context).pop(sound),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (selected != null) {
+        await _saveReminderSound(uri: selected.uri, name: selected.title);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Nada alarm gagal dimuat: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingReminderSound = false);
+    }
+  }
+
+  Future<void> _pickCustomReminderSound() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final selected = result.files.single;
+      final bytes = selected.bytes ??
+          (selected.path == null ? null : await File(selected.path!).readAsBytes());
+      if (bytes == null || bytes.isEmpty) throw const FormatException('File audio kosong.');
+      if (bytes.length > 20 * 1024 * 1024) {
+        throw const FormatException('Ukuran suara alarm maksimal 20 MB.');
+      }
+      final extension = p.extension(selected.name).toLowerCase();
+      if (!{'.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac'}.contains(extension)) {
+        throw const FormatException('Pilih file MP3, WAV, M4A, AAC, OGG, atau FLAC.');
+      }
+      final directory = await getApplicationSupportDirectory();
+      final target = File(p.join(
+        directory.path,
+        'reminder_alarm_${DateTime.now().microsecondsSinceEpoch}$extension',
+      ));
+      await target.writeAsBytes(bytes, flush: true);
+      await (_mediaStoreInitialization ??= MediaStore.ensureInitialized());
+      final saved = await MediaStore().saveFile(
+        tempFilePath: target.path,
+        dirType: DirType.audio,
+        dirName: DirName.ringtones,
+      );
+      if (saved == null || saved.uri.toString().isEmpty) {
+        throw const FileSystemException('File tidak dapat disimpan ke folder Ringtones HP.');
+      }
+      await _saveReminderSound(uri: saved.uri.toString(), name: selected.name);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('File suara gagal dipakai: $error')),
+      );
+    }
+  }
+
+  Future<void> _saveReminderSound({required String uri, required String name}) async {
+    setState(() => _loadingReminderSound = true);
+    try {
+      await _stopReminderSoundPreview();
+      final storedUri = uri.isEmpty ? ReminderRuntime.defaultAlarmSoundUri : uri;
+      await ReminderRuntime.setAlarmSound(uri: uri, name: name);
+      if (!mounted) return;
+      setState(() {
+        _reminderSoundUri = storedUri;
+        _reminderSoundName = name;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Suara disimpan. Jadwal reminder aktif diperbarui.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Suara reminder gagal disimpan: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingReminderSound = false);
+    }
+  }
+
+  Future<void> _toggleReminderSoundPreview() async {
+    if (_previewingReminderSound) {
+      await _stopReminderSoundPreview();
+      return;
+    }
+    if (_reminderSoundUri.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih nada alarm terlebih dahulu.')),
+      );
+      return;
+    }
+    try {
+      final uri = Uri.parse(_reminderSoundUri);
+      if (uri.scheme == 'content') {
+        if (mounted) setState(() => _previewingReminderSound = true);
+        await FlutterMusicPicker.playRingtone(_reminderSoundUri);
+      } else {
+        await _reminderPreviewPlayer.setAudioSource(AudioSource.uri(uri));
+        if (mounted) setState(() => _previewingReminderSound = true);
+        unawaited(_reminderPreviewPlayer.play().whenComplete(() {
+          if (mounted) setState(() => _previewingReminderSound = false);
+        }));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Preview suara gagal diputar: $error')),
+      );
+    }
+  }
+
+  Future<void> _stopReminderSoundPreview() async {
+    await _reminderPreviewPlayer.stop();
+    await FlutterMusicPicker.stopRingtone();
+    if (mounted) setState(() => _previewingReminderSound = false);
   }
 
   Future<void> _save() async {
@@ -410,6 +615,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (selection.isEmpty) return;
                         setState(() => _outputSampleRate = selection.first);
                       },
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Alarm & Reminder',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Pengingat dijadwalkan oleh Android dan tetap aktif setelah aplikasi ditutup atau HP dimulai ulang.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.notifications_active_outlined, color: AppColors.green),
+                      title: const Text('Suara alarm'),
+                      subtitle: Text(_reminderSoundName, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      trailing: IconButton.filledTonal(
+                        tooltip: _previewingReminderSound ? 'Hentikan preview' : 'Putar preview',
+                        onPressed: _loadingReminderSound ? null : _toggleReminderSoundPreview,
+                        icon: Icon(_previewingReminderSound ? Icons.stop_rounded : Icons.play_arrow_rounded),
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _loadingReminderSound ? null : _pickSystemReminderSound,
+                          icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                          label: const Text('Nada HP'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _loadingReminderSound ? null : _pickCustomReminderSound,
+                          icon: const Icon(Icons.audio_file_outlined, size: 18),
+                          label: const Text('File audio'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _loadingReminderSound
+                              ? null
+                              : () => _saveReminderSound(
+                                    uri: ReminderRuntime.defaultAlarmSoundUri,
+                                    name: 'Suara bawaan perangkat',
+                                  ),
+                          icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                          label: const Text('Bawaan'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 28),
                     const Text(

@@ -11,6 +11,7 @@ class ReminderRuntime {
   static const toolNames = <String>{
     'add_reminder_in',
     'add_reminder',
+    'add_prayer_reminders',
     'list_reminders',
     'delete_reminder',
     'edit_reminder',
@@ -35,7 +36,7 @@ class ReminderRuntime {
     },
     {
       'name': 'add_reminder',
-      'description': 'Add a once, daily, hourly, workday, weekly, monthly, or yearly reminder.',
+      'description': 'Create a native Android scheduled alarm/notification. Supports once, daily, hourly, workday, weekly, monthly, or yearly recurrence.',
       'inputSchema': {
         'type': 'object',
         'properties': {
@@ -51,6 +52,23 @@ class ReminderRuntime {
           'month': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 12},
         },
         'required': ['title'],
+      },
+    },
+    {
+      'name': 'add_prayer_reminders',
+      'description': 'Fetch today prayer times for the specified Indonesian province and city, then create one native Android reminder per requested prayer. Use daily by default, once for today only, or workday for Monday-Friday. Default prayers: Subuh, Dzuhur, Ashar, Maghrib, and Isya. This tool performs the prayer lookup itself before scheduling.',
+      'inputSchema': {
+        'type': 'object',
+        'properties': {
+          'province': {'type': 'string'},
+          'city': {'type': 'string'},
+          'mode': {'type': 'string', 'enum': ['once', 'daily', 'workday'], 'default': 'daily'},
+          'prayers': {
+            'type': 'array',
+            'items': {'type': 'string', 'enum': ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya']},
+          },
+        },
+        'required': ['province', 'city'],
       },
     },
     {
@@ -104,6 +122,9 @@ class ReminderRuntime {
   ];
 
   static const _storageKey = 'android_mcp_reminders';
+  static const _alarmSoundUriKey = 'android_reminder_sound_uri';
+  static const _alarmSoundNameKey = 'android_reminder_sound_name';
+  static const defaultAlarmSoundUri = 'content://settings/system/alarm_alert';
   static const _maxDurationSeconds = 86400 * 366;
   static const _weekdayIndices = <String, int>{
     'senin': 1,
@@ -140,6 +161,14 @@ class ReminderRuntime {
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
     );
+    final (soundUri, _) = await getAlarmSound();
+    for (final reminder in await _load()) {
+      if (reminder['enabled'] == true &&
+          reminder['notificationSoundUri'] != soundUri &&
+          _nextTrigger(reminder) != null) {
+        await _schedule(reminder, requestPermissions: false);
+      }
+    }
   }
 
   static Future<String> call(String name, Map<String, dynamic> arguments) async {
@@ -159,6 +188,28 @@ class ReminderRuntime {
         return _toggle(arguments);
       default:
         throw ArgumentError('Unknown reminder tool: $name');
+    }
+  }
+
+  static Future<(String, String)> getAlarmSound() async {
+    final preferences = await SharedPreferences.getInstance();
+    return (
+      preferences.getString(_alarmSoundUriKey) ?? defaultAlarmSoundUri,
+      preferences.getString(_alarmSoundNameKey) ?? 'Suara bawaan perangkat',
+    );
+  }
+
+  static Future<void> setAlarmSound({required String uri, required String name}) async {
+    await initialize();
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _alarmSoundUriKey,
+      uri.isEmpty ? defaultAlarmSoundUri : uri,
+    );
+    await preferences.setString(_alarmSoundNameKey, name);
+    final reminders = await _load();
+    for (final reminder in reminders.where((item) => item['enabled'] == true)) {
+      await _schedule(reminder, requestPermissions: false);
     }
   }
 
@@ -217,8 +268,6 @@ class ReminderRuntime {
       'enabled': true,
       'notificationIds': <int>[],
     };
-    reminders.add(reminder);
-    await _save(reminders);
     await _schedule(reminder);
     return 'Reminder added: [$id] ${reminder['title']} — ${_formatSchedule(reminder)}';
   }
@@ -254,12 +303,19 @@ class ReminderRuntime {
     final reminders = await _load();
     final reminder = _findReminder(reminders, id);
     if (reminder == null) return 'Reminder not found: $id';
+    final wasEnabled = reminder['enabled'] == true;
     reminder['enabled'] = enabled;
-    await _save(reminders);
     if (enabled) {
-      await _schedule(reminder);
+      try {
+        await _schedule(reminder);
+      } catch (_) {
+        reminder['enabled'] = wasEnabled;
+        await _save(reminders);
+        rethrow;
+      }
     } else {
       await _cancel(reminder);
+      await _save(reminders);
     }
     return 'Reminder [$id] ${enabled ? 'enabled' : 'disabled'}.';
   }
@@ -269,6 +325,7 @@ class ReminderRuntime {
     final reminders = await _load();
     final reminder = _findReminder(reminders, id);
     if (reminder == null) return 'Reminder not found: $id';
+    final previous = Map<String, dynamic>.from(reminder);
     for (final key in [
       'title',
       'message',
@@ -287,9 +344,21 @@ class ReminderRuntime {
       }
     }
     _validate(reminder);
-    await _cancel(reminder);
-    await _save(reminders);
-    await _schedule(reminder);
+    await _cancel(previous);
+    if (reminder['enabled'] == true) {
+      try {
+        await _schedule(reminder);
+      } catch (_) {
+        reminders[reminders.indexOf(reminder)] = previous;
+        await _save(reminders);
+        if (previous['enabled'] == true && _nextTrigger(previous) != null) {
+          await _schedule(previous, requestPermissions: false);
+        }
+        rethrow;
+      }
+    } else {
+      await _save(reminders);
+    }
     return 'Reminder updated: [$id] ${reminder['title']} — ${_formatSchedule(reminder)}';
   }
 
@@ -306,22 +375,32 @@ class ReminderRuntime {
     await preferences.setString(_storageKey, jsonEncode(reminders));
   }
 
-  static Future<void> _schedule(Map<String, dynamic> reminder) async {
+  static Future<void> _schedule(
+    Map<String, dynamic> reminder, {
+    bool requestPermissions = true,
+  }) async {
     await _cancel(reminder);
     if (reminder['enabled'] != true) return;
-    final scheduleMode = await _requestScheduleMode();
+    final scheduleMode = await _requestScheduleMode(requestPermissions: requestPermissions);
     final next = _nextTrigger(reminder);
     if (next == null) throw ArgumentError('Reminder has no future trigger');
     final id = _int(reminder['id']);
     final title = '${reminder['title'] ?? 'Reminder'}';
     final message = '${reminder['message'] ?? title}';
-    const details = NotificationDetails(
+    final (soundUri, _) = await getAlarmSound();
+    reminder['notificationSoundUri'] = soundUri;
+    final sound = UriAndroidNotificationSound(soundUri);
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'xiaozhi_reminders',
-        'Reminders',
-        channelDescription: 'Scheduled reminders from Xiaozhi',
+        _soundChannelId(soundUri),
+        'Alarm dan reminder Xiaozhi',
+        channelDescription: 'Alarm terjadwal dari Xiaozhi',
         importance: Importance.max,
         priority: Priority.high,
+        sound: sound,
+        playSound: soundUri != 'none',
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        category: AndroidNotificationCategory.alarm,
       ),
     );
     final mode = '${reminder['mode']}';
@@ -393,15 +472,29 @@ class ReminderRuntime {
     );
   }
 
-  static Future<AndroidScheduleMode> _requestScheduleMode() async {
+  static String _soundChannelId(String soundUri) {
+    var hash = 0x811c9dc5;
+    for (final codeUnit in soundUri.codeUnits) {
+      hash = ((hash ^ codeUnit) * 0x01000193) & 0xFFFFFFFF;
+    }
+    return 'xiaozhi_alarm_${hash.toRadixString(16)}';
+  }
+
+  static Future<AndroidScheduleMode> _requestScheduleMode({
+    bool requestPermissions = true,
+  }) async {
     final android = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return AndroidScheduleMode.inexactAllowWhileIdle;
-    final notificationsGranted = await android.requestNotificationsPermission();
-    if (notificationsGranted == false) {
-      throw StateError('Notification permission was not granted');
+    if (requestPermissions) {
+      final notificationsGranted = await android.requestNotificationsPermission();
+      if (notificationsGranted == false) {
+        throw StateError('Izin notifikasi belum diberikan. Aktifkan notifikasi Xiaozhi di Pengaturan HP.');
+      }
     }
-    final exactAlarmGranted = await android.requestExactAlarmsPermission();
+    final exactAlarmGranted = requestPermissions
+      ? await android.requestExactAlarmsPermission()
+      : await android.canScheduleExactNotifications();
     return exactAlarmGranted == false
         ? AndroidScheduleMode.inexactAllowWhileIdle
         : AndroidScheduleMode.exactAllowWhileIdle;

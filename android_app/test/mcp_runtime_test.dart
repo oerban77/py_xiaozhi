@@ -27,6 +27,7 @@ void main() {
     expect(names, contains('take_photo'));
     expect(names, contains('qrcode_read_file'));
     expect(names, contains('add_reminder_in'));
+    expect(names, contains('add_prayer_reminders'));
     expect(names, contains('list_reminders'));
     expect(names, contains('music_player.search_and_play'));
     expect(names, contains('music_player.pause'));

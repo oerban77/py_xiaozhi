@@ -372,6 +372,7 @@ class McpRuntime {
       };
 
   static String? _moduleForTool(String name) {
+    if (name == 'add_prayer_reminders') return ReminderRuntime.module;
     if (name.startsWith('prayer_')) return 'prayer';
     if (name == 'get_weather' || name == 'get_forecast') return 'weather';
     if (name == 'self.indonesia_holiday_query') return 'indonesia_holiday';
@@ -421,6 +422,7 @@ class McpRuntime {
       return MusicRuntime.call(name, arguments);
     }
     if (ReminderRuntime.toolNames.contains(name)) {
+      if (name == 'add_prayer_reminders') return _addPrayerReminders(arguments);
       return ReminderRuntime.call(name, arguments);
     }
     if (VolumeRuntime.toolNames.contains(name)) {
@@ -1218,6 +1220,85 @@ class McpRuntime {
     } finally {
       client.close(force: true);
     }
+  }
+
+  static Future<String> _addPrayerReminders(Map<String, dynamic> arguments) async {
+    final province = await _resolveProvince(_requiredString(arguments, 'province'));
+    final city = await _resolveCity(province, _requiredString(arguments, 'city'));
+    final mode = (arguments['mode'] as String? ?? 'daily').toLowerCase();
+    if (!{'once', 'daily', 'workday'}.contains(mode)) {
+      throw ArgumentError('Prayer reminder mode must be once, daily, or workday');
+    }
+
+    const prayerLabels = <String, (String, String)>{
+      'subuh': ('Subuh', 'subuh'),
+      'dzuhur': ('Dzuhur', 'dzuhur'),
+      'ashar': ('Ashar', 'ashar'),
+      'maghrib': ('Maghrib', 'maghrib'),
+      'isya': ('Isya', 'isya'),
+    };
+    const aliases = <String, String>{
+      'fajr': 'subuh',
+      'dhuhr': 'dzuhur',
+      'zuhr': 'dzuhur',
+      'asr': 'ashar',
+      'isha': 'isya',
+    };
+    final requested = arguments['prayers'];
+    final prayerKeys = requested is List
+        ? requested
+            .map((value) => '${value ?? ''}'.trim().toLowerCase())
+            .map((value) => aliases[value] ?? value)
+            .toSet()
+        : prayerLabels.keys.toSet();
+    if (prayerKeys.isEmpty || prayerKeys.any((key) => !prayerLabels.containsKey(key))) {
+      throw ArgumentError('prayers must contain supported prayer names');
+    }
+
+    final now = DateTime.now();
+    final data = await _getSchedule(province, city, now.month, now.year);
+    final schedule = data['jadwal'];
+    if (schedule is! List) throw const FormatException('Prayer schedule is unavailable');
+    Map? today;
+    for (final entry in schedule.whereType<Map>()) {
+      if (int.tryParse('${entry['tanggal']}') == now.day) {
+        today = entry;
+        break;
+      }
+    }
+    if (today == null) throw StateError('Prayer schedule is unavailable for $city today');
+
+    final created = <String>[];
+    final skipped = <String>[];
+    final date = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    for (final key in prayerLabels.keys.where(prayerKeys.contains)) {
+      final (label, scheduleKey) = prayerLabels[key]!;
+      final time = '${today[scheduleKey] ?? ''}'.trim();
+      final parsed = DateTime.tryParse('$date $time');
+      if (parsed == null) {
+        throw FormatException('Invalid $label time in the prayer schedule: $time');
+      }
+      if (mode == 'once' && !parsed.isAfter(now)) {
+        skipped.add(label);
+        continue;
+      }
+      final result = await ReminderRuntime.call('add_reminder', {
+        'title': 'Sholat $label - $city',
+        'message': 'Waktu sholat $label di $city, $province.',
+        'mode': mode,
+        if (mode == 'once') 'datetime': '$date $time',
+        if (mode != 'once') 'time': time,
+      });
+      created.add('$label $time: $result');
+    }
+    if (created.isEmpty) {
+      return 'No upcoming prayer times remain today for $city. ${skipped.join(', ')} already passed.';
+    }
+    final skippedText = skipped.isEmpty ? '' : '\nSkipped past times: ${skipped.join(', ')}.';
+    return 'Fetched today prayer schedule for $city, $province and created ${created.length} native reminder(s) ($mode):\n'
+        '${created.join('\n')}$skippedText';
   }
 
   static Future<String> _callPrayerTool(

@@ -23,7 +23,7 @@ void main() {
             '<w:body><w:p><w:r><w:t>Halo</w:t></w:r></w:p>'
             '<w:p><w:r><w:t>Dunia</w:t></w:r></w:p></w:body></w:document>',
       ));
-    final zipped = ZipEncoder().encode(archive)!;
+    final zipped = ZipEncoder().encode(archive);
 
     final text = await AttachmentTextReader.extract(
       fileName: 'notes.docx',
