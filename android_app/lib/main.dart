@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 import 'home_screen.dart';
+import 'permission_gate_screen.dart';
+import 'permission_manager.dart';
 import 'xiaozhi_controller.dart';
 
 Future<void> main() async {
@@ -11,10 +15,37 @@ Future<void> main() async {
   runApp(XiaozhiApp(controller: controller));
 }
 
-class XiaozhiApp extends StatelessWidget {
+class XiaozhiApp extends StatefulWidget {
   const XiaozhiApp({super.key, required this.controller});
 
   final XiaozhiController controller;
+
+  @override
+  State<XiaozhiApp> createState() => _XiaozhiAppState();
+}
+
+class _XiaozhiAppState extends State<XiaozhiApp> {
+  // Null while the permission check is still in flight; true once every required
+  // permission is granted (or the user skipped the gate).
+  bool? _permissionsGranted;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_checkPermissions());
+  }
+
+  Future<void> _checkPermissions() async {
+    final manager = const PermissionManager();
+    final granted = await manager.allRequiredGranted;
+    if (!mounted) return;
+    setState(() => _permissionsGranted = granted);
+  }
+
+  void _onPermissionsGranted() {
+    if (!mounted) return;
+    setState(() => _permissionsGranted = true);
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -53,6 +84,16 @@ class XiaozhiApp extends StatelessWidget {
             ),
           ),
         ),
-        home: HomeScreen(controller: controller),
+        // While any required runtime permission is missing, show the agreement
+        // screen so the mic/camera/notification prompts are answered once, up
+        // front, instead of interrupting the first conversation.
+        home: _permissionsGranted == null
+            ? const Scaffold(
+                backgroundColor: AppColors.paper,
+                body: Center(child: CircularProgressIndicator(color: AppColors.green)),
+              )
+            : _permissionsGranted!
+                ? HomeScreen(controller: widget.controller)
+                : PermissionGateScreen(onGranted: _onPermissionsGranted),
       );
 }

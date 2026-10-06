@@ -91,7 +91,12 @@ jobs:
                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
                   '    <uses-permission android:name="android.permission.INTERNET" />\n'
                   '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
-                  '    <uses-permission android:name="android.permission.CAMERA" />\n',
+                  '    <uses-permission android:name="android.permission.CAMERA" />\n'
+                  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+                  '    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n'
+                  '    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />\n'
+                  '    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n'
+                  '    <uses-permission android:name="android.permission.VIBRATE" />\n',
                   1,
               )
 

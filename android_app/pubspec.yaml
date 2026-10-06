@@ -18,6 +18,7 @@ dependencies:
   mobile_scanner: ^7.4.2
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
+  permission_handler: ^11.0.0
   record: ^7.1.1
   shared_preferences: ^2.5.3
   sherpa_onnx: ^1.13.8
