@@ -83,10 +83,6 @@ class VolumeRuntime {
     },
   ];
 
-  /// Set once a hardware call succeeds, so a later failure reports a real state
-  /// instead of the default.
-  static bool _available = false;
-
   static Future<String> call(String name, Map<String, dynamic> arguments) async {
     switch (name) {
       case 'self.audio_speaker.set_volume':
@@ -134,7 +130,6 @@ class VolumeRuntime {
     }
     try {
       await FlutterVolumeController.setVolume(_toLevel(volume));
-      _available = true;
       return 'true';
     } catch (_) {
       return 'false';
@@ -144,7 +139,6 @@ class VolumeRuntime {
   static Future<String> _getVolume() async {
     try {
       final level = await FlutterVolumeController.getVolume();
-      _available = level != null;
       return '${_toPercent(level)}';
     } catch (_) {
       return '50';
@@ -155,7 +149,6 @@ class VolumeRuntime {
     try {
       final level = await FlutterVolumeController.getVolume();
       final muted = await FlutterVolumeController.getMute();
-      _available = level != null;
       return jsonEncode({
         'volume': _toPercent(level),
         'muted': muted == true || level == 0,
@@ -175,7 +168,6 @@ class VolumeRuntime {
     final muted = _optionalBool(arguments['muted']);
     try {
       await FlutterVolumeController.setMute(muted);
-      _available = true;
       return jsonEncode({'success': true, 'muted': muted});
     } catch (error) {
       return jsonEncode({'success': false, 'reason': '$error'});
@@ -187,7 +179,6 @@ class VolumeRuntime {
       final current = await FlutterVolumeController.getMute();
       final next = !(current ?? false);
       await FlutterVolumeController.setMute(next);
-      _available = true;
       return jsonEncode({'success': true, 'muted': next});
     } catch (error) {
       return jsonEncode({'success': false, 'reason': '$error'});
@@ -197,7 +188,6 @@ class VolumeRuntime {
   static Future<String> _getMuted() async {
     try {
       final muted = await FlutterVolumeController.getMute();
-      _available = muted != null;
       return jsonEncode({'muted': muted ?? false, 'available': muted != null});
     } catch (error) {
       return jsonEncode({'muted': false, 'available': false, 'error': '$error'});

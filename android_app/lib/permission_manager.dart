@@ -39,7 +39,7 @@ class AppPermission {
 }
 
 /// The permissions this app uses, in the order they are requested. The list
-/// mirrors the <uses-permission> entries the CI workflow writes into
+/// mirrors the `<uses-permission>` entries the CI workflow writes into
 /// AndroidManifest.xml (see .github/workflows/android.yml).
 ///
 /// Note on media access: attachments are opened through the system file picker

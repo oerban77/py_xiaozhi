@@ -19,8 +19,8 @@ void main() {
     // availableCameras() funnels through the camera platform channel, so a mock
     // handler on the plugin's channel is enough to fake the device list. The
     // payload mirrors what the native plugins send: name/lensFacing/sensorOrientation.
-    const MethodChannel('plugins.flutter.io/camera')
-        .setMockMethodCallHandler((call) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/camera'), (call) async {
       if (call.method == 'availableCameras') {
         return cameras
             .map((camera) => <String, Object>{
