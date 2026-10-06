@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_theme.dart';
 import 'home_screen.dart';
@@ -10,15 +11,28 @@ import 'xiaozhi_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   final controller = XiaozhiController();
   await controller.initialize();
   runApp(XiaozhiApp(controller: controller));
 }
 
 class XiaozhiApp extends StatefulWidget {
-  const XiaozhiApp({super.key, required this.controller});
+  const XiaozhiApp({
+    super.key,
+    required this.controller,
+    this.skipPermissionGate = false,
+  });
 
   final XiaozhiController controller;
+
+  /// Allows widget tests and other controlled in-app bootstrap flows to skip the
+  /// first-run permission gate without changing the default production behavior.
+  final bool skipPermissionGate;
 
   @override
   State<XiaozhiApp> createState() => _XiaozhiAppState();
@@ -32,6 +46,10 @@ class _XiaozhiAppState extends State<XiaozhiApp> {
   @override
   void initState() {
     super.initState();
+    if (widget.skipPermissionGate) {
+      _permissionsGranted = true;
+      return;
+    }
     unawaited(_checkPermissions());
   }
 
