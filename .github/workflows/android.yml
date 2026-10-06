@@ -44,7 +44,7 @@ jobs:
           set -o pipefail
 
           # Install platforms & build-tools
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.2" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Create Android project structure
         working-directory: android_app
@@ -158,6 +158,24 @@ jobs:
 
           manifest_path.write_text(text, encoding='utf-8')
 
+          # Keep Android libraries on the same supported SDK without editing cached packages.
+          gradle_path = Path('android/build.gradle')
+          gradle_text = gradle_path.read_text(encoding='utf-8') if gradle_path.exists() else ''
+          marker = '// xiaozhi-android-subproject-compile-sdk'
+          if marker not in gradle_text:
+              gradle_text += (
+                  f'\n{marker}\n'
+                  'subprojects {\n'
+                  '    afterEvaluate { project ->\n'
+                  '        def androidExtension = project.extensions.findByName("android")\n'
+                  '        if (androidExtension != null) {\n'
+                  '            androidExtension.compileSdkVersion(34)\n'
+                  '        }\n'
+                  '    }\n'
+                  '}\n'
+              )
+          gradle_path.write_text(gradle_text, encoding='utf-8')
+
           xml_dir = Path('android/app/src/main/res/xml')
           xml_dir.mkdir(parents=True, exist_ok=True)
           security_path = xml_dir / 'network_security_config.xml'
@@ -180,7 +198,7 @@ jobs:
           from pathlib import Path
           p = Path('android/app/build.gradle')
           text = p.read_text()
-          text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+          text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 34')
           text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
           text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
           text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
@@ -209,7 +227,7 @@ jobs:
           from pathlib import Path
           p = Path('android/app/build.gradle.kts')
           text = p.read_text()
-          text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+          text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 34')
           text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
           if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
               text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
@@ -233,36 +251,6 @@ jobs:
       - name: Resolve dependencies
         working-directory: android_app
         run: flutter pub get
-
-      - name: Align file_picker Android compile SDK
-        working-directory: android_app
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          import re
-          from pathlib import Path
-          from urllib.parse import unquote, urlparse
-
-          config_path = Path('.dart_tool/package_config.json')
-          packages = json.loads(config_path.read_text())['packages']
-          package_by_name = {package['name']: package for package in packages}
-          pattern = re.compile(r'(?m)^(\s*compileSdk(?:Version)?\s+)(\d+)\b')
-
-          for package_name in ('file_picker', 'opus_flutter_android', 'flutter_volume_controller'):
-              package = package_by_name.get(package_name)
-              if package is None:
-                  raise SystemExit(f'Package {package_name} was not resolved')
-              root_uri = urlparse(package['rootUri'])
-              package_root = Path(unquote(root_uri.path)) if root_uri.scheme == 'file' else (config_path.parent / package['rootUri']).resolve()
-              gradle_file = package_root / 'android' / 'build.gradle'
-              text = gradle_file.read_text()
-              updated, count = pattern.subn(lambda match: f'{match.group(1)}36', text, count=1)
-              if not count:
-                  raise SystemExit(f'Could not find compileSdk declaration in {gradle_file}')
-              gradle_file.write_text(updated)
-          PY
 
       - name: Analyze code
         working-directory: android_app
