@@ -87,6 +87,34 @@ class XiaozhiController extends ChangeNotifier {
   bool mcpInitialized = false;
   bool mcpToolsListed = false;
 
+  /// Extracts the text payload of a tools/call result, mirroring the shape
+  /// McpRuntime returns (`result.content[0].text`).
+  static String? _extractResultText(Map result) {
+    final content = result['content'];
+    if (content is! List || content.isEmpty) return null;
+    final first = content.first;
+    if (first is Map && first['text'] is String) return first['text'] as String;
+    return null;
+  }
+
+  /// Reads the persisted facing out of a self.camera.switch result so the UI and
+  /// the next take_photo stay in sync with what the LLM selected.
+  static String? _facingFromSwitchResult(String? text) {
+    if (text == null || text.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) return null;
+      final success = decoded['success'];
+      final facing = decoded['facing'];
+      if (success == true && facing is String && (facing == 'front' || facing == 'back')) {
+        return facing;
+      }
+    } on FormatException {
+      return null;
+    }
+    return null;
+  }
+
   /// Jitter buffer for incoming TTS PCM frames. Network frames arrive at an uneven
   /// pace; feeding them straight to the player one-by-one makes playback stutter
   /// ("brebet"). Releasing them in fixed-size bursts smooths that out.
@@ -703,6 +731,18 @@ class XiaozhiController extends ChangeNotifier {
             mcpInitialized = true;
           } else if (method == 'tools/list') {
             mcpToolsListed = true;
+          }
+          if (method == 'tools/call' &&
+              params is Map &&
+              response['result'] is Map &&
+              params['name'] == 'self.camera.switch') {
+            final text = _extractResultText(response['result'] as Map);
+            final facing = _facingFromSwitchResult(text);
+            if (facing != null) {
+              cameraFacing = facing;
+              await _preferences?.setString('camera_facing', cameraFacing);
+              notifyListeners();
+            }
           }
           if (method == 'tools/call' &&
               params is Map &&

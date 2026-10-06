@@ -10,8 +10,10 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:xml/xml.dart';
 
+import 'camera_runtime.dart';
 import 'music_runtime.dart';
 import 'reminder_runtime.dart';
+import 'volume_runtime.dart';
 
 class McpRuntime {
   static const _baseUrl = 'https://equran.id/api/v2/shalat';
@@ -203,6 +205,8 @@ class McpRuntime {
     },
     ...MusicRuntime.tools,
     ...ReminderRuntime.tools,
+    ...VolumeRuntime.tools,
+    ...CameraRuntime.tools,
   ];
 
   static const _pendingTextAttachmentTool = <String, Object?>{
@@ -372,6 +376,8 @@ class McpRuntime {
       return 'smarthome';
     }
     if (name == 'take_photo') return 'camera';
+    if (CameraRuntime.toolNames.contains(name)) return CameraRuntime.module;
+    if (VolumeRuntime.toolNames.contains(name)) return VolumeRuntime.module;
     if (name == 'qrcode_read_file') return 'qrcode';
     if (name == 'manage_document') return 'chat_attachment';
     if (MusicRuntime.toolNames.contains(name)) return MusicRuntime.module;
@@ -410,6 +416,12 @@ class McpRuntime {
     }
     if (ReminderRuntime.toolNames.contains(name)) {
       return ReminderRuntime.call(name, arguments);
+    }
+    if (VolumeRuntime.toolNames.contains(name)) {
+      return VolumeRuntime.call(name, arguments);
+    }
+    if (CameraRuntime.toolNames.contains(name)) {
+      return CameraRuntime.call(name, arguments);
     }
     if (_moduleForTool(name) == 'smarthome') {
       return _callSmartHome(name, arguments, smartHomeConfig);

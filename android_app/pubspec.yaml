@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_secure_storage: ^9.2.4
+  flutter_volume_controller: ^1.3.4
   file_picker: ^8.1.7
   flutter_sound: ^9.30.0
   mqtt_client: ^10.2.1

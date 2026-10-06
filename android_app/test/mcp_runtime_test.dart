@@ -32,6 +32,14 @@ void main() {
     expect(names, contains('music_player.pause'));
     expect(names, contains('music_player.get_status'));
     expect(names, contains('music_player.get_lyrics'));
+    expect(names, contains('self.audio_speaker.set_volume'));
+    expect(names, contains('self.audio_speaker.get_volume'));
+    expect(names, contains('self.audio_speaker.get_volume_status'));
+    expect(names, contains('self.audio_speaker.set_muted'));
+    expect(names, contains('self.audio_speaker.toggle_mute'));
+    expect(names, contains('self.audio_speaker.get_muted'));
+    expect(names, contains('self.camera.switch'));
+    expect(names, contains('self.camera.get_facing'));
   });
 
   test('hides disabled prayer module tools', () async {

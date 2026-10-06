@@ -10,6 +10,7 @@ from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
 from src.utils.config_manager import get_config
 
 from .normal_camera import NormalCamera
+from .selection import get_camera_facing_sync, switch_camera_sync
 from .vl_camera import VLCamera
 
 logger = get_logger()
@@ -130,4 +131,48 @@ def register_camera_tools(
             take_photo,
         )
     )
-    logger.info("Registered take_photo (camera injected by container)")
+
+    async def switch_camera(arguments: dict) -> str:
+        facing = str(arguments.get("facing") or "").strip()
+        logger.info(f"[Camera] Switching to the {facing or '?'} camera")
+        return await asyncio.to_thread(switch_camera_sync, facing)
+
+    async def get_camera_facing(arguments: dict) -> str:
+        logger.info("[Camera] Reporting the current camera facing")
+        return await asyncio.to_thread(get_camera_facing_sync)
+
+    add_tool(
+        McpTool(
+            "self.camera.switch",
+            (
+                "[Camera Switch] Switch the active camera between the front-facing and the "
+                "back-facing camera, so the next take_photo uses it.\n"
+                "Use when the user mentions: switch camera, use the front camera, use the back "
+                "camera, ganti kamera, kamera depan, kamera belakang, balik kamera.\n"
+                "Parameter:\n"
+                "- facing: which camera to use. Accepted values: 'front' (depan / selfie) or "
+                "'back' (belakang / rear).\n"
+                "Returns a JSON payload with fields: success (bool), facing (front|back|unknown), "
+                "selected (camera name), front (list of detected front cameras), back (list of "
+                "detected back cameras), reason (when it fails)."
+            ),
+            PropertyList([Property("facing", PropertyType.STRING)]),
+            switch_camera,
+        )
+    )
+    add_tool(
+        McpTool(
+            "self.camera.get_facing",
+            (
+                "[Camera Status] Report which camera (front or back) is currently active and "
+                "which cameras were detected.\n"
+                "Use when the user asks: which camera is active, what camera are you using, "
+                "kamera mana yang aktif, kamera depan atau belakang.\n"
+                "Returns a JSON payload with fields: facing (front|back|unknown), "
+                "front (list), back (list), current_camera (key), available (bool)."
+            ),
+            PropertyList([]),
+            get_camera_facing,
+        )
+    )
+    logger.info("Registered take_photo + camera facing tools (camera injected by container)")

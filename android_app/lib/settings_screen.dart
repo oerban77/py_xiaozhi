@@ -55,7 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _McpModule('reminder', 'Reminder', 'Pengingat', supported: true),
     _McpModule('screenshot', 'Screenshot', 'Tangkapan layar desktop', desktopOnly: true),
     _McpModule('smarthome', 'Smart Home', 'Otomasi rumah', supported: true),
-    _McpModule('volume', 'Volume', 'Kontrol volume sistem', desktopOnly: true),
+    _McpModule('volume', 'Volume', 'Kontrol volume sistem', supported: true),
     _McpModule('weather', 'Weather', 'Cuaca', supported: true),
     _McpModule('websearch', 'Web Search', 'Pencarian web', supported: true),
   ];

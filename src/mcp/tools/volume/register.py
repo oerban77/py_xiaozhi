@@ -98,6 +98,57 @@ def register_volume_tools(
             }
         return json.dumps(status, ensure_ascii=False)
 
+    async def set_muted(args: dict[str, Any]) -> str:
+        try:
+            muted = bool(args["muted"])
+            logger.info(f"[VolumeTools] Setting muted to {muted}")
+            if controller is None:
+                logger.warning("[VolumeTools] Volume control dependencies incomplete; cannot set mute")
+                return json.dumps(
+                    {"success": False, "reason": "Dependencies not available"},
+                    ensure_ascii=False,
+                )
+            await asyncio.to_thread(controller.set_muted, muted)
+            logger.info(f"[VolumeTools] Muted set: {muted}")
+            return json.dumps({"success": True, "muted": muted}, ensure_ascii=False)
+        except KeyError:
+            logger.error("[VolumeTools] Missing muted parameter")
+            return json.dumps({"success": False, "reason": "Missing muted parameter"}, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[VolumeTools] Failed to set mute: {e}", exc_info=True)
+            return json.dumps({"success": False, "reason": str(e)}, ensure_ascii=False)
+
+    async def toggle_mute(args: dict[str, Any]) -> str:
+        try:
+            logger.info("[VolumeTools] Toggling mute")
+            if controller is None:
+                logger.warning("[VolumeTools] Volume control dependencies incomplete; cannot toggle mute")
+                return json.dumps(
+                    {"success": False, "reason": "Dependencies not available"},
+                    ensure_ascii=False,
+                )
+            current = await asyncio.to_thread(controller.get_muted)
+            next_state = not current
+            await asyncio.to_thread(controller.set_muted, next_state)
+            logger.info(f"[VolumeTools] Mute toggled to {next_state}")
+            return json.dumps({"success": True, "muted": next_state}, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[VolumeTools] Failed to toggle mute: {e}", exc_info=True)
+            return json.dumps({"success": False, "reason": str(e)}, ensure_ascii=False)
+
+    async def get_muted(args: dict[str, Any]) -> str:
+        try:
+            logger.info("[VolumeTools] Getting mute state")
+            if controller is None:
+                logger.warning("[VolumeTools] Volume control dependencies incomplete; returning default mute state")
+                return json.dumps({"muted": False, "available": False}, ensure_ascii=False)
+            muted = await asyncio.to_thread(controller.get_muted)
+            logger.info(f"[VolumeTools] Current muted: {muted}")
+            return json.dumps({"muted": bool(muted), "available": True}, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[VolumeTools] Failed to get mute state: {e}", exc_info=True)
+            return json.dumps({"muted": False, "available": False, "error": str(e)}, ensure_ascii=False)
+
     tools: list[McpTool] = [
         McpTool(
             "self.audio_speaker.set_volume",
@@ -135,6 +186,39 @@ def register_volume_tools(
             ),
             PropertyList(),
             get_volume_status,
+        ),
+        McpTool(
+            "self.audio_speaker.set_muted",
+            (
+                "Mute or unmute the system speaker output.\n"
+                "Use when user mentions: mute, unmute, silence the speaker, turn off the sound.\n"
+                "Examples: 'mute', 'unmute', 'mute the speaker', 'silence the audio', 'Mute'.\n"
+                "Parameter:\n"
+                "- muted: Boolean. true to mute the output, false to unmute it."
+            ),
+            PropertyList([Property("muted", PropertyType.BOOLEAN)]),
+            set_muted,
+        ),
+        McpTool(
+            "self.audio_speaker.toggle_mute",
+            (
+                "Toggle the system speaker mute state: mute it when it is currently audible, "
+                "unmute it when it is currently muted.\n"
+                "Use when the user says: 'toggle mute', 'mute/unmute', 'switch the sound on or off'.\n"
+                "Returns a JSON payload with fields: success (bool), muted (bool)."
+            ),
+            PropertyList(),
+            toggle_mute,
+        ),
+        McpTool(
+            "self.audio_speaker.get_muted",
+            (
+                "Get whether the system speaker output is currently muted.\n"
+                "Use when the user asks: 'is it muted?', 'is the sound off?', 'is the speaker muted?'.\n"
+                "Returns a JSON payload with fields: muted (bool), available (bool)."
+            ),
+            PropertyList(),
+            get_muted,
         ),
     ]
 
