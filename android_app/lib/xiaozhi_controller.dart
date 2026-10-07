@@ -21,6 +21,9 @@ import 'wake_word_detector.dart';
 
 class XiaozhiController extends ChangeNotifier {
   static const maxTextAttachmentChars = 24000;
+  static const defaultEndpoint = 'wss://api.tenclass.net/xiaozhi/v1/';
+  static const defaultAccessToken = 'test-token';
+  static const defaultVisionUrl = 'https://api.xiaozhi.me/vision/explain';
   static const _secureStorage = FlutterSecureStorage();
   static const _uuid = Uuid();
   static const _micConfig = RecordConfig(
@@ -48,14 +51,14 @@ class XiaozhiController extends ChangeNotifier {
   Completer<void>? _helloCompleter;
   SharedPreferences? _preferences;
 
-  String endpoint = '';
-  String token = '';
+  String endpoint = defaultEndpoint;
+  String token = defaultAccessToken;
   String deviceId = '';
   String clientId = '';
   String cameraFacing = 'back';
-  String localVlUrl = '';
+  String localVlUrl = defaultVisionUrl;
   String vlApiKey = '';
-  String visionUrl = '';
+  String visionUrl = defaultVisionUrl;
   String visionToken = '';
   String smartHomeBroker = '';
   int smartHomePort = 1883;
@@ -180,12 +183,15 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> initialize() async {
     await McpRuntime.initializeNotifications();
     _preferences = await SharedPreferences.getInstance();
-    endpoint = _preferences?.getString('server_url') ?? '';
+    final storedEndpoint = _preferences?.getString('server_url')?.trim() ?? '';
+    endpoint = storedEndpoint.isEmpty ? defaultEndpoint : storedEndpoint;
     cameraFacing = _preferences?.getString('camera_facing') ?? 'back';
     deviceId = _preferences?.getString('device_id') ?? '';
     clientId = _preferences?.getString('client_id') ?? '';
-    localVlUrl = _preferences?.getString('camera_local_vl_url') ?? '';
-    visionUrl = _preferences?.getString('camera_explain_url') ?? '';
+    final storedLocalVlUrl = _preferences?.getString('camera_local_vl_url')?.trim() ?? '';
+    localVlUrl = storedLocalVlUrl.isEmpty ? defaultVisionUrl : storedLocalVlUrl;
+    final storedVisionUrl = _preferences?.getString('camera_explain_url')?.trim() ?? '';
+    visionUrl = storedVisionUrl.isEmpty ? defaultVisionUrl : storedVisionUrl;
     smartHomeBroker = _preferences?.getString('smart_home_broker') ?? '';
     smartHomePort = _preferences?.getInt('smart_home_port') ?? 1883;
     smartHomeUsername = _preferences?.getString('smart_home_username') ?? '';
@@ -199,7 +205,8 @@ class XiaozhiController extends ChangeNotifier {
       enabled: _preferences?.getBool('wake_word_enabled') ?? true,
       wakeWord: _preferences?.getString('wake_word_text') ?? 'Hello Xiaozhi',
     );
-    token = await _secureStorage.read(key: 'access_token') ?? '';
+    final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
+    token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
     visionToken = await _secureStorage.read(key: 'camera_explain_token') ?? '';
     smartHomePassword = await _secureStorage.read(key: 'smart_home_password') ?? '';
@@ -237,16 +244,16 @@ class XiaozhiController extends ChangeNotifier {
     required String newWakeWordText,
   }) async {
     await disconnect();
-    endpoint = newEndpoint.trim();
-    token = newToken.trim();
+    endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
+    token = newToken.trim().isEmpty ? defaultAccessToken : newToken.trim();
     deviceId = newDeviceId.trim().isEmpty
       ? _uuid.v4().replaceAll('-', '')
       : newDeviceId.trim();
     clientId = newClientId.trim().isEmpty ? _uuid.v4() : newClientId.trim();
     cameraFacing = newCameraFacing == 'front' ? 'front' : 'back';
-    localVlUrl = newLocalVlUrl.trim();
+    localVlUrl = newLocalVlUrl.trim().isEmpty ? defaultVisionUrl : newLocalVlUrl.trim();
     vlApiKey = newVlApiKey.trim();
-    visionUrl = newVisionUrl.trim();
+    visionUrl = newVisionUrl.trim().isEmpty ? defaultVisionUrl : newVisionUrl.trim();
     visionToken = newVisionToken.trim();
     smartHomeBroker = newSmartHomeBroker.trim();
     smartHomePort = newSmartHomePort.clamp(1, 65535).toInt();
@@ -844,7 +851,6 @@ class XiaozhiController extends ChangeNotifier {
         isSpeaking = true;
         _assistantText = '';
         _assistantMessageIndex = null;
-        liveText = '';
         status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
         // Android has no AEC, so unlike the Python client (which keeps the mic open
         // during SPEAKING only when AEC is enabled) we must gate the mic for the
@@ -886,10 +892,18 @@ class XiaozhiController extends ChangeNotifier {
       messages.add(ChatMessage(text: _assistantText, isUser: false));
       _assistantMessageIndex = messages.length - 1;
     } else {
-      _assistantText += text;
+      _assistantText = appendTtsSegment(_assistantText, text);
       messages[_assistantMessageIndex!] =
           messages[_assistantMessageIndex!].copyWith(text: _assistantText);
     }
+  }
+
+  @visibleForTesting
+  static String appendTtsSegment(String current, String segment) {
+    if (current.isEmpty || current.endsWith('\n') || segment.startsWith('\n')) {
+      return '$current$segment';
+    }
+    return '$current\n$segment';
   }
 
   Future<void> _initializeAudio() async {

@@ -5,6 +5,13 @@ import 'package:py_xiaozhi_android/main.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
 
 void main() {
+  test('separates consecutive TTS text segments with a newline', () {
+    expect(
+      XiaozhiController.appendTtsSegment('Kalimat pertama.', 'Kalimat kedua.'),
+      'Kalimat pertama.\nKalimat kedua.',
+    );
+  });
+
   testWidgets('shows the Xiaozhi conversation screen', (tester) async {
     final controller = XiaozhiController();
     await tester.pumpWidget(XiaozhiApp(
@@ -30,5 +37,17 @@ void main() {
 
     expect(find.byType(EmotionDisplay), findsOneWidget);
     expect(find.text('Jawaban sedang dibacakan.'), findsOneWidget);
+    expect(tester.getSize(find.byType(EmotionDisplay)).width, greaterThan(176));
+  });
+
+  testWidgets('keeps the live text area compact for long responses', (tester) async {
+    final controller = XiaozhiController()..liveText = List.filled(40, 'Teks panjang').join('\n');
+    await tester.pumpWidget(XiaozhiApp(
+      controller: controller,
+      skipPermissionGate: true,
+    ));
+
+    expect(tester.getSize(find.byKey(const ValueKey('live-text-area'))).height, lessThanOrEqualTo(160));
+    expect(find.text(controller.liveText), findsOneWidget);
   });
 }

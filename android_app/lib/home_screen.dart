@@ -320,43 +320,58 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = widget.controller;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final emotionSize = math.min(
-          176.0,
-          math.min(constraints.maxWidth * 0.62, constraints.maxHeight * 0.42),
-        );
         final emotion = controller.emotion.isEmpty ? 'neutral' : controller.emotion;
         final textMaxWidth = math.min(constraints.maxWidth * 0.88, 560.0);
+        final textAreaHeight = math.min(160.0, constraints.maxHeight * 0.3);
 
         return Column(
           children: [
             Expanded(
-              flex: 6,
-              child: Align(
-                alignment: const Alignment(0, -0.08),
-                child: EmotionDisplay(emotion: emotion, size: emotionSize),
+              child: LayoutBuilder(
+                builder: (context, emotionConstraints) {
+                  final emotionSize = math.min(
+                    240.0,
+                    math.min(
+                      emotionConstraints.maxWidth * 0.78,
+                      emotionConstraints.maxHeight * 0.9,
+                    ),
+                  );
+                  return Align(
+                    alignment: const Alignment(0, -0.08),
+                    child: EmotionDisplay(emotion: emotion, size: emotionSize),
+                  );
+                },
               ),
             ),
-            Expanded(
-              flex: 4,
-              child: LayoutBuilder(
-                builder: (context, textConstraints) => SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: textConstraints.maxHeight),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: textMaxWidth),
-                        child: Text(
-                          controller.liveText.isEmpty
-                              ? 'Ada yang bisa aku bantu hari ini?'
-                              : controller.liveText,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFF394B60),
-                            fontSize: 14,
-                            height: 1.5,
+            SizedBox(
+              key: const ValueKey('live-text-area'),
+              height: textAreaHeight,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.paper,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, textConstraints) => SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: textConstraints.maxHeight),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: textMaxWidth),
+                          child: Text(
+                            controller.liveText.isEmpty
+                                ? 'Ada yang bisa aku bantu hari ini?'
+                                : controller.liveText,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF394B60),
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
                           ),
                         ),
                       ),

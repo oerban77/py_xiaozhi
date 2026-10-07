@@ -72,6 +72,44 @@ void main() {
     expect(names, contains('prayer_times_today'));
   });
 
+  test('includes LWT-only devices and all reported relays in discovery', () {
+    final devices = McpRuntime.completeSmartHomeDiscovery(
+      discovered: [
+        {
+          'topic': 'configured-light',
+          'powerCmd': 'POWER',
+          'name': 'Configured light',
+          'room': 'living room',
+          'type': 'light',
+        },
+      ],
+      online: {
+        'configured-light': 'Online',
+        'lwt-light': 'Online',
+        'multi-switch': 'Online',
+        'offline': 'Offline',
+      },
+      states: {
+        'multi-switch/POWER1': 'ON',
+        'multi-switch/POWER2': 'OFF',
+        'multi-switch/POWER3': 'ON',
+      },
+    );
+
+    expect(devices, hasLength(5));
+    expect(
+      devices.map((device) => '${device['topic']}/${device['powerCmd']}'),
+      containsAll([
+        'configured-light/POWER',
+        'lwt-light/POWER',
+        'multi-switch/POWER1',
+        'multi-switch/POWER2',
+        'multi-switch/POWER3',
+      ]),
+    );
+    expect(devices.map((device) => device['topic']), isNot(contains('offline')));
+  });
+
   test('offers and returns pending long-text attachment content', () async {
     const attachedText = 'Tolong jelaskan instruksi panjang ini dan ikuti permintaannya.';
     final listResponse = await McpRuntime.handle(
@@ -153,5 +191,26 @@ void main() {
     final attachmentReader = tools.first as Map<String, dynamic>;
     expect(attachmentReader['description'], contains('OCR'));
     expect(attachmentReader['description'], contains('nota.jpg'));
+  });
+
+  test('rejects stale take_photo calls while a text attachment is pending', () async {
+    final response = await McpRuntime.handle(
+      {
+        'jsonrpc': '2.0',
+        'id': 9,
+        'method': 'tools/call',
+        'params': {
+          'name': 'take_photo',
+          'arguments': {'question': 'read the attachment'},
+        },
+      },
+      disabledModules: <String>{},
+      pendingTextAttachment: 'Isi PDF yang harus dibaca.',
+    );
+
+    final result = response!['result'] as Map<String, dynamic>;
+    expect(result['isError'], isTrue);
+    final content = result['content'] as List<dynamic>;
+    expect((content.single as Map)['text'], contains('manage_document'));
   });
 }

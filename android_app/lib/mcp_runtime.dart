@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:camera/camera.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -295,7 +296,7 @@ class McpRuntime {
             return tool;
           }).toList();
           final attachmentTool = Map<String, Object?>.from(_pendingTextAttachmentTool);
-              if (hasDocumentAttachment) {
+            if (hasDocumentAttachment) {
             attachmentTool['description'] =
                 '[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] '
                 'The user attached \'$pendingAttachmentName\'. You MUST call manage_document with '
@@ -305,7 +306,7 @@ class McpRuntime {
                 'request and carry it out using available tools; do not merely summarize it.\n'
                 '${attachmentTool['description']}';
           }
-              if (hasDocumentAttachment) {
+            if (hasDocumentAttachment) {
             tools.insert(0, attachmentTool);
           }
           return _result(id, {'tools': tools});
@@ -318,6 +319,20 @@ class McpRuntime {
           final arguments = params['arguments'];
           if (name is! String || arguments is! Map) {
             return _error(id, -32602, 'Invalid tool name or arguments');
+          }
+          if (name == 'take_photo' &&
+              ((pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) ||
+                  pendingImageAsDocument)) {
+            return _result(id, {
+              'content': [
+                {
+                  'type': 'text',
+                  'text': 'A text or document attachment is pending. Do not open the camera; '
+                      'call manage_document(action=read) to read the attachment first.',
+                },
+              ],
+              'isError': true,
+            });
           }
           if (name == 'manage_document') {
             if (pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) {
@@ -819,6 +834,7 @@ class McpRuntime {
     final states = <String, String>{};
     final online = <String, String>{};
     final discovered = <String, Map<String, Object?>>{};
+    final queriedLwtTopics = <String>{};
     try {
       await client.connect().timeout(const Duration(seconds: 12));
       if (client.connectionStatus?.state != MqttConnectionState.connected) {
@@ -837,7 +853,17 @@ class McpRuntime {
             if (parts.length == 3) states['${parts[1]}/${parts[2]}'] = payload;
           } else if (topic.startsWith('tele/') && topic.endsWith('/LWT')) {
             final parts = topic.split('/');
-            if (parts.length == 3) online[parts[1]] = payload;
+            if (parts.length == 3) {
+              final deviceTopic = parts[1];
+              online[deviceTopic] = payload;
+              if (name == 'discover_devices' &&
+                  payload == 'Online' &&
+                  queriedLwtTopics.add(deviceTopic)) {
+                for (final command in ['POWER', 'POWER1', 'POWER2', 'POWER3', 'POWER4']) {
+                  _publishMqtt(client, 'cmnd/$deviceTopic/$command', '');
+                }
+              }
+            }
           } else if (topic.startsWith('tasmota/discovery/') && topic.endsWith('/config')) {
             try {
               final decoded = jsonDecode(payload);
@@ -865,8 +891,15 @@ class McpRuntime {
       if (name == 'discover_devices') {
         client.subscribe('tasmota/discovery/#', MqttQos.atMostOnce);
         client.subscribe('tele/+/LWT', MqttQos.atMostOnce);
-        await Future<void>.delayed(const Duration(seconds: 4));
-        final found = discovered.values.toList();
+        for (final command in ['POWER', 'POWER1', 'POWER2', 'POWER3', 'POWER4']) {
+          client.subscribe('stat/+/$command', MqttQos.atMostOnce);
+        }
+        await Future<void>.delayed(const Duration(seconds: 5));
+        final found = completeSmartHomeDiscovery(
+          discovered: discovered.values.toList(),
+          online: online,
+          states: states,
+        );
         if (found.isEmpty) {
           return devices.isEmpty
               ? 'No Tasmota device found. Check that the broker host, port, credentials, and TLS settings are correct and that Tasmota devices are online on this broker.'
@@ -984,6 +1017,50 @@ class McpRuntime {
       merged['${device['topic']}/${device['powerCmd']}'] = device;
     }
     return merged.values.toList();
+  }
+
+  @visibleForTesting
+  static List<Map<String, Object?>> completeSmartHomeDiscovery({
+    required List<Map<String, Object?>> discovered,
+    required Map<String, String> online,
+    required Map<String, String> states,
+  }) {
+    final foundById = <String, Map<String, Object?>>{
+      for (final device in discovered)
+        '${device['topic']}/${device['powerCmd']}': device,
+    };
+    final configuredTopics = discovered.map((device) => '${device['topic']}').toSet();
+    for (final entry in online.entries) {
+      final topic = entry.key;
+      if (entry.value != 'Online' || configuredTopics.contains(topic)) continue;
+      final relayNumbers = states.keys
+          .where((key) => key.startsWith('$topic/POWER'))
+          .map((key) => RegExp(r'^POWER(\d+)$').firstMatch(key.split('/').last))
+          .whereType<RegExpMatch>()
+          .map((match) => int.parse(match.group(1)!))
+          .toList();
+      if (relayNumbers.isNotEmpty) {
+        final relayCount = relayNumbers.reduce((a, b) => a > b ? a : b);
+        for (var relay = 1; relay <= relayCount; relay++) {
+          foundById['$topic/POWER$relay'] = {
+            'topic': topic,
+            'powerCmd': 'POWER$relay',
+            'name': '$topic Relay $relay',
+            'room': 'unknown',
+            'type': 'switch',
+          };
+        }
+      } else {
+        foundById['$topic/POWER'] = {
+          'topic': topic,
+          'powerCmd': 'POWER',
+          'name': topic,
+          'room': 'unknown',
+          'type': 'light',
+        };
+      }
+    }
+    return foundById.values.toList();
   }
 
   static List<Map<String, Object?>> _devicesFromTasmotaConfig(Map config) {

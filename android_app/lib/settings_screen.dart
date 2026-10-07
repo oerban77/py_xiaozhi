@@ -486,7 +486,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       keyboardType: TextInputType.url,
                       autocorrect: false,
                       decoration: const InputDecoration(
-                        hintText: 'wss://server.example/v1/',
+                        hintText: 'wss://api.tenclass.net/xiaozhi/v1/',
                         prefixIcon: Icon(Icons.dns_outlined),
                       ),
                     ),
@@ -497,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       obscureText: true,
                       autocorrect: false,
                       decoration: const InputDecoration(
-                        hintText: 'Bearer token',
+                        hintText: 'test-token',
                         prefixIcon: Icon(Icons.key_outlined),
                       ),
                     ),
@@ -721,7 +721,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       keyboardType: TextInputType.url,
                       autocorrect: false,
                       decoration: const InputDecoration(
-                        hintText: 'https://your-vl.example/api',
+                        hintText: 'https://api.xiaozhi.me/vision/explain',
                         prefixIcon: Icon(Icons.link_rounded),
                       ),
                     ),
@@ -743,7 +743,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       keyboardType: TextInputType.url,
                       autocorrect: false,
                       decoration: const InputDecoration(
-                        hintText: 'https://api.xiaozhi.me/vision',
+                        hintText: 'https://api.xiaozhi.me/vision/explain',
                         prefixIcon: Icon(Icons.image_search_rounded),
                       ),
                     ),
