@@ -134,4 +134,24 @@ void main() {
     expect(description, contains('struk.jpg'));
     expect(description, contains('analisa gambar'));
   });
+
+  test('routes OCR-targeted images through the attachment reader', () async {
+    final response = await McpRuntime.handle(
+      {'jsonrpc': '2.0', 'id': 8, 'method': 'tools/list'},
+      disabledModules: <String>{},
+      pendingImageAttachment: Uint8List.fromList(<int>[1, 2, 3]),
+      pendingImageAsDocument: true,
+      pendingImageQuestion: 'baca tulisan di gambar',
+      pendingAttachmentName: 'nota.jpg',
+    );
+
+    final result = response!['result'] as Map<String, dynamic>;
+    final tools = result['tools'] as List<dynamic>;
+    final names = tools.map((tool) => (tool as Map)['name']).toList();
+    expect(names, contains('manage_document'));
+    expect(names, isNot(contains('take_photo')));
+    final attachmentReader = tools.first as Map<String, dynamic>;
+    expect(attachmentReader['description'], contains('OCR'));
+    expect(attachmentReader['description'], contains('nota.jpg'));
+  });
 }

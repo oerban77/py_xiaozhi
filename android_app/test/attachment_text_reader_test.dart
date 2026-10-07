@@ -33,6 +33,44 @@ void main() {
     expect(text, 'Halo\nDunia');
   });
 
+  test('extracts slide text from a PPTX attachment', () async {
+    final archive = Archive()
+      ..addFile(ArchiveFile.string(
+        'ppt/slides/slide1.xml',
+        '<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+            '<a:t>Presentasi</a:t><a:t>pertama</a:t></p:sld>',
+      ));
+    final zipped = ZipEncoder().encode(archive);
+
+    final text = await AttachmentTextReader.extract(
+      fileName: 'slides.pptx',
+      bytes: Uint8List.fromList(zipped),
+    );
+
+    expect(text, 'Presentasi pertama');
+  });
+
+  test('extracts shared strings from an XLSX attachment', () async {
+    final archive = Archive()
+      ..addFile(ArchiveFile.string(
+        'xl/sharedStrings.xml',
+        '<sst><si><t>Nama</t></si><si><t>Rina</t></si></sst>',
+      ))
+      ..addFile(ArchiveFile.string(
+        'xl/worksheets/sheet1.xml',
+        '<worksheet><sheetData><row><c t="s"><v>0</v></c>'
+            '<c t="s"><v>1</v></c></row></sheetData></worksheet>',
+      ));
+    final zipped = ZipEncoder().encode(archive);
+
+    final text = await AttachmentTextReader.extract(
+      fileName: 'table.xlsx',
+      bytes: Uint8List.fromList(zipped),
+    );
+
+    expect(text, 'Nama\tRina');
+  });
+
   test('explains that legacy DOC files must be converted', () async {
     await expectLater(
       AttachmentTextReader.extract(

@@ -89,6 +89,7 @@ class XiaozhiController extends ChangeNotifier {
   String _assistantText = '';
   String? _pendingTextAttachment;
   Uint8List? _pendingImageAttachment;
+  bool _pendingImageAsDocument = false;
   String _pendingImageQuestion = '';
   String? _pendingAttachmentName;
   int? _assistantMessageIndex;
@@ -555,16 +556,20 @@ class XiaozhiController extends ChangeNotifier {
     required String question,
   }) {
     if (imageBytes.isEmpty) return Future.value(false);
-    final request = question.trim().isEmpty ? 'analisa' : question.trim();
-    final shouldUseDocumentTool = _isTextHeavyImageRequest(request);
+    final userQuestion = question.trim();
+    final request = userQuestion.isEmpty ? 'analisa' : userQuestion;
+    final shouldUseDocumentTool =
+      userQuestion.isEmpty ||
+      userQuestion.length > 31 ||
+      _isTextHeavyImageRequest(userQuestion);
     if (shouldUseDocumentTool) {
       return _sendChatRequest(
         displayText: 'Lampiran gambar: $fileName\n$request',
         detectText: 'baca lampiran',
-        pendingText: 'Nama file: $fileName\nPermintaan pengguna: $request\n\n'
-            '[Lampiran adalah gambar dengan teks. Ekstrak dan baca teksnya, lalu jalankan '
-            'permintaan pengguna.]',
+        imageBytes: imageBytes,
+        imageQuestion: userQuestion,
         attachmentName: fileName,
+        pendingImageAsDocument: true,
       );
     }
     return _sendChatRequest(
@@ -603,6 +608,7 @@ class XiaozhiController extends ChangeNotifier {
     Uint8List? imageBytes,
     String imageQuestion = '',
     String attachmentName = '',
+    bool pendingImageAsDocument = false,
   }) async {
     if (!isConnected) return false;
     _pendingTextAttachment = pendingText == null
@@ -611,6 +617,7 @@ class XiaozhiController extends ChangeNotifier {
             ? '${pendingText.substring(0, maxTextAttachmentChars)}\n[Attachment content truncated]'
             : pendingText;
     _pendingImageAttachment = imageBytes;
+    _pendingImageAsDocument = pendingImageAsDocument;
     _pendingImageQuestion = imageQuestion;
     final hasAttachment = pendingText != null || imageBytes != null;
     _pendingAttachmentName = hasAttachment ? attachmentName : null;
@@ -760,6 +767,7 @@ class XiaozhiController extends ChangeNotifier {
           disabledModules: disabledMcpModules.toSet(),
           pendingTextAttachment: _pendingTextAttachment,
           pendingImageAttachment: _pendingImageAttachment,
+          pendingImageAsDocument: _pendingImageAsDocument,
           pendingImageQuestion: _pendingImageQuestion,
           pendingAttachmentName: _pendingAttachmentName ?? '',
           smartHomeConfig: {
@@ -806,6 +814,7 @@ class XiaozhiController extends ChangeNotifier {
               response['result'] is Map) {
             _pendingTextAttachment = null;
             _pendingImageAttachment = null;
+            _pendingImageAsDocument = false;
             _pendingImageQuestion = '';
             _pendingAttachmentName = null;
           }

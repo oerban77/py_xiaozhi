@@ -246,6 +246,7 @@ class McpRuntime {
     Map<String, Object?> visionConfig = const {},
     String? pendingTextAttachment,
     Uint8List? pendingImageAttachment,
+    bool pendingImageAsDocument = false,
     String pendingImageQuestion = '',
     String pendingAttachmentName = '',
   }) async {
@@ -274,9 +275,10 @@ class McpRuntime {
           final hasTextAttachment =
               pendingTextAttachment != null && pendingTextAttachment.isNotEmpty;
           final hasImageAttachment = pendingImageAttachment != null;
+          final hasDocumentAttachment = hasTextAttachment || pendingImageAsDocument;
           final tools = _tools.where((tool) {
             final name = tool['name'] as String;
-            if (hasTextAttachment && name == 'take_photo') return false;
+            if (hasDocumentAttachment && name == 'take_photo') return false;
             return !disabledModules.contains(_moduleForTool(name));
           }).map((tool) {
             if (tool['name'] == 'take_photo' && hasImageAttachment) {
@@ -293,15 +295,17 @@ class McpRuntime {
             return tool;
           }).toList();
           final attachmentTool = Map<String, Object?>.from(_pendingTextAttachmentTool);
-          if (hasTextAttachment) {
+              if (hasDocumentAttachment) {
             attachmentTool['description'] =
                 '[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] '
                 'The user attached \'$pendingAttachmentName\'. You MUST call manage_document with '
-                'action=read and NO path before answering. Treat its contents as the user\'s current '
+                'action=read and NO path before answering. '
+                '${pendingImageAsDocument ? 'Classify the attached image: use OCR for text/document images and image analysis for ordinary photos. ' : ''}'
+                'Treat its contents as the user\'s current '
                 'request and carry it out using available tools; do not merely summarize it.\n'
                 '${attachmentTool['description']}';
           }
-          if (hasTextAttachment) {
+              if (hasDocumentAttachment) {
             tools.insert(0, attachmentTool);
           }
           return _result(id, {'tools': tools});
@@ -316,16 +320,46 @@ class McpRuntime {
             return _error(id, -32602, 'Invalid tool name or arguments');
           }
           if (name == 'manage_document') {
-            if (pendingTextAttachment == null || pendingTextAttachment.isEmpty) {
+            if (pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) {
+              if (arguments['action'] != 'read' ||
+                  (arguments['path'] is String && (arguments['path'] as String).isNotEmpty)) {
+                return _error(id, -32602, 'Attached text must be read with action=read and no path');
+              }
+              return _result(id, {
+                'content': [
+                  {'type': 'text', 'text': pendingTextAttachment},
+                ],
+                'isError': false,
+              });
+            }
+            if (!pendingImageAsDocument || pendingImageAttachment == null) {
               return _error(id, -32603, 'No text attachment is pending');
             }
             if (arguments['action'] != 'read' ||
                 (arguments['path'] is String && (arguments['path'] as String).isNotEmpty)) {
-              return _error(id, -32602, 'Attached text must be read with action=read and no path');
+              return _error(id, -32602, 'Attached content must be read with action=read and no path');
             }
+            final autoClassify = pendingImageQuestion.trim().isEmpty;
+            final imageReaderPrompt = autoClassify
+                ? 'Tentukan jenis gambar ini. Jika berupa dokumen, uang kertas, struk, atau gambar '
+                    'yang tujuan utamanya adalah teks, gunakan OCR dan kembalikan teksnya dengan '
+                    'ejaan, angka, dan urutan baris dipertahankan. Jika berupa foto biasa, jelaskan '
+                    'isi dan objek pentingnya secara singkat dalam bahasa Indonesia.'
+              : 'Periksa jenis lampiran dan jalankan permintaan pengguna. Jika berupa dokumen, '
+                'uang kertas, struk, atau gambar yang tujuan utamanya adalah teks, gunakan OCR '
+                'dan pertahankan ejaan serta angka. Jika berupa foto biasa, lakukan analisis '
+                'visual sesuai permintaan pengguna.';
+            final recognizedContent = await _takePhoto(
+              {'question': imageReaderPrompt},
+              visionConfig,
+              attachedImage: pendingImageAttachment,
+              attachedQuestion: autoClassify
+                  ? imageReaderPrompt
+                  : '$imageReaderPrompt Konteks permintaan pengguna: $pendingImageQuestion',
+            );
             return _result(id, {
               'content': [
-                {'type': 'text', 'text': pendingTextAttachment},
+                {'type': 'text', 'text': recognizedContent},
               ],
               'isError': false,
             });

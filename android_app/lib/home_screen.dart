@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
         allowedExtensions: [
           'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff',
           'txt', 'md', 'json', 'csv', 'log', 'ini', 'yaml', 'yml', 'xml', 'html', 'htm',
-          'pdf', 'docx',
+          'pdf', 'docx', 'pptx', 'xlsx',
         ],
         allowMultiple: false,
         withData: true,
