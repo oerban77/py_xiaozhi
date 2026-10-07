@@ -101,7 +101,7 @@ class PermissionManager {
     var denied = false;
     var permanentlyDenied = false;
 
-    for (final entry in appPermissions) {
+    for (final entry in appPermissions.where((entry) => entry.required)) {
       // request() is a no-op when the permission is already granted, and on
       // Android it is also the only way to distinguish "denied" from
       // "permanently denied" — status alone reports denied for both.

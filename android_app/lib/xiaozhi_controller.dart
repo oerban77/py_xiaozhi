@@ -46,6 +46,7 @@ class XiaozhiController extends ChangeNotifier {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _socketSubscription;
   StreamSubscription<Uint8List>? _micSubscription;
+  Future<void> _audioEventQueue = Future<void>.value();
   SimpleOpusEncoder? _encoder;
   SimpleOpusDecoder? _decoder;
   Completer<void>? _helloCompleter;
@@ -166,6 +167,7 @@ class XiaozhiController extends ChangeNotifier {
   final List<Int16List> _ttsBuffer = [];
   bool _ttsFeeding = false;
   bool _ttsNeedsPrebuffer = true;
+  bool _discardTtsAudioUntilStart = false;
 
   /// Mirrors src/plugins/audio.py: while the speaker is still draining its TTS
   /// buffer the microphone must stay suppressed, otherwise in auto/realtime mode
@@ -618,6 +620,7 @@ class XiaozhiController extends ChangeNotifier {
     bool pendingImageAsDocument = false,
   }) async {
     if (!isConnected) return false;
+    await _interruptTtsForTextInput();
     _pendingTextAttachment = pendingText == null
         ? null
         : pendingText.length > maxTextAttachmentChars
@@ -698,19 +701,17 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> interrupt() async {
     if (!isConnected) return;
-    if (isRecording) await stopVoice();
-    _sendJson(ProtocolMessages.abort(sessionId));
-    _silencePollTimer?.cancel();
-    _suppressMic = false;
-    _ttsBuffer.clear();
-    if (_playerStarted) {
-      await _player.stopPlayer();
-      _playerStarted = false;
-      await _startPlayerStream();
+    await _interruptTtsForTextInput();
+    if (isRecording) {
+      if (!autoConversation) {
+        _sendJson(ProtocolMessages.listenStart(sessionId, 'manual'));
+      }
+      status = 'Mendengarkan...';
+      notifyListeners();
+    } else {
+      await startVoice();
     }
-    isSpeaking = false;
-    status = 'Percakapan dihentikan';
-    notifyListeners();
+    if (autoConversation) _micAutoManaged = isRecording;
   }
 
   void _handleSocketMessage(dynamic message) {
@@ -722,7 +723,15 @@ class XiaozhiController extends ChangeNotifier {
         notifyListeners();
       }
     } else if (message is List<int>) {
-      _handleAudio(Uint8List.fromList(message));
+      final packet = Uint8List.fromList(message);
+      _audioEventQueue = _audioEventQueue.then((_) async {
+        try {
+          await _handleAudio(packet);
+        } catch (_) {
+          status = 'Paket audio tidak dapat diputar';
+          notifyListeners();
+        }
+      });
     }
   }
 
@@ -849,6 +858,7 @@ class XiaozhiController extends ChangeNotifier {
       final state = data['state'];
       if (state == 'start') {
         isSpeaking = true;
+        _discardTtsAudioUntilStart = false;
         _assistantText = '';
         _assistantMessageIndex = null;
         status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
@@ -898,6 +908,26 @@ class XiaozhiController extends ChangeNotifier {
     }
   }
 
+
+  Future<void> _interruptTtsForTextInput() async {
+    if (!isSpeaking && !_suppressMic) return;
+    _sendJson(ProtocolMessages.abort(sessionId));
+    _silencePollTimer?.cancel();
+    _suppressMic = false;
+    _discardTtsAudioUntilStart = true;
+    _ttsBuffer.clear();
+    _ttsNeedsPrebuffer = true;
+    isSpeaking = false;
+    if (_playerStarted) {
+      try {
+        await _player.stopPlayer();
+      } catch (_) {}
+      _playerStarted = false;
+      try {
+        if (isConnected) await _startPlayerStream();
+      } catch (_) {}
+    }
+  }
   @visibleForTesting
   static String appendTtsSegment(String current, String segment) {
     if (current.isEmpty || current.endsWith('\n') || segment.startsWith('\n')) {
@@ -977,6 +1007,7 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _handleAudio(Uint8List packet) async {
+    if (_discardTtsAudioUntilStart) return;
     final decoder = _decoder;
     if (decoder == null || packet.isEmpty) return;
     if (!_playerStarted && isSpeaking) {
