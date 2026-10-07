@@ -9,7 +9,10 @@ environment:
 dependencies:
   archive: ^4.3.0
   camera: 0.11.3
-  pdfrx: 2.4.8
+  # Pinned to ^2.4.7: 2.4.8 pulls pdfrx_engine ^0.4.7, which requires meta ^1.18.0
+  # and breaks version solving against the Flutter SDK's pinned meta 1.17.0.
+  # The APIs used (PdfDocument.openData, loadText, pages, dispose) are unchanged.
+  pdfrx: ^2.4.7
   flutter_local_notifications: ^18.0.1
   flutter_music_picker: ^0.0.9
   flutter:
