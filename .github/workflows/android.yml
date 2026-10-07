@@ -45,7 +45,11 @@ jobs:
           set -o pipefail
 
           # Install platforms & build-tools
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          # compileSdk 36 is required by transitive AndroidX deps pulled in by the
+          # Flutter plugins (androidx.camera:* 1.6.1, androidx.core 1.17.0,
+          # androidx.media3 1.9.0 all declare compileSdk 35/36 in their AAR
+          # metadata). android-34 is kept as a fallback for older build-tools.
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-34" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Create Android project structure
         working-directory: android_app
@@ -160,6 +164,8 @@ jobs:
           manifest_path.write_text(text, encoding='utf-8')
 
           # Keep Android libraries on the same supported SDK without editing cached packages.
+          # 36 matches the app's compileSdk and satisfies the AAR metadata of the
+          # AndroidX dependencies used by camera/mobile_scanner/just_audio.
           gradle_path = Path('android/build.gradle')
           gradle_text = gradle_path.read_text(encoding='utf-8') if gradle_path.exists() else ''
           marker = '// xiaozhi-android-subproject-compile-sdk'
@@ -170,7 +176,7 @@ jobs:
                   '    afterEvaluate { project ->\n'
                   '        def androidExtension = project.extensions.findByName("android")\n'
                   '        if (androidExtension != null) {\n'
-                  '            androidExtension.compileSdkVersion(34)\n'
+                  '            androidExtension.compileSdkVersion(36)\n'
                   '        }\n'
                   '    }\n'
                   '}\n'
@@ -199,7 +205,8 @@ jobs:
           from pathlib import Path
           p = Path('android/app/build.gradle')
           text = p.read_text()
-          text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 34')
+          text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
+          text = text.replace('compileSdkVersion 34', 'compileSdkVersion 36')
           text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
           text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
           text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
@@ -228,7 +235,8 @@ jobs:
           from pathlib import Path
           p = Path('android/app/build.gradle.kts')
           text = p.read_text()
-          text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 34')
+          text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+          text = text.replace('compileSdk = 34', 'compileSdk = 36')
           text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
           if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
               text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
