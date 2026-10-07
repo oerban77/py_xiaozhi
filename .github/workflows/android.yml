@@ -67,12 +67,14 @@ jobs:
 
           # Ensure the app can open sockets and reach HTTP-only media endpoints
           python - <<'PY'
+          import re
           from pathlib import Path
 
           manifest_path = Path('android/app/src/main/AndroidManifest.xml')
           manifest_path.parent.mkdir(parents=True, exist_ok=True)
           text = manifest_path.read_text(encoding='utf-8') if manifest_path.exists() else (
-              '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+              '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    xmlns:tools="http://schemas.android.com/tools">\n'
               '    <application\n        android:label="py_xiaozhi_android"\n        android:name="${applicationName}"\n'
               '        android:icon="@mipmap/ic_launcher">\n'
               '        <activity\n            android:name=".MainActivity"\n'
@@ -90,10 +92,20 @@ jobs:
               '            android:value="2" />\n    </application>\n</manifest>\n'
           )
 
+          # The tools namespace must be bound before any tools:replace attribute is
+          # used below, otherwise AAPT fails with "unbound prefix".
+          if 'xmlns:tools="http://schemas.android.com/tools"' not in text:
+              text = re.sub(
+                  r'(<manifest\b[^>]*?)(/?>)',
+                  r'\1\n    xmlns:tools="http://schemas.android.com/tools"\2',
+                  text,
+                  count=1,
+              )
+
           if 'android.permission.INTERNET' not in text:
-              text = text.replace(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
+              text = re.sub(
+                  r'(<manifest\b[^>]*?>)',
+                  r'\1\n'
                   '    <uses-permission android:name="android.permission.INTERNET" />\n'
                   '    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n'
                   '    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n'
@@ -104,7 +116,8 @@ jobs:
                   '    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />\n'
                   '    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n'
                   '    <uses-permission android:name="android.permission.VIBRATE" />\n',
-                  1,
+                  text,
+                  count=1,
               )
 
           if 'android:networkSecurityConfig' not in text:
@@ -135,7 +148,9 @@ jobs:
           if 'android.permission.WRITE_EXTERNAL_STORAGE' not in text:
               text = text.replace(
                   '</manifest>',
-                  '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n</manifest>',
+                  '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\n'
+                  '        android:maxSdkVersion="29"\n'
+                  '        tools:replace="android:maxSdkVersion" />\n</manifest>',
                   1,
               )
 
