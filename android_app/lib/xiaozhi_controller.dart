@@ -843,6 +843,7 @@ class XiaozhiController extends ChangeNotifier {
         // the server's VAD interrupts the assistant mid-sentence in realtime mode.
         _beginTtsPlayback();
         _ttsNeedsPrebuffer = true;
+        notifyListeners();
       }
       final text = data['text'];
       if (text is String && text.isNotEmpty) {
@@ -861,7 +862,8 @@ class XiaozhiController extends ChangeNotifier {
       // updates the animation shown next to the chat text.
       final value = data['emotion'];
       if (value is String && value.trim().isNotEmpty) {
-        emotion = value.trim();
+        emotion = EmotionService.normalize(value);
+        notifyListeners();
       }
     } else if (type == 'error') {
       status = (data['message'] ?? data['error'] ?? 'Kesalahan server').toString();

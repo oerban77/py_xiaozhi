@@ -49,26 +49,43 @@ class EmotionService {
   /// "😊" final fallback in get_emotion_url.
   static const String fallbackEmoji = '😊';
 
+  static String normalize(String? name) {
+    if (name == null) return '';
+
+    final cleaned = name.trim();
+    if (cleaned.isEmpty) return '';
+
+    final candidates = <String>{
+      cleaned.toLowerCase(),
+      cleaned.toLowerCase().replaceAll(RegExp(r'\.(gif|png|jpg|jpeg|webp)$'), ''),
+      cleaned.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ''),
+    }..removeWhere((value) => value.isEmpty);
+
+    for (final candidate in candidates) {
+      if (bundled.contains(candidate)) {
+        return candidate;
+      }
+    }
+
+    return cleaned.toLowerCase();
+  }
+
   /// True when [name] has a bundled animation. Used by the display widget to
   /// decide between an animated image and a plain emoji glyph.
   static bool hasAnimation(String? name) {
-    if (name == null || name.isEmpty) {
-      return false;
-    }
-    final normalized = name.trim().toLowerCase();
-    return bundled.contains(normalized);
+    final normalized = normalize(name);
+    return normalized.isNotEmpty && bundled.contains(normalized);
   }
 
   /// Resolves [name] to an asset path (for example
   /// `assets/emojis/happy.gif`), falling back to `neutral` and then to
   /// [fallbackEmoji], exactly like EmotionService.get_emotion_url.
   static String resolve(String? name) {
-    final raw = (name ?? '').trim();
-    if (raw.isEmpty) {
+    final key = normalize(name);
+    if (key.isEmpty) {
       return fallbackEmoji;
     }
 
-    final key = raw.toLowerCase();
     final cached = _cache[key];
     if (cached != null) {
       return cached;
