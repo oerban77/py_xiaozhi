@@ -38,7 +38,11 @@ void main() {
 
     expect(find.byType(EmotionDisplay), findsOneWidget);
     expect(find.text('Jawaban sedang dibacakan.'), findsOneWidget);
-    expect(tester.getSize(find.byType(EmotionDisplay)).width, greaterThan(176));
+    // The emotion size is derived from the available conversation area
+    // (min(240, min(width * 0.78, height * 0.9))), so on the 800x600 test
+    // surface it lands near 174. Assert it stays a large, visible widget
+    // instead of pinning it to the old fixed 176 cap.
+    expect(tester.getSize(find.byType(EmotionDisplay)).width, greaterThan(160));
   });
 
   testWidgets('keeps the live text area compact for long responses', (tester) async {
