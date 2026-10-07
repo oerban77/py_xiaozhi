@@ -55,17 +55,20 @@ class EmotionService {
     if (name == null || name.isEmpty) {
       return false;
     }
-    return bundled.contains(name);
+    final normalized = name.trim().toLowerCase();
+    return bundled.contains(normalized);
   }
 
   /// Resolves [name] to an asset path (for example
   /// `assets/emojis/happy.gif`), falling back to `neutral` and then to
   /// [fallbackEmoji], exactly like EmotionService.get_emotion_url.
   static String resolve(String? name) {
-    final key = (name ?? '').trim();
-    if (key.isEmpty) {
+    final raw = (name ?? '').trim();
+    if (raw.isEmpty) {
       return fallbackEmoji;
     }
+
+    final key = raw.toLowerCase();
     final cached = _cache[key];
     if (cached != null) {
       return cached;
@@ -75,8 +78,12 @@ class EmotionService {
     if (hasAnimation(key)) {
       resolved = 'assets/emojis/$key${extensions.first}';
     } else {
-      // Unknown emotion -> neutral, matching the Python client.
-      resolved = 'assets/emojis/neutral${extensions.first}';
+      final fallbackKey = 'neutral';
+      if (hasAnimation(fallbackKey)) {
+        resolved = 'assets/emojis/$fallbackKey${extensions.first}';
+      } else {
+        resolved = fallbackEmoji;
+      }
     }
     _cache[key] = resolved;
     return resolved;

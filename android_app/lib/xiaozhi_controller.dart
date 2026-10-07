@@ -525,11 +525,11 @@ class XiaozhiController extends ChangeNotifier {
   Future<bool> sendText(String value) async {
     final text = value.trim();
     if (!isConnected || text.isEmpty) return false;
-    final isAttachment = text.length >= 32;
+    final isLongText = text.length > 31;
     return _sendChatRequest(
       displayText: text,
-      detectText: isAttachment ? 'baca lampiran' : text,
-      pendingText: isAttachment ? text : null,
+      detectText: isLongText ? 'baca lampiran' : text,
+      pendingText: isLongText ? text : null,
     );
   }
 
@@ -556,10 +556,8 @@ class XiaozhiController extends ChangeNotifier {
   }) {
     if (imageBytes.isEmpty) return Future.value(false);
     final request = question.trim().isEmpty ? 'analisa' : question.trim();
-    // Mirror src/plugins/ui_session.py _should_use_document_tool_for_image: text-heavy
-    // image requests (OCR, receipts, invoices, account numbers) go through the document
-    // reader flow, scene/object photos go through the vision flow.
-    if (_isTextHeavyImageRequest(request)) {
+    final shouldUseDocumentTool = _isTextHeavyImageRequest(request);
+    if (shouldUseDocumentTool) {
       return _sendChatRequest(
         displayText: 'Lampiran gambar: $fileName\n$request',
         detectText: 'baca lampiran',
@@ -850,6 +848,7 @@ class XiaozhiController extends ChangeNotifier {
       if (text is String && text.isNotEmpty) {
         _appendAssistantText(text);
         liveText = _assistantText;
+        notifyListeners();
       }
       if (state == 'stop') {
         isSpeaking = false;
