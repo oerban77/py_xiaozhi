@@ -92,6 +92,11 @@ class XiaozhiController extends ChangeNotifier {
   String sessionId = '';
   String _assistantText = '';
   String? _pendingTextAttachment;
+  /// Mirrors the question passed to set_pending_document in
+  /// src/mcp/mcp_server.py: surfaced to the LLM as
+  /// "[Attached file: ... | User question: ...]" so it knows what to answer
+  /// even though only the short prompt travelled over the detect channel.
+  String? _pendingTextQuestion;
   Uint8List? _pendingImageAttachment;
   bool _pendingImageAsDocument = false;
   String _pendingImageQuestion = '';
@@ -540,6 +545,13 @@ class XiaozhiController extends ChangeNotifier {
       displayText: text,
       detectText: isLongText ? 'baca lampiran' : text,
       pendingText: isLongText ? text : null,
+      // Mirrors ui_session.send_text: a long chat message is routed through the
+      // document queue as a temporary "pasted-*.txt" attachment, with a question
+      // that tells the LLM to treat the content as the user's request.
+      attachmentName: isLongText ? 'pesan-pengguna.txt' : '',
+      pendingQuestion: isLongText
+          ? 'Ini pesan/perintah pengguna. Baca isinya dan jalankan permintaan yang tertulis.'
+          : '',
     );
   }
 
@@ -554,8 +566,9 @@ class XiaozhiController extends ChangeNotifier {
     return _sendChatRequest(
       displayText: 'Lampiran teks: $fileName\n$request',
       detectText: 'baca lampiran',
-      pendingText: 'Nama file: $fileName\nPermintaan pengguna: $request\n\n$content',
+      pendingText: content,
       attachmentName: fileName,
+      pendingQuestion: request,
     );
   }
 
@@ -617,6 +630,7 @@ class XiaozhiController extends ChangeNotifier {
     Uint8List? imageBytes,
     String imageQuestion = '',
     String attachmentName = '',
+    String pendingQuestion = '',
     bool pendingImageAsDocument = false,
   }) async {
     if (!isConnected) return false;
@@ -626,6 +640,7 @@ class XiaozhiController extends ChangeNotifier {
         : pendingText.length > maxTextAttachmentChars
             ? '${pendingText.substring(0, maxTextAttachmentChars)}\n[Attachment content truncated]'
             : pendingText;
+    _pendingTextQuestion = pendingText != null ? pendingQuestion : null;
     _pendingImageAttachment = imageBytes;
     _pendingImageAsDocument = pendingImageAsDocument;
     _pendingImageQuestion = imageQuestion;
@@ -782,6 +797,7 @@ class XiaozhiController extends ChangeNotifier {
           request,
           disabledModules: disabledMcpModules.toSet(),
           pendingTextAttachment: _pendingTextAttachment,
+          pendingTextQuestion: _pendingTextQuestion ?? '',
           pendingImageAttachment: _pendingImageAttachment,
           pendingImageAsDocument: _pendingImageAsDocument,
           pendingImageQuestion: _pendingImageQuestion,
@@ -829,6 +845,7 @@ class XiaozhiController extends ChangeNotifier {
               (params['name'] == 'manage_document' || params['name'] == 'take_photo') &&
               response['result'] is Map) {
             _pendingTextAttachment = null;
+            _pendingTextQuestion = null;
             _pendingImageAttachment = null;
             _pendingImageAsDocument = false;
             _pendingImageQuestion = '';

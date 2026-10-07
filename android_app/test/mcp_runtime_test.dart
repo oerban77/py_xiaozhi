@@ -134,10 +134,16 @@ void main() {
       },
       disabledModules: <String>{'documents'},
       pendingTextAttachment: attachedText,
+      pendingTextQuestion: 'Jelaskan isinya.',
+      pendingAttachmentName: 'catatan.txt',
     );
     final callResult = callResponse!['result'] as Map<String, dynamic>;
     final content = callResult['content'] as List<dynamic>;
-    expect((content.single as Map)['text'], attachedText);
+    // The question hint is prepended like document_manage's question_hint in
+    // src/mcp/tools/documents/service.py, then the raw attachment content.
+    expect((content.single as Map)['text'], contains('Attached file: catatan.txt'));
+    expect((content.single as Map)['text'], contains('User question: Jelaskan isinya.'));
+    expect((content.single as Map)['text'], endsWith(attachedText));
   });
 
   test('does not offer the attachment reader without a pending attachment', () async {

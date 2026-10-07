@@ -359,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minHeight: textConstraints.maxHeight),
                       child: Align(
-                        alignment: Alignment.topCenter,
+                        alignment: Alignment.center,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: textMaxWidth),
                           child: Text(

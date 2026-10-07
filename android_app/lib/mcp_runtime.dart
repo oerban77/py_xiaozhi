@@ -246,6 +246,7 @@ class McpRuntime {
     Map<String, Object?> smartHomeConfig = const {},
     Map<String, Object?> visionConfig = const {},
     String? pendingTextAttachment,
+    String pendingTextQuestion = '',
     Uint8List? pendingImageAttachment,
     bool pendingImageAsDocument = false,
     String pendingImageQuestion = '',
@@ -340,9 +341,18 @@ class McpRuntime {
                   (arguments['path'] is String && (arguments['path'] as String).isNotEmpty)) {
                 return _error(id, -32602, 'Attached text must be read with action=read and no path');
               }
+              // Mirrors the question_hint in
+              // src/mcp/tools/documents/service.document_manage: surface the file
+              // name and the user's chat question alongside the content so the
+              // LLM knows what to answer, even though only the short prompt
+              // travelled over the detect channel.
+              final questionHint = pendingTextQuestion.isEmpty
+                  ? ''
+                  : '[Attached file: $pendingAttachmentName | '
+                      'User question: $pendingTextQuestion]\n\n';
               return _result(id, {
                 'content': [
-                  {'type': 'text', 'text': pendingTextAttachment},
+                  {'type': 'text', 'text': '$questionHint$pendingTextAttachment'},
                 ],
                 'isError': false,
               });
