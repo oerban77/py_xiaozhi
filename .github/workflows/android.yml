@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -240,6 +240,35 @@ jobs:
                   text = text.replace('dependencies {', f'dependencies {{\n    {desugar_dependency}', 1)
               else:
                   text += f'\ndependencies {{\n    {desugar_dependency}\n}}\n'
+
+          # AGP 8.11 with the modern plugin DSL (settings.gradle.kts) no longer
+          # runs the deprecated ApkVariantOutput copy that Flutter's Gradle plugin
+          # relies on, so the APK stays at build/app/outputs/apk/release and the
+          # Flutter tool reports "Gradle build failed to produce an .apk file".
+          # Restore that copy so `flutter build apk` can find its own output.
+          # See https://github.com/flutter/flutter/issues/174620
+          if 'xiaozhi-sync-flutter-apks' not in text:
+              text += '''
+
+          // xiaozhi-sync-flutter-apks
+          // Flutter's Gradle plugin copies each variant output APK into
+          // <rootProject>/build/app/outputs/flutter-apk/app-<abi>-<flavor>-<mode>.apk
+          // via the deprecated ApkVariantOutput API, which modern AGP (8.11+,
+          // declared through the settings plugin DSL) no longer executes.
+          // Restore that copy so `flutter build apk` can find its own output.
+          // rootProject.buildDir is <flutter project>/build (set by android/build.gradle),
+          // so the destination matches getApkDirectory() in the Flutter tool.
+          def flutterApkDir = file("${rootProject.buildDir}/app/outputs/flutter-apk")
+          tasks.register("syncFlutterApks", Copy) {
+              from(layout.buildDirectory.dir("outputs/apk/release"))
+              include("*.apk")
+              into(flutterApkDir)
+              doFirst { flutterApkDir.mkdirs() }
+          }
+          tasks.named("assembleRelease") { finalizedBy("syncFlutterApks") }
+          tasks.named("packageRelease") { finalizedBy("syncFlutterApks") }
+          '''
+
           p.write_text(text)
           PY
           fi
@@ -265,6 +294,35 @@ jobs:
                   text = text.replace('dependencies {', f'dependencies {{\n    {desugar_dependency}', 1)
               else:
                   text += f'\ndependencies {{\n    {desugar_dependency}\n}}\n'
+
+          # AGP 8.11 with the modern plugin DSL (settings.gradle.kts) no longer
+          # runs the deprecated ApkVariantOutput copy that Flutter's Gradle plugin
+          # relies on, so the APK stays at build/app/outputs/apk/release and the
+          # Flutter tool reports "Gradle build failed to produce an .apk file".
+          # Restore that copy so `flutter build apk` can find its own output.
+          # See https://github.com/flutter/flutter/issues/174620
+          if 'xiaozhi-sync-flutter-apks' not in text:
+              text += '''
+
+          // xiaozhi-sync-flutter-apks
+          // Flutter's Gradle plugin copies each variant output APK into
+          // <rootProject>/build/app/outputs/flutter-apk/app-<abi>-<flavor>-<mode>.apk
+          // via the deprecated ApkVariantOutput API, which modern AGP (8.11+,
+          // declared through the settings plugin DSL) no longer executes.
+          // Restore that copy so `flutter build apk` can find its own output.
+          // rootProject.buildDir is <flutter project>/build (set by android/build.gradle),
+          // so the destination matches getApkDirectory() in the Flutter tool.
+          val flutterApkDir = File(rootProject.buildDir, "app/outputs/flutter-apk")
+          tasks.register<Copy>("syncFlutterApks") {
+              from(layout.buildDirectory.dir("outputs/apk/release"))
+              include("*.apk")
+              into(flutterApkDir)
+              doFirst { flutterApkDir.mkdirs() }
+          }
+          tasks.named("assembleRelease") { finalizedBy("syncFlutterApks") }
+          tasks.named("packageRelease") { finalizedBy("syncFlutterApks") }
+          '''
+
           p.write_text(text)
           PY
           fi
@@ -286,7 +344,58 @@ jobs:
 
       - name: Build release APK
         working-directory: android_app
-        run: flutter build apk --release -v
+        # `flutter build apk` exits 1 with "Gradle build failed to produce an .apk file"
+        # when AGP 8.11+ is declared through the settings plugin DSL: the Gradle build
+        # itself succeeds, but the deprecated ApkVariantOutput copy that the Flutter
+        # Gradle plugin relies on never runs, so the APK is never moved to the path the
+        # Flutter tool checks. The syncFlutterApks task injected above restores that
+        # copy; `|| true` keeps a known-good build from being discarded when an older
+        # Flutter/AGP combination still reports the false negative. The next step
+        # verifies the APK exists and fails loudly if it really is missing.
+        run: flutter build apk --release -v || true
+
+      - name: Locate and verify the APK
+        working-directory: android_app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Candidate output locations, in the order Flutter/AGP use them:
+          #  1. <flutter project>/build/app/outputs/flutter-apk/app-release.apk
+          #     - where the Flutter tool and the syncFlutterApks task put it.
+          #  2. <flutter project>/build/app/outputs/apk/release/app-release.apk
+          #     - AGP's native output when the Flutter copy does not run.
+          #  3. android/app/build/outputs/apk/release/app-release.apk
+          #     - same file when the android/ project is built directly with gradlew.
+          CANDIDATES=(
+            "build/app/outputs/flutter-apk/app-release.apk"
+            "build/app/outputs/apk/release/app-release.apk"
+            "android/app/build/outputs/apk/release/app-release.apk"
+          )
+
+          FOUND=""
+          for apk in "${CANDIDATES[@]}"; do
+            if [ -f "$apk" ]; then
+              echo "Found APK at $apk"
+              FOUND="$apk"
+              break
+            fi
+          done
+
+          if [ -z "$FOUND" ]; then
+            echo "::error::No release APK was produced. Searched:" >&2
+            printf '  - %s\n' "${CANDIDATES[@]}" >&2
+            echo "Listing build/ outputs:" >&2
+            find build android/app/build -type f -name '*.apk' 2>/dev/null || true
+            exit 1
+          fi
+
+          # Canonicalize to the path the upload step and `flutter install` expect.
+          mkdir -p build/app/outputs/flutter-apk
+          if [ "$FOUND" != "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp "$FOUND" "build/app/outputs/flutter-apk/app-release.apk"
+          fi
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -295,3 +404,35 @@ jobs:
           path: android_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Compute release metadata
+        # Note: do not put a format() template containing { } inside ${{ }};
+        # compute the release name in the shell instead (see build.yml).
+        id: release
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            NAME="v${GITHUB_REF_NAME}"
+            PRE="false"
+          else
+            TAG="build-${GITHUB_RUN_NUMBER}"
+            NAME="Build #${GITHUB_RUN_NUMBER}"
+            PRE="true"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK to GitHub Release
+        # Attach the APK to the release created for this tag (release.yml), or to the
+        # build-<n> prerelease when triggered manually / on a branch push.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.name }}
+          prerelease: ${{ steps.release.outputs.prerelease == 'true' }}
+          files: android_app/build/app/outputs/flutter-apk/app-release.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
