@@ -146,7 +146,7 @@ void main() {
     expect((content.single as Map)['text'], endsWith(attachedText));
   });
 
-  test('does not offer the attachment reader without a pending attachment', () async {
+  test('offers the attachment reader before an attachment is sent', () async {
     final response = await McpRuntime.handle(
       {'jsonrpc': '2.0', 'id': 6, 'method': 'tools/list'},
       disabledModules: <String>{},
@@ -156,7 +156,7 @@ void main() {
     final names = (result['tools'] as List<dynamic>)
         .map((tool) => (tool as Map)['name'])
         .toList();
-    expect(names, isNot(contains('manage_document')));
+    expect(names, contains('manage_document'));
   });
 
   test('promotes take_photo with the attached-image banner', () async {

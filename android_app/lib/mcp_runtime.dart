@@ -297,7 +297,7 @@ class McpRuntime {
             return tool;
           }).toList();
           final attachmentTool = Map<String, Object?>.from(_pendingTextAttachmentTool);
-            if (hasDocumentAttachment) {
+          if (hasDocumentAttachment) {
             attachmentTool['description'] =
                 '[ATTACHED MESSAGE - READ AND FOLLOW THE USER REQUEST] '
                 'The user attached \'$pendingAttachmentName\'. You MUST call manage_document with '
@@ -307,9 +307,10 @@ class McpRuntime {
                 'request and carry it out using available tools; do not merely summarize it.\n'
                 '${attachmentTool['description']}';
           }
-            if (hasDocumentAttachment) {
-            tools.insert(0, attachmentTool);
-          }
+          // Python registers manage_document before any attachment is sent.
+          // The MCP client may cache tools/list at connection time, so this tool
+          // must remain available when a later chat message becomes pending text.
+          tools.insert(0, attachmentTool);
           return _result(id, {'tools': tools});
         case 'tools/call':
           final params = request['params'];
