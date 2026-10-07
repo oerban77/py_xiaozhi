@@ -25,7 +25,7 @@ dependencies:
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
   permission_handler: ^11.0.0
-  record: ^7.1.1
+  record: 6.1.2
   shared_preferences: ^2.5.3
   sherpa_onnx: ^1.13.8
   path_provider: ^2.1.5
