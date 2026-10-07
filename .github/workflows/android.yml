@@ -265,8 +265,13 @@ jobs:
               into(flutterApkDir)
               doFirst { flutterApkDir.mkdirs() }
           }
-          tasks.named("assembleRelease") { finalizedBy("syncFlutterApks") }
-          tasks.named("packageRelease") { finalizedBy("syncFlutterApks") }
+          // Wire lazily: the AGP tasks do not exist at configuration time, and
+          // tasks.named(...) throws UnknownTaskException when the name is missing.
+          tasks.whenTaskAdded {
+              if (it.name == "assembleRelease" || it.name == "packageRelease") {
+                  it.finalizedBy("syncFlutterApks")
+              }
+          }
           '''
 
           p.write_text(text)
@@ -319,8 +324,13 @@ jobs:
               into(flutterApkDir)
               doFirst { flutterApkDir.mkdirs() }
           }
-          tasks.named("assembleRelease") { finalizedBy("syncFlutterApks") }
-          tasks.named("packageRelease") { finalizedBy("syncFlutterApks") }
+          // Wire lazily: the AGP tasks do not exist at configuration time, and
+          // tasks.named(...) throws UnknownTaskException when the name is missing.
+          tasks.whenTaskAdded {
+              if (name == "assembleRelease" || name == "packageRelease") {
+                  finalizedBy("syncFlutterApks")
+              }
+          }
           '''
 
           p.write_text(text)
