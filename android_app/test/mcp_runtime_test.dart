@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 import 'package:py_xiaozhi_android/reminder_runtime.dart';
@@ -112,8 +113,19 @@ void main() {
   });
 
   test('keeps reminder data even when Android scheduling fails', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
-    const localNotificationsChannel = MethodChannel('dexterous.com/flutter_local_notifications');
+    // In a unit test no platform registers the Android implementation, so
+    // resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+    // would return null and the method channel would never be reached. Register
+    // it the same way the plugin's own test suite does.
+    AndroidFlutterLocalNotificationsPlugin.registerWith();
+    // The v18 method channel is "dexterous.com/flutter/local_notifications"
+    // (with a slash). Mocking the older "dexterous.com/flutter_local_notifications"
+    // name silently returns null for every invokeMethod, which makes the plugin
+    // treat scheduling as a success instead of throwing.
+    const localNotificationsChannel =
+        MethodChannel('dexterous.com/flutter/local_notifications');
     const timezoneChannel = MethodChannel('flutter_timezone');
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -159,6 +171,11 @@ void main() {
     final raw = prefs.getString('android_mcp_reminders');
     expect(raw, isNotNull);
     expect(raw, contains('Tes reminder alarm'));
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(localNotificationsChannel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(timezoneChannel, null);
   });
 
   test('offers and returns pending long-text attachment content', () async {
