@@ -268,8 +268,16 @@ class ReminderRuntime {
       'enabled': true,
       'notificationIds': <int>[],
     };
-    await _schedule(reminder);
-    return 'Reminder added: [$id] ${reminder['title']} — ${_formatSchedule(reminder)}';
+
+    try {
+      await _schedule(reminder);
+      return 'Reminder added: [$id] ${reminder['title']} — ${_formatSchedule(reminder)}';
+    } on Object catch (error) {
+      reminder['enabled'] = false;
+      await _save(await _loadAndReplace(reminder));
+      return 'Reminder saved locally but Android alarm scheduling failed. '
+          'Enable it after granting notification/alarm permission. Details: $error';
+    }
   }
 
   static Future<String> _list() async {
@@ -480,6 +488,14 @@ class ReminderRuntime {
     return 'xiaozhi_alarm_${hash.toRadixString(16)}';
   }
 
+  static Future<bool> hasExactAlarmPermission() async {
+    final android = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return true;
+    final exactAlarmGranted = await android.canScheduleExactNotifications();
+    return exactAlarmGranted == true;
+  }
+
   static Future<AndroidScheduleMode> _requestScheduleMode({
     bool requestPermissions = true,
   }) async {
@@ -494,7 +510,7 @@ class ReminderRuntime {
     }
     final exactAlarmGranted = requestPermissions
       ? await android.requestExactAlarmsPermission()
-      : await android.canScheduleExactNotifications();
+      : await hasExactAlarmPermission();
     return exactAlarmGranted == false
         ? AndroidScheduleMode.inexactAllowWhileIdle
         : AndroidScheduleMode.exactAllowWhileIdle;

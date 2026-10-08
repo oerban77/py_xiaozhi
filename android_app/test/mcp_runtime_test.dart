@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('lists prayer tools by their registered names', () async {
@@ -108,6 +110,56 @@ void main() {
       ]),
     );
     expect(devices.map((device) => device['topic']), isNot(contains('offline')));
+  });
+
+  test('keeps reminder data even when Android scheduling fails', () async {
+    SharedPreferences.setMockInitialValues({});
+    const localNotificationsChannel = MethodChannel('dexterous.com/flutter_local_notifications');
+    const timezoneChannel = MethodChannel('flutter_timezone');
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(localNotificationsChannel, (call) async {
+      switch (call.method) {
+        case 'initialize':
+          return true;
+        case 'requestNotificationsPermission':
+          return true;
+        case 'requestExactAlarmsPermission':
+          return true;
+        case 'canScheduleExactNotifications':
+          return true;
+        case 'zonedSchedule':
+          throw PlatformException(
+            code: 'schedule_failed',
+            message: 'Android alarm permission is blocked.',
+          );
+        case 'cancel':
+          return null;
+        default:
+          return null;
+      }
+    });
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(timezoneChannel, (call) async {
+      if (call.method == 'getLocalTimezone') return 'Asia/Jakarta';
+      return null;
+    });
+
+    final createdAt = DateTime.now().add(const Duration(minutes: 5)).toIso8601String();
+    final result = await ReminderRuntime.call('add_reminder', {
+      'title': 'Tes reminder alarm',
+      'message': 'Uji alarm Android',
+      'mode': 'once',
+      'datetime': createdAt,
+    });
+
+    expect(result, contains('saved locally'));
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('android_mcp_reminders');
+    expect(raw, isNotNull);
+    expect(raw, contains('Tes reminder alarm'));
   });
 
   test('offers and returns pending long-text attachment content', () async {

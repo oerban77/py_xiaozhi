@@ -170,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) => Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.paper,
           body: SafeArea(
             child: Column(
               children: [
@@ -327,20 +327,23 @@ class _HomeScreenState extends State<HomeScreen> {
         return Column(
           children: [
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, emotionConstraints) {
-                  final emotionSize = math.min(
-                    240.0,
-                    math.min(
-                      emotionConstraints.maxWidth * 0.78,
-                      emotionConstraints.maxHeight * 0.9,
-                    ),
-                  );
-                  return Align(
-                    alignment: const Alignment(0, -0.08),
-                    child: EmotionDisplay(emotion: emotion, size: emotionSize),
-                  );
-                },
+              child: Container(
+                color: AppColors.paper,
+                child: LayoutBuilder(
+                  builder: (context, emotionConstraints) {
+                    final emotionSize = math.min(
+                      240.0,
+                      math.min(
+                        emotionConstraints.maxWidth * 0.78,
+                        emotionConstraints.maxHeight * 0.9,
+                      ),
+                    );
+                    return Align(
+                      alignment: const Alignment(0, -0.08),
+                      child: EmotionDisplay(emotion: emotion, size: emotionSize),
+                    );
+                  },
+                ),
               ),
             ),
             SizedBox(

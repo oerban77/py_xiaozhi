@@ -7,6 +7,7 @@ import 'app_theme.dart';
 import 'home_screen.dart';
 import 'permission_gate_screen.dart';
 import 'permission_manager.dart';
+import 'reminder_runtime.dart';
 import 'xiaozhi_controller.dart';
 
 Future<void> main() async {
@@ -35,7 +36,7 @@ class XiaozhiApp extends StatefulWidget {
   State<XiaozhiApp> createState() => _XiaozhiAppState();
 }
 
-class _XiaozhiAppState extends State<XiaozhiApp> {
+class _XiaozhiAppState extends State<XiaozhiApp> with WidgetsBindingObserver {
   // Null while the permission check is still in flight; true once every required
   // permission is granted (or the user skipped the gate).
   bool? _permissionsGranted;
@@ -43,11 +44,25 @@ class _XiaozhiAppState extends State<XiaozhiApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.skipPermissionGate) {
       _permissionsGranted = true;
       return;
     }
     unawaited(_checkPermissions());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ReminderRuntime.initialize());
+    }
   }
 
   Future<void> _checkPermissions() async {
