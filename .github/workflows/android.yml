@@ -325,8 +325,11 @@ jobs:
           PY
           fi
 
-          # Suppress NDK minSdk warning
-          printf '\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties || true
+          # `android_intent_plus` and older Flutter plugin packages still pull AGP
+          # 8.3.x, while Flutter 3.41.x with AGP 8.11+ can hit the old-vs-new DSL
+          # incompatibility (`Cannot run Project.afterEvaluate` from the Flutter
+          # Gradle plugin). Keep the legacy DSL enabled explicitly for this build.
+          printf '\nandroid.newDsl=false\nandroid.ndk.suppressMinSdkVersionError=21\n' >> android/gradle.properties || true
 
       - name: Resolve dependencies
         working-directory: android_app
