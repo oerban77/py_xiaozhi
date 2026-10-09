@@ -1,11 +1,20 @@
 import 'dart:convert';
 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest.dart' as timezone_data;
-import 'package:timezone/timezone.dart' as timezone;
 
+/// Registers MCP reminders as real entries in the phone's built-in clock app.
+///
+/// Scheduling uses the public `android.intent.action.SET_ALARM` Intent
+/// (android.provider.AlarmClock), so a reminder fires through the same alarm
+/// screen, snooze buttons and alarm volume the user already knows, and uses the
+/// alarm sound picked in the settings screen. The Intent contract only supports
+/// a single time of day plus an optional weekly repeat, so `hourly`, `monthly`
+/// and `yearly` modes are rejected instead of being approximated.
+///
+/// SET_ALARM cannot list or delete clock-app alarms, so this class keeps its own
+/// records in SharedPreferences as the source of truth for list/edit/toggle/
+/// delete, and re-sends the Intent whenever a record changes.
 class ReminderRuntime {
   static const module = 'reminder';
   static const toolNames = <String>{
@@ -36,20 +45,23 @@ class ReminderRuntime {
     },
     {
       'name': 'add_reminder',
-      'description': 'Create a native Android scheduled alarm/notification. Supports once, daily, hourly, workday, weekly, monthly, or yearly recurrence.',
+      'description': 'Create an alarm in the phone built-in clock app. Supports '
+          'once, daily, workday (Monday to Friday) and weekly recurrence. The '
+          'hourly, monthly and yearly modes are not supported by the Android '
+          'alarm contract and are rejected.',
       'inputSchema': {
         'type': 'object',
         'properties': {
           'title': {'type': 'string'},
           'message': {'type': 'string', 'default': ''},
-          'mode': {'type': 'string', 'default': 'once'},
+          'mode': {
+            'type': 'string',
+            'enum': ['once', 'daily', 'workday', 'weekly'],
+            'default': 'once',
+          },
           'datetime': {'type': 'string', 'default': ''},
           'time': {'type': 'string', 'default': ''},
-          'interval_hours': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 720},
-          'minute': {'type': 'integer', 'default': 0, 'minimum': 0, 'maximum': 59},
           'weekday': {'type': 'string', 'default': ''},
-          'day': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 31},
-          'month': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 12},
         },
         'required': ['title'],
       },
@@ -94,14 +106,14 @@ class ReminderRuntime {
           'id': {'type': 'integer', 'minimum': 1, 'maximum': 100000},
           'title': {'type': 'string', 'default': ''},
           'message': {'type': 'string', 'default': ''},
-          'mode': {'type': 'string', 'default': ''},
+          'mode': {
+            'type': 'string',
+            'enum': ['once', 'daily', 'workday', 'weekly'],
+            'default': '',
+          },
           'datetime': {'type': 'string', 'default': ''},
           'time': {'type': 'string', 'default': ''},
-          'interval_hours': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 720},
-          'minute': {'type': 'integer', 'default': 0, 'minimum': 0, 'maximum': 59},
           'weekday': {'type': 'string', 'default': ''},
-          'day': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 31},
-          'month': {'type': 'integer', 'default': 1, 'minimum': 1, 'maximum': 12},
           'enabled': {'type': 'boolean', 'default': true},
         },
         'required': ['id'],
@@ -126,49 +138,54 @@ class ReminderRuntime {
   static const _alarmSoundNameKey = 'android_reminder_sound_name';
   static const defaultAlarmSoundUri = 'content://settings/system/alarm_alert';
   static const _maxDurationSeconds = 86400 * 366;
+
+  /// Day-of-week values for AlarmClock.EXTRA_DAYS (Calendar.SUNDAY..SATURDAY).
+  static const _sunday = 1;
+  static const _monday = 2;
+  static const _tuesday = 3;
+  static const _wednesday = 4;
+  static const _thursday = 5;
+  static const _friday = 6;
+  static const _saturday = 7;
+
   static const _weekdayIndices = <String, int>{
-    'senin': 1,
-    'selasa': 2,
-    'rabu': 3,
-    'kamis': 4,
-    'jumat': 5,
-    'sabtu': 6,
-    'minggu': 7,
-    'monday': 1,
-    'tuesday': 2,
-    'wednesday': 3,
-    'thursday': 4,
-    'friday': 5,
-    'saturday': 6,
-    'sunday': 7,
+    'senin': _monday,
+    'selasa': _tuesday,
+    'rabu': _wednesday,
+    'kamis': _thursday,
+    'jumat': _friday,
+    'sabtu': _saturday,
+    'minggu': _sunday,
+    'monday': _monday,
+    'tuesday': _tuesday,
+    'wednesday': _wednesday,
+    'thursday': _thursday,
+    'friday': _friday,
+    'saturday': _saturday,
+    'sunday': _sunday,
   };
 
-  static final _notifications = FlutterLocalNotificationsPlugin();
+  /// Modes that can be expressed with the AlarmClock intent contract.
+  static const _supportedModes = <String>{'once', 'daily', 'workday', 'weekly'};
+
+  static const _actionSetAlarm = 'android.intent.action.SET_ALARM';
+  static const _extraMessage = 'android.intent.extra.alarm.MESSAGE';
+  static const _extraHour = 'android.intent.extra.alarm.HOUR';
+  static const _extraMinutes = 'android.intent.extra.alarm.MINUTES';
+  static const _extraDays = 'android.intent.extra.alarm.DAYS';
+  static const _extraRingtone = 'android.intent.extra.alarm.RINGTONE';
+  static const _extraVibrate = 'android.intent.extra.alarm.VIBRATE';
+  static const _extraSkipUi = 'android.intent.extra.alarm.SKIP_UI';
+
   static Future<void>? _initialization;
 
   static Future<void> initialize() => _initialization ??= _initialize();
 
   static Future<void> _initialize() async {
-    timezone_data.initializeTimeZones();
-    try {
-      final localTimezone = await FlutterTimezone.getLocalTimezone();
-      timezone.setLocalLocation(timezone.getLocation(localTimezone.identifier));
-    } catch (_) {
-      timezone.setLocalLocation(timezone.getLocation('UTC'));
-    }
-    await _notifications.initialize(
-      const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
-    final (soundUri, _) = await getAlarmSound();
-    for (final reminder in await _load()) {
-      if (reminder['enabled'] == true &&
-          reminder['notificationSoundUri'] != soundUri &&
-          _nextTrigger(reminder) != null) {
-        await _schedule(reminder, requestPermissions: false);
-      }
-    }
+    // Nothing to bootstrap: the clock app owns the alarm schedule. Re-registering
+    // on startup would create duplicate alarms, because SET_ALARM re-uses an
+    // existing alarm only when every extra matches, and the stored records
+    // carry no clock-app alarm id to deduplicate against.
   }
 
   static Future<String> call(String name, Map<String, dynamic> arguments) async {
@@ -207,9 +224,11 @@ class ReminderRuntime {
       uri.isEmpty ? defaultAlarmSoundUri : uri,
     );
     await preferences.setString(_alarmSoundNameKey, name);
+    // The clock app reads the ringtone from the intent, so already-registered
+    // alarms keep the previous sound until they are re-scheduled.
     final reminders = await _load();
     for (final reminder in reminders.where((item) => item['enabled'] == true)) {
-      await _schedule(reminder, requestPermissions: false);
+      await _schedule(reminder);
     }
   }
 
@@ -246,11 +265,7 @@ class ReminderRuntime {
       'mode': mode,
       'datetime': _optionalString(arguments['datetime']),
       'time': _optionalString(arguments['time']),
-      'interval_hours': _int(arguments['interval_hours'], fallback: 1),
-      'minute': _int(arguments['minute']),
       'weekday': _optionalString(arguments['weekday']),
-      'day': _int(arguments['day'], fallback: 1),
-      'month': _int(arguments['month'], fallback: 1),
       'enabled': true,
     };
     _validate(reminder);
@@ -266,7 +281,6 @@ class ReminderRuntime {
       ...data,
       'id': id,
       'enabled': true,
-      'notificationIds': <int>[],
     };
 
     try {
@@ -275,8 +289,8 @@ class ReminderRuntime {
     } on Object catch (error) {
       reminder['enabled'] = false;
       await _save(await _loadAndReplace(reminder));
-      return 'Reminder saved locally but Android alarm scheduling failed. '
-          'Enable it after granting notification/alarm permission. Details: $error';
+      return 'Reminder saved locally but the system clock app could not be reached. '
+          'Open the clock app and add the alarm manually. Details: $error';
     }
   }
 
@@ -299,10 +313,12 @@ class ReminderRuntime {
     final reminders = await _load();
     final index = reminders.indexWhere((item) => _int(item['id']) == id);
     if (index < 0) return 'Reminder not found: $id';
-    await _cancel(reminders[index]);
+    // SET_ALARM cannot delete an alarm, so removing the local record is all
+    // this class can do. The user is told to open the clock app.
     reminders.removeAt(index);
     await _save(reminders);
-    return 'Reminder deleted: $id';
+    return 'Reminder deleted: $id. The matching alarm stays in the clock app; '
+        'remove it there if it should not ring again.';
   }
 
   static Future<String> _toggle(Map<String, dynamic> arguments) async {
@@ -322,17 +338,20 @@ class ReminderRuntime {
         rethrow;
       }
     } else {
-      await _cancel(reminder);
       await _save(reminders);
     }
-    return 'Reminder [$id] ${enabled ? 'enabled' : 'disabled'}.';
+    if (!enabled) {
+      return 'Reminder [$id] disabled. The matching alarm stays in the clock '
+          'app; turn it off there if it should not ring.';
+    }
+    return 'Reminder [$id] enabled.';
   }
 
   static Future<String> _edit(Map<String, dynamic> arguments) async {
     final id = _requiredInt(arguments, 'id');
     final reminders = await _load();
     final reminder = _findReminder(reminders, id);
-    if (reminder == null) return 'Reminder not found: $id';
+    if (reminder == null) throw StateError('Reminder not found: $id');
     final previous = Map<String, dynamic>.from(reminder);
     for (final key in [
       'title',
@@ -340,11 +359,7 @@ class ReminderRuntime {
       'mode',
       'datetime',
       'time',
-      'interval_hours',
-      'minute',
       'weekday',
-      'day',
-      'month',
       'enabled',
     ]) {
       if (arguments.containsKey(key) && arguments[key] != null) {
@@ -352,16 +367,12 @@ class ReminderRuntime {
       }
     }
     _validate(reminder);
-    await _cancel(previous);
     if (reminder['enabled'] == true) {
       try {
         await _schedule(reminder);
       } catch (_) {
         reminders[reminders.indexOf(reminder)] = previous;
         await _save(reminders);
-        if (previous['enabled'] == true && _nextTrigger(previous) != null) {
-          await _schedule(previous, requestPermissions: false);
-        }
         rethrow;
       }
     } else {
@@ -383,137 +394,59 @@ class ReminderRuntime {
     await preferences.setString(_storageKey, jsonEncode(reminders));
   }
 
-  static Future<void> _schedule(
-    Map<String, dynamic> reminder, {
-    bool requestPermissions = true,
-  }) async {
-    await _cancel(reminder);
+  /// Optional test seam for the platform launch. Production code leaves this
+  /// null and [AndroidIntent] sends the real SET_ALARM Intent. Unit tests set
+  /// it to inspect the AlarmClock payload, or to throw and exercise the
+  /// "saved locally" fallback for a device whose clock app is unavailable.
+  static Future<void> Function(Map<String, dynamic> extras)? launchAlarm;
+
+  /// Registers the reminder as an alarm in the phone's clock app.
+  static Future<void> _schedule(Map<String, dynamic> reminder) async {
     if (reminder['enabled'] != true) return;
-    final scheduleMode = await _requestScheduleMode(requestPermissions: requestPermissions);
-    final next = _nextTrigger(reminder);
-    if (next == null) throw ArgumentError('Reminder has no future trigger');
-    final id = _int(reminder['id']);
+    final trigger = _nextTrigger(reminder);
+    if (trigger == null) throw ArgumentError('Reminder has no future trigger');
     final title = '${reminder['title'] ?? 'Reminder'}';
     final message = '${reminder['message'] ?? title}';
     final (soundUri, _) = await getAlarmSound();
-    reminder['notificationSoundUri'] = soundUri;
-    final sound = UriAndroidNotificationSound(soundUri);
-    final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _soundChannelId(soundUri),
-        'Alarm dan reminder Xiaozhi',
-        channelDescription: 'Alarm terjadwal dari Xiaozhi',
-        importance: Importance.max,
-        priority: Priority.high,
-        sound: sound,
-        playSound: soundUri != 'none',
-        audioAttributesUsage: AudioAttributesUsage.alarm,
-        category: AndroidNotificationCategory.alarm,
-      ),
-    );
-    final mode = '${reminder['mode']}';
-    final notificationIds = <int>[];
+    reminder['alarmSoundUri'] = soundUri;
 
-    if (mode == 'hourly') {
-      final interval = _int(reminder['interval_hours'], fallback: 1).clamp(1, 720).toInt();
-      final scheduleId = id * 10;
-      await _notifications.periodicallyShowWithDuration(
-        scheduleId,
-        title,
-        message,
-        Duration(hours: interval),
-        details,
-        androidScheduleMode: scheduleMode,
-      );
-      notificationIds.add(scheduleId);
-    } else if (mode == 'workday') {
-      final (hour, minute) = _parseTime('${reminder['time']}');
-      for (var weekday = DateTime.monday; weekday <= DateTime.friday; weekday++) {
-        final scheduleId = id * 10 + weekday;
-        final occurrence = _nextWeekdayTime(weekday, hour, minute);
-        await _zonedSchedule(
-          scheduleId,
-          title,
-          message,
-          occurrence,
-          details,
-          DateTimeComponents.dayOfWeekAndTime,
-          scheduleMode,
-        );
-        notificationIds.add(scheduleId);
-      }
+    final arguments = <String, dynamic>{
+      _extraMessage: message,
+      _extraHour: trigger.hour,
+      _extraMinutes: trigger.minute,
+      _extraSkipUi: true,
+      _extraVibrate: true,
+      _extraRingtone: soundUri.isEmpty ? defaultAlarmSoundUri : soundUri,
+    };
+    final days = _alarmDays(reminder);
+    if (days != null) arguments[_extraDays] = days;
+
+    final launcher = launchAlarm;
+    if (launcher != null) {
+      await launcher(arguments);
     } else {
-      final components = switch (mode) {
-        'daily' => DateTimeComponents.time,
-        'weekly' => DateTimeComponents.dayOfWeekAndTime,
-        'monthly' => DateTimeComponents.dayOfMonthAndTime,
-        'yearly' => DateTimeComponents.dateAndTime,
-        _ => null,
-      };
-      final scheduleId = id * 10;
-      await _zonedSchedule(scheduleId, title, message, next, details, components, scheduleMode);
-      notificationIds.add(scheduleId);
+      await AndroidIntent(
+        action: _actionSetAlarm,
+        arguments: arguments,
+      ).launch();
     }
-    reminder['notificationIds'] = notificationIds;
     await _save(await _loadAndReplace(reminder));
   }
 
-  static Future<void> _zonedSchedule(
-    int id,
-    String title,
-    String message,
-    DateTime when,
-    NotificationDetails details,
-    DateTimeComponents? match,
-    AndroidScheduleMode scheduleMode,
-  ) async {
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      message,
-      timezone.TZDateTime.from(when, timezone.local),
-      details,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: scheduleMode,
-      matchDateTimeComponents: match,
-    );
-  }
-
-  static String _soundChannelId(String soundUri) {
-    var hash = 0x811c9dc5;
-    for (final codeUnit in soundUri.codeUnits) {
-      hash = ((hash ^ codeUnit) * 0x01000193) & 0xFFFFFFFF;
+  /// Weekdays for AlarmClock.EXTRA_DAYS, or null for a one-shot alarm.
+  static List<int>? _alarmDays(Map<String, dynamic> reminder) {
+    switch ('${reminder['mode']}') {
+      case 'daily':
+        return const [_sunday, _monday, _tuesday, _wednesday, _thursday, _friday, _saturday];
+      case 'workday':
+        return const [_monday, _tuesday, _wednesday, _thursday, _friday];
+      case 'weekly':
+        final weekday = _weekdayIndices['${reminder['weekday']}'.toLowerCase()];
+        if (weekday == null) throw ArgumentError('Invalid weekday');
+        return [weekday];
+      default:
+        return null;
     }
-    return 'xiaozhi_alarm_${hash.toRadixString(16)}';
-  }
-
-  static Future<bool> hasExactAlarmPermission() async {
-    final android = _notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) return true;
-    final exactAlarmGranted = await android.canScheduleExactNotifications();
-    return exactAlarmGranted == true;
-  }
-
-  static Future<AndroidScheduleMode> _requestScheduleMode({
-    bool requestPermissions = true,
-  }) async {
-    final android = _notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) return AndroidScheduleMode.inexactAllowWhileIdle;
-    if (requestPermissions) {
-      final notificationsGranted = await android.requestNotificationsPermission();
-      if (notificationsGranted == false) {
-        throw StateError('Izin notifikasi belum diberikan. Aktifkan notifikasi Xiaozhi di Pengaturan HP.');
-      }
-    }
-    final exactAlarmGranted = requestPermissions
-      ? await android.requestExactAlarmsPermission()
-      : await hasExactAlarmPermission();
-    return exactAlarmGranted == false
-        ? AndroidScheduleMode.inexactAllowWhileIdle
-        : AndroidScheduleMode.exactAllowWhileIdle;
   }
 
   static Future<List<Map<String, dynamic>>> _loadAndReplace(
@@ -529,24 +462,6 @@ class ReminderRuntime {
     return reminders;
   }
 
-  static Future<void> _cancel(Map<String, dynamic> reminder) async {
-    final ids = reminder['notificationIds'];
-    if (ids is List) {
-      for (final id in ids) {
-        final parsed = _optionalInt(id);
-        if (parsed != null) await _notifications.cancel(parsed);
-      }
-    }
-    final id = _optionalInt(reminder['id']);
-    if (id != null) {
-      await _notifications.cancel(id);
-      await _notifications.cancel(id * 10);
-      for (var weekday = DateTime.monday; weekday <= DateTime.friday; weekday++) {
-        await _notifications.cancel(id * 10 + weekday);
-      }
-    }
-  }
-
   static Map<String, dynamic>? _findReminder(
     List<Map<String, dynamic>> reminders,
     int id,
@@ -558,9 +473,15 @@ class ReminderRuntime {
   }
 
   static void _validate(Map<String, dynamic> reminder) {
-    const modes = {'once', 'daily', 'hourly', 'workday', 'weekly', 'monthly', 'yearly'};
     final mode = '${reminder['mode'] ?? 'once'}';
-    if (!modes.contains(mode)) throw ArgumentError('Unsupported reminder mode: $mode');
+    if (!_supportedModes.contains(mode)) {
+      // The AlarmClock intent can only express a single time of day, optionally
+      // repeated on selected weekdays. Anything else cannot be scheduled as a
+      // clock-app alarm, so it is rejected rather than approximated.
+      throw ArgumentError(
+          'Unsupported reminder mode: $mode. The phone clock app only supports '
+          'once, daily, workday and weekly reminders.');
+    }
     if ('${reminder['title'] ?? ''}'.trim().isEmpty) {
       throw ArgumentError('Reminder title is required');
     }
@@ -575,22 +496,6 @@ class ReminderRuntime {
         throw ArgumentError('Invalid weekday');
       }
     }
-    if (mode == 'monthly' || mode == 'yearly') {
-      _parseTime('${reminder['time'] ?? ''}');
-      final day = _int(reminder['day'], fallback: 1);
-      if (day < 1 || day > 31) throw ArgumentError('Day must be between 1 and 31');
-    }
-    if (mode == 'yearly') {
-      final month = _int(reminder['month'], fallback: 1);
-      if (month < 1 || month > 12) throw ArgumentError('Month must be between 1 and 12');
-    }
-    if (mode == 'hourly') {
-      final interval = _int(reminder['interval_hours'], fallback: 1);
-      final minute = _int(reminder['minute']);
-      if (interval < 1 || interval > 720 || minute < 0 || minute > 59) {
-        throw ArgumentError('Invalid hourly interval or minute');
-      }
-    }
   }
 
   static DateTime? _nextTrigger(Map<String, dynamic> reminder) {
@@ -599,15 +504,6 @@ class ReminderRuntime {
     if (mode == 'once') {
       final parsed = DateTime.tryParse('${reminder['datetime'] ?? ''}'.replaceFirst(' ', 'T'));
       return parsed != null && parsed.isAfter(now) ? parsed : null;
-    }
-    if (mode == 'hourly') {
-      final interval = _int(reminder['interval_hours'], fallback: 1).clamp(1, 720).toInt();
-      final minute = _int(reminder['minute']).clamp(0, 59).toInt();
-      var candidate = DateTime(now.year, now.month, now.day, now.hour, minute);
-      while (!candidate.isAfter(now)) {
-        candidate = candidate.add(Duration(hours: interval));
-      }
-      return candidate;
     }
     final (hour, minute) = _parseTime('${reminder['time'] ?? '00:00'}');
     if (mode == 'daily') return _nextWeekdayTime(null, hour, minute);
@@ -624,35 +520,23 @@ class ReminderRuntime {
       final weekday = _weekdayIndices['${reminder['weekday']}'.toLowerCase()];
       return _nextWeekdayTime(weekday, hour, minute);
     }
-    if (mode == 'monthly') {
-      final day = _int(reminder['day'], fallback: 1).clamp(1, 28).toInt();
-      var candidate = DateTime(now.year, now.month, day, hour, minute);
-      if (!candidate.isAfter(now)) {
-        final monthDate = DateTime(now.year, now.month + 1, 1);
-        candidate = DateTime(monthDate.year, monthDate.month, day, hour, minute);
-      }
-      return candidate;
-    }
-    if (mode == 'yearly') {
-      final day = _int(reminder['day'], fallback: 1).clamp(1, 28).toInt();
-      final month = _int(reminder['month'], fallback: 1).clamp(1, 12).toInt();
-      var candidate = DateTime(now.year, month, day, hour, minute);
-      if (!candidate.isAfter(now)) candidate = DateTime(now.year + 1, month, day, hour, minute);
-      return candidate;
-    }
     return null;
   }
 
-  static DateTime _nextWeekdayTime(int? weekday, int hour, int minute) {
+  static DateTime _nextWeekdayTime(int? calendarWeekday, int hour, int minute) {
     final now = DateTime.now();
     for (var offset = 0; offset <= 7; offset++) {
       final day = now.add(Duration(days: offset));
-      if (weekday != null && day.weekday != weekday) continue;
+      if (calendarWeekday != null && _calendarDayOf(day) != calendarWeekday) continue;
       final candidate = DateTime(day.year, day.month, day.day, hour, minute);
       if (candidate.isAfter(now)) return candidate;
     }
     return now.add(const Duration(days: 7));
   }
+
+  /// DateTime.weekday is 1=Monday..7=Sunday; AlarmClock.EXTRA_DAYS uses
+  /// Calendar.SUNDAY=1..Calendar.SATURDAY=7.
+  static int _calendarDayOf(DateTime date) => (date.weekday % 7) + 1;
 
   static (int, int) _parseTime(String value) {
     final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(value.trim());
@@ -678,16 +562,10 @@ class ReminderRuntime {
         return 'Once at ${reminder['datetime']}';
       case 'daily':
         return 'Daily at ${reminder['time']}';
-      case 'hourly':
-        return "Every ${reminder['interval_hours']}h at :${_int(reminder['minute']).toString().padLeft(2, '0')}";
       case 'workday':
         return 'Workdays at ${reminder['time']}';
       case 'weekly':
         return 'Every ${reminder['weekday']} at ${reminder['time']}';
-      case 'monthly':
-        return 'Monthly on day ${reminder['day']} at ${reminder['time']}';
-      case 'yearly':
-        return 'Yearly on ${reminder['day']}/${reminder['month']} at ${reminder['time']}';
       default:
         return mode;
     }

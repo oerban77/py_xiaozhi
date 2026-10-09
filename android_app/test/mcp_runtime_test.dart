@@ -1,5 +1,3 @@
-import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 import 'package:py_xiaozhi_android/reminder_runtime.dart';
@@ -115,47 +113,12 @@ void main() {
   test('keeps reminder data even when Android scheduling fails', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
-    // In a unit test no platform registers the Android implementation, so
-    // resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-    // would return null and the method channel would never be reached. Register
-    // it the same way the plugin's own test suite does.
-    AndroidFlutterLocalNotificationsPlugin.registerWith();
-    // The v18 method channel is "dexterous.com/flutter/local_notifications"
-    // (with a slash). Mocking the older "dexterous.com/flutter_local_notifications"
-    // name silently returns null for every invokeMethod, which makes the plugin
-    // treat scheduling as a success instead of throwing.
-    const localNotificationsChannel =
-        MethodChannel('dexterous.com/flutter/local_notifications');
-    const timezoneChannel = MethodChannel('flutter_timezone');
-
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(localNotificationsChannel, (call) async {
-      switch (call.method) {
-        case 'initialize':
-          return true;
-        case 'requestNotificationsPermission':
-          return true;
-        case 'requestExactAlarmsPermission':
-          return true;
-        case 'canScheduleExactNotifications':
-          return true;
-        case 'zonedSchedule':
-          throw PlatformException(
-            code: 'schedule_failed',
-            message: 'Android alarm permission is blocked.',
-          );
-        case 'cancel':
-          return null;
-        default:
-          return null;
-      }
-    });
-
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(timezoneChannel, (call) async {
-      if (call.method == 'getLocalTimezone') return 'Asia/Jakarta';
-      return null;
-    });
+    // No clock app is available to handle SET_ALARM, so the launch fails. The
+    // record is still stored so the reminder can be re-scheduled later.
+    ReminderRuntime.launchAlarm = (extras) async {
+      throw StateError('No Activity found to handle Intent '
+          '{ act=android.intent.action.SET_ALARM }');
+    };
 
     final createdAt = DateTime.now().add(const Duration(minutes: 5)).toIso8601String();
     final result = await ReminderRuntime.call('add_reminder', {
@@ -172,10 +135,68 @@ void main() {
     expect(raw, isNotNull);
     expect(raw, contains('Tes reminder alarm'));
 
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(localNotificationsChannel, null);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(timezoneChannel, null);
+    ReminderRuntime.launchAlarm = null;
+  });
+
+  test('maps reminder modes to AlarmClock.EXTRA_DAYS weekdays', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    final captured = <Map<String, dynamic>>[];
+    ReminderRuntime.launchAlarm = (extras) async {
+      captured.add(extras);
+    };
+
+    await ReminderRuntime.call('add_reminder', {
+      'title': 'Alarm harian',
+      'mode': 'daily',
+      'time': '07:30',
+    });
+    await ReminderRuntime.call('add_reminder', {
+      'title': 'Alarm hari kerja',
+      'mode': 'workday',
+      'time': '08:00',
+    });
+    await ReminderRuntime.call('add_reminder', {
+      'title': 'Alarm mingguan',
+      'mode': 'weekly',
+      'time': '09:00',
+      'weekday': 'jumat',
+    });
+
+    expect(captured, hasLength(3));
+    // Calendar.SUNDAY=1 .. Calendar.SATURDAY=7, so daily is every day and
+    // workday is Monday(2)..Friday(6).
+    expect(captured[0]['android.intent.extra.alarm.DAYS'], [1, 2, 3, 4, 5, 6, 7]);
+    expect(captured[1]['android.intent.extra.alarm.DAYS'], [2, 3, 4, 5, 6]);
+    // 'jumat' is Indonesian for Friday, which is Calendar.FRIDAY=6.
+    expect(captured[2]['android.intent.extra.alarm.DAYS'], [6]);
+    expect(captured[2]['android.intent.extra.alarm.HOUR'], 9);
+    expect(captured[2]['android.intent.extra.alarm.MINUTES'], 0);
+    // "Langsung simpan": the clock app stores the alarm without opening a UI.
+    expect(captured[2]['android.intent.extra.alarm.SKIP_UI'], isTrue);
+    // The alarm sound configured in the settings screen is forwarded verbatim.
+    expect(captured[2]['android.intent.extra.alarm.RINGTONE'],
+        ReminderRuntime.defaultAlarmSoundUri);
+
+    ReminderRuntime.launchAlarm = null;
+  });
+
+  test('rejects reminder modes the clock app cannot express', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    ReminderRuntime.launchAlarm = (extras) async {};
+
+    await expectLater(
+      ReminderRuntime.call('add_reminder', {
+        'title': 'Alarm per jam',
+        'mode': 'hourly',
+        'time': '10:00',
+      }),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    ReminderRuntime.launchAlarm = null;
   });
 
   test('offers and returns pending long-text attachment content', () async {

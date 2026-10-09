@@ -111,7 +111,7 @@ jobs:
                   '    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n'
                   '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
                   '    <uses-permission android:name="android.permission.CAMERA" />\n'
-                  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+                  '    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />\n'
                   '    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n'
                   '    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />\n'
                   '    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n'
@@ -127,11 +127,12 @@ jobs:
                   1,
               )
 
+          # android.provider.AlarmClock.SET_ALARM is a normal permission, so it
+          # is granted at install time, but the manifest still has to declare it
+          # or the clock app silently ignores the reminder Intent.
           for permission in (
-              'android.permission.POST_NOTIFICATIONS',
               'android.permission.VIBRATE',
-              'android.permission.RECEIVE_BOOT_COMPLETED',
-              'android.permission.SCHEDULE_EXACT_ALARM',
+              'com.android.alarm.permission.SET_ALARM',
           ):
               if f'android:name="{permission}"' not in text:
                   text = text.replace(
@@ -160,21 +161,6 @@ jobs:
               text = text.replace(
                   '</manifest>',
                   '    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n</manifest>',
-                  1,
-              )
-
-          if 'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver' not in text:
-              text = text.replace(
-                  '</application>',
-                  '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n'
-                  '        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n'
-                  '            <intent-filter>\n'
-                  '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
-                  '                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n'
-                  '                <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n'
-                  '                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />\n'
-                  '            </intent-filter>\n'
-                  '        </receiver>\n</application>',
                   1,
               )
 

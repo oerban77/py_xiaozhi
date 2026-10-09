@@ -624,7 +624,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Pengingat dijadwalkan oleh Android dan tetap aktif setelah aplikasi ditutup atau HP dimulai ulang.',
+                      'Pengingat ditambahkan ke aplikasi jam bawaan HP, jadi tetap aktif setelah '
+                      'aplikasi ditutup atau HP dimulai ulang. Mode sekali, harian, hari kerja, '
+                      'dan mingguan didukung; mode per jam, bulanan, dan tahunan tidak.',
                       style: TextStyle(color: Color(0xFF71817C), height: 1.45),
                     ),
                     const SizedBox(height: 8),

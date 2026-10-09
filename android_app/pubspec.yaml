@@ -13,7 +13,10 @@ dependencies:
   # and breaks version solving against the Flutter SDK's pinned meta 1.17.0.
   # The APIs used (PdfDocument.openData, loadText, pages, dispose) are unchanged.
   pdfrx: ^2.4.7
-  flutter_local_notifications: ^18.0.1
+  # Pinned to 5.3.1: 6.0.0+ requires Android Gradle Plugin >=8.12.1 and Gradle
+  # >=8.13, which the CI's `flutter create` template does not provide. The only
+  # APIs used (AndroidIntent({action, arguments}) + launch()) are identical.
+  android_intent_plus: 5.3.1
   flutter_music_picker: ^0.0.9
   flutter:
     sdk: flutter
@@ -34,11 +37,9 @@ dependencies:
   path_provider: ^2.1.5
   path: ^1.9.1
   uuid: ^4.5.1
-  flutter_timezone: ^5.1.1
   web_socket_channel: ^3.0.3
   html: ^0.15.6
   just_audio: ^0.9.46
-  timezone: ^0.10.1
   xml: ^6.5.0
 
 dev_dependencies:

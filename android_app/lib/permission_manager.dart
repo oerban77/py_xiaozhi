@@ -1,11 +1,11 @@
-// Requests every runtime permission the app needs, up front, so the mic, camera
-// and notifications never prompt mid-conversation.
+// Requests every runtime permission the app needs, up front, so the mic and
+// camera never prompt mid-conversation.
 //
 // Android grants dangerous permissions at runtime, not at install time. Without
-// this gate the system dialog appears the first time the recorder starts, the
-// first time the camera opens and the first time a reminder is scheduled — each
-// one interrupting whatever the user was doing. Requesting them once on the first
-// launch means the later flows just work.
+// this gate the system dialog appears the first time the recorder starts and the
+// first time the camera opens — each one interrupting whatever the user was
+// doing. Requesting them once on the first launch means the later flows just
+// work.
 
 import 'dart:async';
 
@@ -60,11 +60,11 @@ final List<AppPermission> appPermissions = [
   const AppPermission(
     permission: Permission.notification,
     title: 'Notifikasi',
-    reason: 'Menampilkan pengingat dan pemutar musik di panel notifikasi.',
+    reason: 'Menampilkan pemutar musik di panel notifikasi.',
     // Permission.notification shows no system dialog — it opens the notification
-    // settings page instead, which would trap the first-run flow. It is also
-    // requested on demand by reminder_runtime when a reminder is scheduled, so
-    // it must not gate the rest of the app.
+    // settings page instead, which would trap the first-run flow. Reminders are
+    // scheduled through the phone's clock app, which needs no runtime permission,
+    // so this must not gate the rest of the app.
     required: false,
   ),
 ];
