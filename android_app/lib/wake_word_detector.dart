@@ -124,9 +124,10 @@ class WakeWordDetector {
     return target;
   }
 
-  /// Writes the keyword line to <dir>/keywords.txt. sherpa-onnx parses this file
-  /// with InitKeywords() when the spotter is created (one keyword per line), so
-  /// it must live in a directory the app can open, just like the model files.
+  /// Writes the keyword line to `keywords.txt` inside [dir]. sherpa-onnx parses
+  /// this file with InitKeywords() when the spotter is created (one keyword per
+  /// line), so it must live in a directory the app can open, just like the model
+  /// files.
   Future<String> _writeKeywordsFile(String dir, String keywordLine) async {
     final target = p.join(dir, 'keywords.txt');
     // A trailing newline keeps the parser from gluing two lines together when
