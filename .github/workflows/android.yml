@@ -168,21 +168,52 @@ jobs:
           # Keep Android libraries on the same supported SDK without editing cached packages.
           # 36 matches the app's compileSdk and satisfies the AAR metadata of the
           # AndroidX dependencies used by camera/mobile_scanner/just_audio.
-          gradle_path = Path('android/build.gradle')
+          #
+          # Patch the root build file Gradle actually loads. `flutter create` emits
+          # android/build.gradle.kts; writing to android/build.gradle instead creates a
+          # second root build file that Gradle prefers (the Groovy name wins), silently
+          # discarding the template's `subprojects { evaluationDependsOn(":app") }` and
+          # repository config. Plugin modules then evaluate before :app, and the "flutter"
+          # extension they read (`flutter.compileSdkVersion`) only exists once :app has been
+          # configured, so the build fails with "Could not get unknown property 'flutter'".
+          gradle_path = (
+              Path('android/build.gradle.kts')
+              if Path('android/build.gradle.kts').exists()
+              else Path('android/build.gradle')
+          )
           gradle_text = gradle_path.read_text(encoding='utf-8') if gradle_path.exists() else ''
           marker = '// xiaozhi-android-subproject-compile-sdk'
           if marker not in gradle_text:
-              gradle_text += (
-                  f'\n{marker}\n'
-                  'subprojects {\n'
-                  '    afterEvaluate { project ->\n'
-                  '        def androidExtension = project.extensions.findByName("android")\n'
-                  '        if (androidExtension != null) {\n'
-                  '            androidExtension.compileSdkVersion(36)\n'
-                  '        }\n'
-                  '    }\n'
-                  '}\n'
-              )
+              if gradle_path.name.endswith('.kts'):
+                  gradle_text += (
+                      f'\n{marker}\n'
+                      'subprojects {\n'
+                      '    afterEvaluate {\n'
+                      '        if (plugins.hasId("com.android.library")) {\n'
+                      '            extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {\n'
+                      '                compileSdk = 36\n'
+                      '            }\n'
+                      '        }\n'
+                      '        if (plugins.hasId("com.android.application")) {\n'
+                      '            extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") {\n'
+                      '                compileSdk = 36\n'
+                      '            }\n'
+                      '        }\n'
+                      '    }\n'
+                      '}\n'
+                  )
+              else:
+                  gradle_text += (
+                      f'\n{marker}\n'
+                      'subprojects {\n'
+                      '    afterEvaluate { project ->\n'
+                      '        def androidExtension = project.extensions.findByName("android")\n'
+                      '        if (androidExtension != null) {\n'
+                      '            androidExtension.compileSdkVersion(36)\n'
+                      '        }\n'
+                      '    }\n'
+                      '}\n'
+                  )
           gradle_path.write_text(gradle_text, encoding='utf-8')
 
           xml_dir = Path('android/app/src/main/res/xml')
