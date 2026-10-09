@@ -184,13 +184,25 @@ jobs:
           gradle_text = gradle_path.read_text(encoding='utf-8') if gradle_path.exists() else ''
           marker = '// xiaozhi-android-subproject-compile-sdk'
           if marker not in gradle_text:
+              # The override has to run after each plugin's own build script sets its compileSdk,
+              # so afterEvaluate is required. The Flutter template's
+              # `subprojects { project.evaluationDependsOn(":app") }` evaluates :app while the
+              # root build file is still being configured, and Gradle refuses to register an
+              # afterEvaluate callback on an already-evaluated project ("Cannot run
+              # Project.afterEvaluate(Action) when the project is already evaluated"), so :app
+              # must be skipped here. Its compileSdk is set by the app/build.gradle(.kts) patch
+              # steps below.
               if gradle_path.name.endswith('.kts'):
                   gradle_text += (
                       f'\n{marker}\n'
                       'subprojects {\n'
-                      '    plugins.withPlugin("com.android.library") {\n'
-                      '        extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {\n'
-                      '            compileSdk = 36\n'
+                      '    if (name != "app") {\n'
+                      '        afterEvaluate {\n'
+                      '            if (plugins.hasPlugin("com.android.library")) {\n'
+                      '                extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {\n'
+                      '                    compileSdk = 36\n'
+                      '                }\n'
+                      '            }\n'
                       '        }\n'
                       '    }\n'
                       '}\n'
@@ -198,11 +210,13 @@ jobs:
               else:
                   gradle_text += (
                       f'\n{marker}\n'
-                      'subprojects { subproject ->\n'
-                      '    subproject.plugins.withId("com.android.library") {\n'
-                      '        def androidExtension = subproject.extensions.findByName("android")\n'
-                      '        if (androidExtension != null) {\n'
-                      '            androidExtension.compileSdkVersion(36)\n'
+                      'subprojects {\n'
+                      '    if (it.name != "app") {\n'
+                      '        afterEvaluate { project ->\n'
+                      '            def androidExtension = project.extensions.findByName("android")\n'
+                      '            if (androidExtension != null) {\n'
+                      '                androidExtension.compileSdkVersion(36)\n'
+                      '            }\n'
                       '        }\n'
                       '    }\n'
                       '}\n'
