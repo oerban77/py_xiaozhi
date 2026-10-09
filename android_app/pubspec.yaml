@@ -13,10 +13,10 @@ dependencies:
   # and breaks version solving against the Flutter SDK's pinned meta 1.17.0.
   # The APIs used (PdfDocument.openData, loadText, pages, dispose) are unchanged.
   pdfrx: ^2.4.7
-  # Pinned to 5.3.1: 6.0.0+ requires Android Gradle Plugin >=8.12.1 and Gradle
-  # >=8.13, which the CI's `flutter create` template does not provide. The only
-  # APIs used (AndroidIntent({action, arguments}) + launch()) are identical.
-  android_intent_plus: 5.3.1
+  # Upgraded to 6.1.0 to stay compatible with the current Flutter/AGP toolchain.
+  # The AndroidIntent API used here is unchanged; this removes the AGP 8.11+ new-DSL
+  # incompatibility introduced by the older 5.x package line.
+  android_intent_plus: ^6.1.0
   flutter_music_picker: ^0.0.9
   flutter:
     sdk: flutter
