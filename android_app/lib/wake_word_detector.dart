@@ -11,6 +11,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -103,6 +104,10 @@ class WakeWordDetector {
   /// True when the model is loaded and the detection loop is accepting audio.
   bool get isRunning => _running && !_paused;
 
+  /// The keyword line registered with sherpa-onnx for the current wake word,
+  /// e.g. "▁HE LL O ▁ X IA O Z H I @HELLO-XIAOZHI". Empty before [start].
+  String get keywordLine => _keywordLine;
+
   /// Copies the bundled model files out of the asset bundle. Android apps are
   /// sandboxed, so sherpa-onnx cannot open "assets/..." directly; the canonical
   /// sherpa-onnx Flutter examples use the same copy-to-app-support approach.
@@ -118,6 +123,29 @@ class WakeWordDetector {
     }
     return target;
   }
+
+  /// Writes the keyword line to <dir>/keywords.txt. sherpa-onnx parses this file
+  /// with InitKeywords() when the spotter is created (one keyword per line), so
+  /// it must live in a directory the app can open, just like the model files.
+  Future<String> _writeKeywordsFile(String dir, String keywordLine) async {
+    final target = p.join(dir, 'keywords.txt');
+    // A trailing newline keeps the parser from gluing two lines together when
+    // a stale keywords.txt from an older wake word is overwritten in place.
+    await (await File(target).create(recursive: true)).writeAsString(
+      '$keywordLine\n',
+      flush: true,
+    );
+    return target;
+  }
+
+  // start() also needs the native sherpa-onnx library, which is absent on the
+  // test host, so the two helpers above are exposed for direct unit testing.
+  @visibleForTesting
+  Future<String> copyAssetFile(String src, [String? dst]) => _copyAssetFile(src, dst);
+
+  @visibleForTesting
+  Future<String> writeKeywordsFile(String dir, String keywordLine) =>
+      _writeKeywordsFile(dir, keywordLine);
 
   /// Loads the model and starts detecting. Safe to call repeatedly; a running
   /// detector is stopped first (mirrors WakeWordDetector.initialize in Python,
@@ -140,10 +168,19 @@ class WakeWordDetector {
       final joinerPath = await _copyAssetFile('$_modelAssetDir/joiner.onnx');
       final tokensPath = await _copyAssetFile('$_modelAssetDir/tokens.txt');
 
-      // createStream(keywords:) takes an inline keyword line, so a user-defined
-      // wake word needs no keywords.txt on disk.
+      // sherpa-onnx requires the keywords at construction time: an empty
+      // keywords_file/keywords_buf makes KeywordSpotterConfig::Validate() fail
+      // ("Please provide either a keywords-file or the keywords-buf"), the C-API
+      // then returns nullptr and the Dart factory throws. The Python client
+      // therefore writes its keyword line to keywords.txt and passes
+      // keywords_file; mirror that here. The line is written next to the copied
+      // model files, in the app-support dir sherpa-onnx can open.
       final converter = BpeKeywordConverter(tokensPath);
       _keywordLine = await converter.convert(options.wakeWord);
+      final keywordsPath = await _writeKeywordsFile(
+        p.dirname(tokensPath),
+        _keywordLine,
+      );
 
       final config = sherpa_onnx.KeywordSpotterConfig(
         feat: const sherpa_onnx.FeatureConfig(sampleRate: sampleRate, featureDim: 80),
@@ -161,10 +198,14 @@ class WakeWordDetector {
         numTrailingBlanks: options.numTrailingBlanks,
         keywordsScore: options.keywordsScore,
         keywordsThreshold: options.keywordsThreshold,
+        keywordsFile: keywordsPath,
       );
 
       _spotter = sherpa_onnx.KeywordSpotter(config);
-      _stream = _spotter!.createStream(keywords: _keywordLine);
+      // The keyword is already registered through keywords_file above; passing
+      // it to createStream() again would add it to the context graph a second
+      // time (CreateStream merges the per-stream keywords with the config ones).
+      _stream = _spotter!.createStream();
       _running = true;
       _paused = false;
       _lastDetectionAt = null;
