@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 import 'package:py_xiaozhi_android/reminder_runtime.dart';
