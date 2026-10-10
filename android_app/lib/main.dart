@@ -24,6 +24,7 @@ class XiaozhiApp extends StatefulWidget {
     super.key,
     required this.controller,
     this.skipPermissionGate = false,
+    this.skipAutoConnect = false,
   });
 
   final XiaozhiController controller;
@@ -31,6 +32,11 @@ class XiaozhiApp extends StatefulWidget {
   /// Allows widget tests and other controlled in-app bootstrap flows to skip the
   /// first-run permission gate without changing the default production behavior.
   final bool skipPermissionGate;
+
+  /// Skips the startup auto-connect. Widget tests have no server to talk to, and
+  /// XiaozhiController.connect() would otherwise try to reach the default
+  /// endpoint the moment the test pumps the app.
+  final bool skipAutoConnect;
 
   @override
   State<XiaozhiApp> createState() => _XiaozhiAppState();
@@ -47,6 +53,7 @@ class _XiaozhiAppState extends State<XiaozhiApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     if (widget.skipPermissionGate) {
       _permissionsGranted = true;
+      unawaited(_maybeAutoConnect());
       return;
     }
     unawaited(_checkPermissions());
@@ -70,6 +77,12 @@ class _XiaozhiAppState extends State<XiaozhiApp> with WidgetsBindingObserver {
     final granted = await manager.allRequiredGranted;
     if (!mounted) return;
     setState(() => _permissionsGranted = granted);
+    if (granted) unawaited(_maybeAutoConnect());
+  }
+
+  Future<void> _maybeAutoConnect() async {
+    if (widget.skipAutoConnect) return;
+    await widget.controller.maybeAutoConnect();
   }
 
   void _onPermissionsGranted() {

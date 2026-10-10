@@ -18,6 +18,7 @@ void main() {
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
       skipPermissionGate: true,
+      skipAutoConnect: true,
     ));
 
     expect(find.text('Xiaozhi'), findsOneWidget);
@@ -34,6 +35,7 @@ void main() {
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
       skipPermissionGate: true,
+      skipAutoConnect: true,
     ));
 
     expect(find.byType(EmotionDisplay), findsOneWidget);
@@ -50,6 +52,7 @@ void main() {
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
       skipPermissionGate: true,
+      skipAutoConnect: true,
     ));
 
     expect(tester.getSize(find.byKey(const ValueKey('live-text-area'))).height, lessThanOrEqualTo(160));

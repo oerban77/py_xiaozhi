@@ -70,6 +70,19 @@ class XiaozhiController extends ChangeNotifier {
   List<String> disabledMcpModules = [];
   bool autoConversation = false;
   bool autoSessionActive = false;
+  /// Mirrors the desktop GUI's auto-connect: connect as soon as the app starts
+  /// when the server settings are already complete, and reconnect after the
+  /// socket drops. Toggled in Pengaturan; persisted as 'auto_connect'.
+  bool autoConnect = true;
+  bool _autoConnectEnabled = true;
+  bool _isReconnecting = false;
+  int _reconnectAttempt = 0;
+  Timer? _reconnectTimer;
+  /// True once the current connect() attempt got past the handshake. Only a
+  /// connection that was actually up is worth reconnecting: a failed first
+  /// connect (bad endpoint, handshake timeout) would otherwise spin forever.
+  /// Reset at the top of every connect() and in disconnect().
+  bool _wasConnected = false;
   /// Mirrors WAKE_WORD_OPTIONS in src/utils/config_manager.py. The wake word
   /// starts a conversation and interrupts TTS, exactly like src/plugins/wake_word.py.
   WakeWordOptions wakeWordOptions = const WakeWordOptions();
@@ -206,6 +219,8 @@ class XiaozhiController extends ChangeNotifier {
     smartHomeDevicesJson = _preferences?.getString('smart_home_devices') ?? '[]';
     disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
     autoConversation = _preferences?.getBool('auto_conversation') ?? false;
+    autoConnect = _preferences?.getBool('auto_connect') ?? true;
+    _autoConnectEnabled = autoConnect;
     final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
     _outputSampleRate = supportedOutputSampleRates.contains(storedRate) ? storedRate : 24000;
     wakeWordOptions = WakeWordOptions(
@@ -228,6 +243,51 @@ class XiaozhiController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// True when every field connect() needs is already saved, so auto-connect can
+  /// proceed without the user opening Pengaturan first. Mirrors the guard at the
+  /// top of connect().
+  bool get _canAutoConnect =>
+      endpoint.trim().isNotEmpty &&
+      token.trim().isNotEmpty &&
+      deviceId.trim().isNotEmpty &&
+      clientId.trim().isNotEmpty;
+
+  /// Connects on startup when the feature is on and the settings are complete.
+  /// Called from main.dart once the permission gate has passed; a missing mic
+  /// permission would make the wake word detector fail to arm, but connect()
+  /// itself only needs the WebSocket, so this does not block on permissions.
+  Future<void> maybeAutoConnect() async {
+    if (!autoConnect || !_canAutoConnect) return;
+    await connect();
+  }
+
+  /// Reconnects after the socket drops, with an exponential backoff capped at
+  /// 30s. Called from _handleConnectionFailure, which already ran the teardown,
+  /// so this only schedules the next attempt. Any user action (disconnect, or a
+  /// successful connect) cancels the timer via _cancelReconnect().
+  void _scheduleReconnect() {
+    if (!_autoConnectEnabled || isConnecting || isConnected) return;
+    if (_isReconnecting) return;
+    _isReconnecting = true;
+    _reconnectAttempt += 1;
+    final delay = reconnectDelaySeconds(_reconnectAttempt);
+    status = 'Mencoba menghubungkan kembali dalam ${delay}dtk...';
+    notifyListeners();
+    _reconnectTimer = Timer(Duration(seconds: delay), () {
+      _reconnectTimer = null;
+      _isReconnecting = false;
+      if (!_autoConnectEnabled || isConnected || isConnecting) return;
+      unawaited(connect());
+    });
+  }
+
+  void _cancelReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _isReconnecting = false;
+    _reconnectAttempt = 0;
+  }
+
   Future<void> saveSettings({
     required String newEndpoint,
     required String newToken,
@@ -246,6 +306,7 @@ class XiaozhiController extends ChangeNotifier {
     required String newSmartHomeDevicesJson,
     required List<String> newDisabledMcpModules,
     required bool newAutoConversation,
+    required bool newAutoConnect,
     required int newOutputSampleRate,
     required bool newWakeWordEnabled,
     required String newWakeWordText,
@@ -273,6 +334,9 @@ class XiaozhiController extends ChangeNotifier {
     disabledMcpModules = List.of(newDisabledMcpModules);
     autoConversation = newAutoConversation;
     autoSessionActive = false;
+    autoConnect = newAutoConnect;
+    _autoConnectEnabled = newAutoConnect;
+    _cancelReconnect();
     await _preferences?.setString('server_url', endpoint);
     await _preferences?.setString('device_id', deviceId);
     await _preferences?.setString('client_id', clientId);
@@ -286,6 +350,7 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setString('smart_home_devices', smartHomeDevicesJson);
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_conversation', autoConversation);
+    await _preferences?.setBool('auto_connect', autoConnect);
     await setOutputSampleRate(newOutputSampleRate);
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.
@@ -407,6 +472,14 @@ class XiaozhiController extends ChangeNotifier {
 
   /// Mirrors WakeWordPlugin._on_detected: interrupt TTS, or start a voice session
   /// so the speech following the wake word reaches the server.
+  ///
+  /// The session the wake word opens always runs in auto mode. In manual mode
+  /// the server waits for a listen-stop that never comes (there is no tap to
+  /// send it), so the conversation hangs; WakeWordPlugin._on_detected in Python
+  /// picks AUTO_STOP/REALTIME for the same reason. When the user has the app in
+  /// manual mode, the detection also flips the persisted setting to auto so the
+  /// UI's Manual/Auto segmented button and the mic lifecycle stay consistent for
+  /// the rest of the session.
   void _handleWakeWordDetected(String keyword) {
     if (!isConnected) return;
     if (isSpeaking) {
@@ -424,6 +497,7 @@ class XiaozhiController extends ChangeNotifier {
         _playerStarted = false;
       }
       isSpeaking = false;
+      _switchToAutoConversation();
       status = 'Wake word terdeteksi, TTS dihentikan';
       notifyListeners();
       // The abort flow needs the mic live so the user's next sentence is heard.
@@ -434,6 +508,7 @@ class XiaozhiController extends ChangeNotifier {
     // Not speaking: tell the server the wake word fired and open the mic, so the
     // conversation starts without a tap (send_wake_word_detected + start_listening
     // with AUTO_STOP, since Android has no AEC).
+    _switchToAutoConversation();
     if (!isRecording) {
       unawaited(startVoice());
     }
@@ -442,8 +517,30 @@ class XiaozhiController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Flips manual -> auto conversation when the wake word fires, persisting the
+  /// change so the segmented button stays in sync. No-op when already auto.
+  /// Mirrors start_auto_conversation in src/bootstrap/session.py, which sets
+  /// keep_listening so the session survives the assistant's reply.
+  ///
+  /// The flag is set synchronously and the persist is fire-and-forget:
+  /// _handleWakeWordDetected calls this right before startVoice(), which reads
+  /// autoConversation to pick the listening mode, so the flag has to be updated
+  /// before that call and cannot wait on SharedPreferences.
+  void _switchToAutoConversation() {
+    if (autoConversation) return;
+    autoConversation = true;
+    autoSessionActive = true;
+    unawaited(_preferences?.setBool('auto_conversation', autoConversation));
+  }
+
   Future<void> connect() async {
     if (isConnected || isConnecting) return;
+    _cancelReconnect();
+    _wasConnected = false;
+    // A manual connect re-enables auto-reconnect: disconnect() turns it off so
+    // an intentional disconnect is not immediately undone, but the user tapping
+    // "Hubungkan" clearly wants a live connection again.
+    _autoConnectEnabled = autoConnect;
     if (endpoint.isEmpty || token.isEmpty || deviceId.isEmpty || clientId.isEmpty) {
       status = 'Lengkapi koneksi di Pengaturan';
       notifyListeners();
@@ -488,6 +585,7 @@ class XiaozhiController extends ChangeNotifier {
       channel.sink.add(ProtocolMessages.hello());
       await _helloCompleter!.future.timeout(const Duration(seconds: 15));
       isConnected = true;
+      _wasConnected = true;
       isConnecting = false;
       status = 'Terhubung';
       // Mirrors UiPresenter.show_device_state, which resets the emotion to
@@ -512,6 +610,9 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    _autoConnectEnabled = false;
+    _wasConnected = false;
+    _cancelReconnect();
     if (isRecording) await stopVoice();
     await _stopWakeWordDetector();
     autoConversation = false;
@@ -953,6 +1054,19 @@ class XiaozhiController extends ChangeNotifier {
     return '$current\n$segment';
   }
 
+  /// Seconds to wait before the [attempt]-th reconnect, exponential and capped
+  /// at 30s so a long outage does not hammer the server.
+  @visibleForTesting
+  static int reconnectDelaySeconds(int attempt) {
+    final attempt1 = attempt < 1 ? 1 : attempt;
+    return (2 * attempt1).clamp(2, 30);
+  }
+
+  /// True when every field connect() needs is already saved. Exposed for tests
+  /// so they can assert the auto-connect guard without a live socket.
+  @visibleForTesting
+  bool get canAutoConnect => _canAutoConnect;
+
   Future<void> _initializeAudio() async {
     if (!_opusInitialized) {
       initOpus(await opus_flutter.load());
@@ -1179,6 +1293,11 @@ class XiaozhiController extends ChangeNotifier {
     unawaited(wakeWordDetector.stop());
     unawaited(_closeSocket());
     if (_playerStarted) unawaited(_stopPlayer());
+    // Auto-reconnect only after a connection that was actually up; a failed
+    // first connect() (bad endpoint, handshake timeout) must not spin forever.
+    if (_wasConnected) {
+      _scheduleReconnect();
+    }
     notifyListeners();
   }
 
@@ -1202,6 +1321,8 @@ class XiaozhiController extends ChangeNotifier {
   @override
   void dispose() {
     _silencePollTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     unawaited(_socketSubscription?.cancel());
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());

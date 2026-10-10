@@ -44,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _smartHomeDevicesController;
   late String _cameraFacing;
   late bool _autoConversation;
+  late bool _autoConnect;
   late bool _smartHomeUseTls;
   late int _outputSampleRate;
   late bool _wakeWordEnabled;
@@ -105,6 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     };
     _cameraFacing = widget.controller.cameraFacing;
     _autoConversation = widget.controller.autoConversation;
+    _autoConnect = widget.controller.autoConnect;
     _outputSampleRate = widget.controller.outputSampleRate;
     _wakeWordEnabled = widget.controller.wakeWordOptions.enabled;
     _wakeWordController = TextEditingController(text: widget.controller.wakeWordOptions.wakeWord);
@@ -346,6 +348,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newSmartHomeDevicesJson: _smartHomeDevicesController.text,
       newDisabledMcpModules: _disabledMcpModules.toList()..sort(),
       newAutoConversation: _autoConversation,
+      newAutoConnect: _autoConnect,
       newOutputSampleRate: _outputSampleRate,
       newWakeWordEnabled: _wakeWordEnabled,
       newWakeWordText: _wakeWordController.text,
@@ -537,6 +540,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Aktifkan auto conversation'),
                       subtitle: const Text('Mulai listening realtime saat mode otomatis aktif.'),
                       onChanged: (value) => setState(() => _autoConversation = value),
+                      activeThumbColor: AppColors.green,
+                      activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _autoConnect,
+                      title: const Text('Hubungkan otomatis'),
+                      subtitle: const Text(
+                        'Hubungkan ke server saat aplikasi dibuka dan '
+                        'mencoba menghubungkan kembali jika koneksi terputus.',
+                      ),
+                      onChanged: (value) => setState(() => _autoConnect = value),
                       activeThumbColor: AppColors.green,
                       activeTrackColor: AppColors.green.withValues(alpha: 0.35),
                     ),
