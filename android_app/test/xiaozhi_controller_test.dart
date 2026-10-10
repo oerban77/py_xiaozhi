@@ -5,17 +5,34 @@
 // not touch the network, so these tests construct it directly and drive the
 // pieces that are pure state. connect() itself is not exercised here: it opens a
 // real WebSocket, and there is no server to talk to in a host test.
+//
+// AudioRecorder() is not a plain Dart object: its constructor invokes "create"
+// on the record plugin's method channel, and with no plugin registered on the
+// host that Future fails with MissingPluginException. The call is
+// fire-and-forget, so the error surfaces after the test body has already
+// completed ("failed after test completion"). Answering the channel in setUp
+// keeps that Future from ever seeing an error.
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
 
 void main() {
-  // The constructor's field initializers build AudioRecorder/FlutterSoundPlayer/
-  // WakeWordDetector, which register method-channel handlers and therefore need a
-  // binding. Plain test() blocks get none, so initialize it here the way
-  // pumpWidget would in a testWidgets test.
+  const recordChannel = MethodChannel('com.llfbandit.record/messages');
+
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(recordChannel, (MethodCall call) async {
+      // AudioRecorder._create() only awaits the acknowledgement; the recorder is
+      // never started in these tests.
+      return null;
+    });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(recordChannel, null);
   });
 
   group('reconnectDelaySeconds', () {
