@@ -10,6 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
 
 void main() {
+  // The constructor's field initializers build AudioRecorder/FlutterSoundPlayer/
+  // WakeWordDetector, which register method-channel handlers and therefore need a
+  // binding. Plain test() blocks get none, so initialize it here the way
+  // pumpWidget would in a testWidgets test.
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
   group('reconnectDelaySeconds', () {
     test('grows exponentially and caps at 30s', () {
       expect(XiaozhiController.reconnectDelaySeconds(1), 2);
