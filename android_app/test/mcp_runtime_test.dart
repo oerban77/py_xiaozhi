@@ -232,10 +232,13 @@ void main() {
     final callResult = callResponse!['result'] as Map<String, dynamic>;
     final content = callResult['content'] as List<dynamic>;
     // The question hint is prepended like document_manage's question_hint in
-    // src/mcp/tools/documents/service.py, then the raw attachment content.
+    // src/mcp/tools/documents/service.py, then the chunked attachment content.
+    // The text is short enough to be a single chunk, so the read also reports the
+    // end of the document rather than ending with the raw content.
     expect((content.single as Map)['text'], contains('Attached file: catatan.txt'));
     expect((content.single as Map)['text'], contains('User question: Jelaskan isinya.'));
-    expect((content.single as Map)['text'], endsWith(attachedText));
+    expect((content.single as Map)['text'], contains(attachedText));
+    expect((content.single as Map)['text'], endsWith('[Read chunk 1; end of document.]'));
   });
 
   test('offers the attachment reader before an attachment is sent', () async {

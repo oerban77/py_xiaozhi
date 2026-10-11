@@ -140,8 +140,21 @@ void main() {
     const extraction = PdfExtraction(<String>['', '', 'Halaman 3']);
 
     final blank = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
-    expect(blank, contains('no extractable text'));
-    expect(blank, contains('Continue with page_start=3, page_end=3.'));
+    // The blank pages are skipped and the one page that has text is returned, so
+    // the read covers the whole document and reports the end rather than claiming
+    // there is nothing to read. Mirrors _extract_pdf_text, which only emits its
+    // "no extractable text" branch when every requested page is blank.
+    expect(blank, contains('Halaman 3'));
+    expect(blank, contains('Read pages 1-3 of 3.'));
+    expect(blank, isNot(contains('Continue with')));
+  });
+
+  test('reports no extractable text only when every requested page is blank', () {
+    const extraction = PdfExtraction(<String>['', '', '']);
+
+    final blank = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
+    expect(blank, contains('Pages 1-3 of 3 contain no extractable text.'));
+    expect(blank, isNot(contains('Continue with')));
   });
 
   test('chunks a non-PDF document with a continuation hint', () {
@@ -154,7 +167,12 @@ void main() {
     expect(first, contains('baris 1'));
     expect(first, contains('Read chunk 1. Continue with chunk_index=2.'));
 
+    // 3000 lines of ~10 chars is ~32k chars, and documentCharsPerRead is 24000,
+    // so the document is exactly two chunks: the second read reaches the end.
+    // Mirrors _chunk_extracted_text, whose has_more is chunk_index < total_chunks.
     final second = AttachmentTextReader.sliceDocument(text: text, chunkIndex: 2);
-    expect(second, contains('Read chunk 2. Continue with chunk_index=3.'));
+    expect(second, contains('baris 2284'));
+    expect(second, contains('Read chunk 2; end of document.'));
+    expect(second, isNot(contains('Continue with')));
   });
 }
