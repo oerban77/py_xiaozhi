@@ -12,6 +12,7 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:xml/xml.dart';
 
 import 'camera_runtime.dart';
+import 'attachment_text_reader.dart';
 import 'music_runtime.dart';
 import 'reminder_runtime.dart';
 import 'volume_runtime.dart';
@@ -222,12 +223,25 @@ class McpRuntime {
         'chat. Never use take_screenshot, read_file, or image_read for an attached document. If the user '
         'asks to read, analyze, summarize, explain, translate, or answer questions about an attached '
         'document, call manage_document(action=read) FIRST, then answer from the returned content. Treat '
-        'the returned text as the user request and follow it.',
+        'the returned text as the user request and follow it.\n'
+        'PDFs are read in chunks of at most 4 pages and 6,000 characters; all other document text is '
+        'returned in chunks of at most 24,000 characters. The returned text ends with a continuation '
+        'notice; call this tool again with the parameters from that notice to read the rest. The attached '
+        'document stays available for follow-up reads, so never ask the user to upload it again.\n'
+        'Parameters:\n'
+        '- action: read (required)\n'
+        '- page_start: first PDF page, 1-based (default 1)\n'
+        '- page_end: last PDF page, inclusive (default: up to 4 pages)\n'
+        '- chunk_index: 1-based 24,000-character chunk for non-PDF documents '
+        '(default 1); follow the continuation hint',
     'inputSchema': {
       'type': 'object',
       'properties': {
         'action': {'type': 'string', 'enum': ['read']},
         'path': {'type': 'string', 'default': ''},
+        'page_start': {'type': 'integer', 'minimum': 1, 'default': 1},
+        'page_end': {'type': 'integer', 'minimum': 0, 'default': 0},
+        'chunk_index': {'type': 'integer', 'minimum': 1, 'default': 1},
       },
       'required': ['action'],
     },
@@ -247,6 +261,7 @@ class McpRuntime {
     Map<String, Object?> visionConfig = const {},
     String? pendingTextAttachment,
     String pendingTextQuestion = '',
+    PdfExtraction? pendingPdf,
     Uint8List? pendingImageAttachment,
     bool pendingImageAsDocument = false,
     String pendingImageQuestion = '',
@@ -276,8 +291,10 @@ class McpRuntime {
         case 'tools/list':
           final hasTextAttachment =
               pendingTextAttachment != null && pendingTextAttachment.isNotEmpty;
+          final hasPdfAttachment = pendingPdf != null && pendingPdf.pageCount > 0;
           final hasImageAttachment = pendingImageAttachment != null;
-          final hasDocumentAttachment = hasTextAttachment || pendingImageAsDocument;
+          final hasDocumentAttachment =
+              hasTextAttachment || hasPdfAttachment || pendingImageAsDocument;
           final tools = _tools.where((tool) {
             final name = tool['name'] as String;
             if (hasDocumentAttachment && name == 'take_photo') return false;
@@ -324,6 +341,7 @@ class McpRuntime {
           }
           if (name == 'take_photo' &&
               ((pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) ||
+                  hasPdfAttachment ||
                   pendingImageAsDocument)) {
             return _result(id, {
               'content': [
@@ -337,6 +355,35 @@ class McpRuntime {
             });
           }
           if (name == 'manage_document') {
+            if (pendingPdf != null && pendingPdf.pageCount > 0) {
+              if (arguments['action'] != 'read' ||
+                  (arguments['path'] is String && (arguments['path'] as String).isNotEmpty)) {
+                return _error(id, -32602, 'Attached PDF must be read with action=read and no path');
+              }
+              final pageStart = int.tryParse('${arguments['page_start'] ?? 1}') ?? 1;
+              final pageEnd = int.tryParse('${arguments['page_end'] ?? 0}') ?? 0;
+              // Mirrors the question_hint in
+              // src/mcp/tools/documents/service.document_manage: surface the file
+              // name and the user's chat question alongside the content so the
+              // LLM knows what to answer, even though only the short prompt
+              // travelled over the detect channel.
+              final questionHint = pendingTextQuestion.isEmpty
+                  ? ''
+                  : '[Attached file: $pendingAttachmentName | '
+                      'User question: $pendingTextQuestion]\n\n';
+              return _result(id, {
+                'content': [
+                  {
+                    'type': 'text',
+                    'text': '$questionHint${AttachmentTextReader.slicePdf('
+                        'extraction: pendingPdf, '
+                        'pageStart: pageStart, '
+                        'pageEnd: pageEnd)}',
+                  },
+                ],
+                'isError': false,
+              });
+            }
             if (pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) {
               if (arguments['action'] != 'read' ||
                   (arguments['path'] is String && (arguments['path'] as String).isNotEmpty)) {
@@ -351,9 +398,15 @@ class McpRuntime {
                   ? ''
                   : '[Attached file: $pendingAttachmentName | '
                       'User question: $pendingTextQuestion]\n\n';
+              final chunkIndex =
+                  int.tryParse('${arguments['chunk_index'] ?? 1}') ?? 1;
               return _result(id, {
                 'content': [
-                  {'type': 'text', 'text': '$questionHint$pendingTextAttachment'},
+                  {
+                    'type': 'text',
+                    'text': '$questionHint${AttachmentTextReader.sliceDocument('
+                        'text: pendingTextAttachment, chunkIndex: chunkIndex)}',
+                  },
                 ],
                 'isError': false,
               });

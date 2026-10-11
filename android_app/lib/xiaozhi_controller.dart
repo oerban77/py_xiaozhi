@@ -14,6 +14,7 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'chat_message.dart';
+import 'attachment_text_reader.dart';
 import 'emotion_service.dart';
 import 'mcp_runtime.dart';
 import 'protocol_messages.dart';
@@ -110,6 +111,12 @@ class XiaozhiController extends ChangeNotifier {
   /// "[Attached file: ... | User question: ...]" so it knows what to answer
   /// even though only the short prompt travelled over the detect channel.
   String? _pendingTextQuestion;
+  /// Page-by-page PDF text of the pending attachment, kept across reads so the
+  /// LLM can continue and jump pages without re-uploading. Mirrors
+  /// _LAST_READ_PDF_PATH/_LAST_READ_PDF_AT in src/mcp/tools/documents/service.py.
+  PdfExtraction? _pendingPdf;
+  DateTime _pendingAttachmentAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _attachmentTtl = Duration(minutes: 30);
   Uint8List? _pendingImageAttachment;
   bool _pendingImageAsDocument = false;
   String _pendingImageQuestion = '';
@@ -129,6 +136,20 @@ class XiaozhiController extends ChangeNotifier {
   bool isSpeaking = false;
   bool _opusInitialized = false;
   bool _playerStarted = false;
+  /// Monotonic token bumped on every player teardown. A stop/start is inherently
+  /// racy here: _handleWakeWordDetected restarts the stream in a .then() while
+  /// _interruptTtsForTextInput and setOutputSampleRate do their own stop/start,
+  /// and an audio frame arriving in the middle of that window used to see
+  /// _playerStarted == false and call startPlayerFromStream() on a player whose
+  /// stopPlayer() had not completed yet. That call throws, the exception escaped
+  /// _handleAudio, and the whole utterance was dropped ("TTS tidak ada suaranya").
+  /// Every start captures the generation it was launched under and every pending
+  /// restart verifies it is still current before touching the player.
+  int _playerGeneration = 0;
+  /// Serializes player stop/start. Without this, two concurrent restarts race:
+  /// the loser's startPlayerFromStream() hits an already-open stream and throws,
+  /// which is exactly how an utterance goes silent.
+  Future<void> _playerStreamOp = Future<void>.value();
   bool mcpInitialized = false;
   bool mcpToolsListed = false;
 
@@ -167,7 +188,7 @@ class XiaozhiController extends ChangeNotifier {
   /// Latency matters as much as smoothness: a large burst or a large prebuffer
   /// holds back the first syllables, so in auto mode the answer sounds like it only
   /// starts near the end of the sentence. Keep both small.
-  static const int _ttsFeedFrames = 2;
+  static const int _ttsFeedFrames = 4;
   /// Mirrors _TTS_FIFO_MAX_S = 10.0 in src/audio_codecs/audio_codec.py. This is a
   /// safety valve for a stalled consumer, not a jitter target: it has to be large
   /// that a slow feed never drops the *head* of an utterance. Dropping the head is
@@ -176,8 +197,10 @@ class XiaozhiController extends ChangeNotifier {
   /// Frames to accumulate before the first feed of an utterance, mirroring
   /// _TTS_PREBUFFER_S in src/audio_codecs/audio_codec.py but kept smaller: the
   /// Android OS playback buffer already adds its own start-up latency on top, so a
-  /// full 0.12s hold here delays the first syllable noticeably.
-  static const int _ttsPrebufferFrames = 2;
+  /// full 0.12s hold here delays the first syllable noticeably. 4 frames at 20 ms
+  /// is ~80 ms, enough to absorb the arrival jitter at speech onset without
+  /// letting the OS buffer run dry between bursts.
+  static const int _ttsPrebufferFrames = 4;
   /// Wall-clock cap for a single player feed. feedInt16FromStream can exert
   /// backpressure; without a cap a future that never returns leaves _ttsFeeding true
   /// forever, every later frame is skipped, and only the tail of the sentence plays.
@@ -199,6 +222,14 @@ class XiaozhiController extends ChangeNotifier {
   bool _micAutoManaged = false;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
+  /// Wall-clock cap for the whole speaking window. The server's tts "stop" can be
+  /// lost (the socket drops mid-utterance, or the server is killed), and without a
+  /// cap _suppressMic would stay true forever and the mic would never answer again
+  /// ("mic tidak direspon"). Mirrors the _SILENCE_PERIOD_MAX_S deadline in
+  /// src/plugins/audio.py, applied to the playback window itself rather than only
+  /// to the post-stop drain.
+  static const Duration _speakingTimeout = Duration(seconds: 15);
+  Timer? _speakingWatchdog;
 
   Future<void> initialize() async {
     await McpRuntime.initializeNotifications();
@@ -622,6 +653,10 @@ class XiaozhiController extends ChangeNotifier {
     isConnecting = false;
     mcpInitialized = false;
     mcpToolsListed = false;
+    _pendingTextAttachment = null;
+    _pendingTextQuestion = null;
+    _pendingPdf = null;
+    _pendingAttachmentName = null;
     _silencePollTimer?.cancel();
     _suppressMic = false;
     _ttsBuffer.clear();
@@ -658,8 +693,9 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<bool> sendTextAttachment({
     required String fileName,
-    required String content,
+    String content = '',
     required String question,
+    PdfExtraction? pdf,
   }) {
     final request = question.trim().isEmpty
         ? 'Baca dan jawab isi lampiran ini.'
@@ -668,6 +704,7 @@ class XiaozhiController extends ChangeNotifier {
       displayText: 'Lampiran teks: $fileName\n$request',
       detectText: 'baca lampiran',
       pendingText: content,
+      pendingPdf: pdf,
       attachmentName: fileName,
       pendingQuestion: request,
     );
@@ -728,6 +765,7 @@ class XiaozhiController extends ChangeNotifier {
     required String displayText,
     required String detectText,
     String? pendingText,
+    PdfExtraction? pendingPdf,
     Uint8List? imageBytes,
     String imageQuestion = '',
     String attachmentName = '',
@@ -736,16 +774,25 @@ class XiaozhiController extends ChangeNotifier {
   }) async {
     if (!isConnected) return false;
     await _interruptTtsForTextInput();
-    _pendingTextAttachment = pendingText == null
+    // A PDF is served page by page (see McpRuntime.manage_document), so its
+    // full text is never inlined here; only non-PDF attachments are capped.
+    _pendingTextAttachment = pendingPdf != null
         ? null
-        : pendingText.length > maxTextAttachmentChars
-            ? '${pendingText.substring(0, maxTextAttachmentChars)}\n[Attachment content truncated]'
-            : pendingText;
-    _pendingTextQuestion = pendingText != null ? pendingQuestion : null;
+        : pendingText == null
+            ? null
+            : pendingText.length > maxTextAttachmentChars
+                ? '${pendingText.substring(0, maxTextAttachmentChars)}\n[Attachment content truncated]'
+                : pendingText;
+    _pendingPdf = pendingPdf;
+    _pendingAttachmentAt = DateTime.now();
+    _pendingTextQuestion = (pendingText != null || pendingPdf != null)
+        ? pendingQuestion
+        : null;
     _pendingImageAttachment = imageBytes;
     _pendingImageAsDocument = pendingImageAsDocument;
     _pendingImageQuestion = imageQuestion;
-    final hasAttachment = pendingText != null || imageBytes != null;
+    final hasAttachment =
+        pendingText != null || pendingPdf != null || imageBytes != null;
     _pendingAttachmentName = hasAttachment ? attachmentName : null;
     messages.add(ChatMessage(text: displayText, isUser: true));
     status = hasAttachment ? 'Mengirim attachment...' : 'Menunggu jawaban...';
@@ -894,11 +941,20 @@ class XiaozhiController extends ChangeNotifier {
       }
 
       if (request != null) {
+        // Mirrors _PDF_CONTEXT_TTL_SECONDS in src/mcp/tools/documents/service.py:
+        // an unread attachment older than the TTL is dropped rather than served.
+        if (_pendingAttachmentAt.difference(DateTime.now()).abs() > _attachmentTtl) {
+          _pendingTextAttachment = null;
+          _pendingTextQuestion = null;
+          _pendingPdf = null;
+          _pendingAttachmentName = null;
+        }
         final response = await McpRuntime.handle(
           request,
           disabledModules: disabledMcpModules.toSet(),
           pendingTextAttachment: _pendingTextAttachment,
           pendingTextQuestion: _pendingTextQuestion ?? '',
+          pendingPdf: _pendingPdf,
           pendingImageAttachment: _pendingImageAttachment,
           pendingImageAsDocument: _pendingImageAsDocument,
           pendingImageQuestion: _pendingImageQuestion,
@@ -945,12 +1001,20 @@ class XiaozhiController extends ChangeNotifier {
               params is Map &&
               (params['name'] == 'manage_document' || params['name'] == 'take_photo') &&
               response['result'] is Map) {
-            _pendingTextAttachment = null;
-            _pendingTextQuestion = null;
-            _pendingImageAttachment = null;
-            _pendingImageAsDocument = false;
-            _pendingImageQuestion = '';
-            _pendingAttachmentName = null;
+            // Mirrors _LAST_READ_PDF_AT in src/mcp/tools/documents/service.py:
+            // a read refreshes the TTL instead of dropping the attachment, so
+            // "continue" / "read page N" still work on the next turn. Only an
+            // image attachment is consumed here, since take_photo is one-shot.
+            _pendingAttachmentAt = DateTime.now();
+            if (params['name'] == 'take_photo') {
+              _pendingTextAttachment = null;
+              _pendingTextQuestion = null;
+              _pendingPdf = null;
+              _pendingImageAttachment = null;
+              _pendingImageAsDocument = false;
+              _pendingImageQuestion = '';
+              _pendingAttachmentName = null;
+            }
           }
           _sendJson({
             'type': 'mcp',
@@ -1101,18 +1165,60 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _startPlayerStream() async {
-    await _player.startPlayerFromStream(
-      codec: Codec.pcm16,
-      numChannels: 1,
-      sampleRate: _outputSampleRate,
-      interleaved: false,
-      // 8192 bytes is ~170ms of PCM16 at 24kHz; the OS will not emit a sound until
-      // this much is queued, which alone delays the start of every answer. 2048
-      // bytes (~43ms) is small enough to start promptly while the 2-frame prebuffer
-      // keeps it from underrunning.
-      bufferSize: 2048,
-    );
-    _playerStarted = true;
+    // Everything is funneled through _withPlayerStream so concurrent stop/start
+    // attempts cannot interleave; see _playerStreamOp.
+    await _withPlayerStream(() async {
+      if (_playerStarted) return;
+      await _player.startPlayerFromStream(
+        codec: Codec.pcm16,
+        numChannels: 1,
+        sampleRate: _outputSampleRate,
+        interleaved: false,
+        // 8192 bytes is ~170ms of PCM16 at 24kHz; the OS will not emit a sound until
+        // this much is queued, which alone delays the start of every answer. 2048
+        // bytes (~43ms) is small enough to start promptly while the prebuffer keeps
+        // it from underrunning.
+        bufferSize: 2048,
+      );
+      _playerStarted = true;
+    });
+  }
+
+  /// Runs [op] with the player-stream lock and a generation check. Returns null if
+  /// a newer stop/start superseded this one while it was waiting, which is the
+  /// signal for a pending restart to give up rather than resurrect a torn-down
+  /// stream.
+  Future<void> _withPlayerStream(Future<void> Function() op) async {
+    final generation = ++_playerGeneration;
+    // Chain instead of a simple mutex: the chain itself is what guarantees the
+    // second caller sees the first caller's result.
+    final completer = Completer<void>();
+    final previous = _playerStreamOp;
+    _playerStreamOp = completer.future;
+    try {
+      await previous;
+      // A newer operation already took over; let it win.
+      if (generation != _playerGeneration) return;
+      await op();
+    } catch (error) {
+      // startPlayerFromStream throws when the player is not open or the stream is
+      // already started. Swallowing keeps a failed restart from breaking the
+      // connection; the next frame re-arms the stream via _handleAudio.
+      status = 'Audio tidak dapat dimulai: $error';
+      notifyListeners();
+    } finally {
+      completer.complete();
+    }
+  }
+
+  /// Tears the stream down and bumps the generation so any restart that was queued
+  /// behind it cannot resurrect a stream the caller meant to close.
+  Future<void> _stopPlayerStream() async {
+    await _withPlayerStream(() async {
+      if (!_playerStarted) return;
+      await _player.stopPlayer();
+      _playerStarted = false;
+    });
   }
 
   void _handleMicData(Uint8List data) {

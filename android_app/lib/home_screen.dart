@@ -128,20 +128,30 @@ class _HomeScreenState extends State<HomeScreen> {
       final isImage = {'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'}
           .contains(extension);
       final question = _textController.text.trim();
+      final isPdf = extension == 'pdf';
       final sent = isImage
           ? await widget.controller.sendImageAttachment(
               fileName: file.name,
               imageBytes: bytes,
               question: question,
             )
-          : await widget.controller.sendTextAttachment(
-              fileName: file.name,
-              content: await AttachmentTextReader.extract(
-                fileName: file.name,
-                bytes: bytes,
-              ),
-              question: question,
-            );
+          : isPdf
+              ? await widget.controller.sendTextAttachment(
+                  fileName: file.name,
+                  question: question,
+                  pdf: await AttachmentTextReader.extractPdf(
+                    fileName: file.name,
+                    bytes: bytes,
+                  ),
+                )
+              : await widget.controller.sendTextAttachment(
+                  fileName: file.name,
+                  content: await AttachmentTextReader.extract(
+                    fileName: file.name,
+                    bytes: bytes,
+                  ),
+                  question: question,
+                );
       if (sent && mounted) {
         _textController.clear();
         setState(() {

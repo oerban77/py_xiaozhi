@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:py_xiaozhi_android/attachment_text_reader.dart';
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 import 'package:py_xiaozhi_android/reminder_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -309,5 +310,101 @@ void main() {
     expect(result['isError'], isTrue);
     final content = result['content'] as List<dynamic>;
     expect((content.single as Map)['text'], contains('manage_document'));
+  });
+
+  test('serves a pending PDF in page chunks and lets the model continue', () async {
+    final pdf = PdfExtraction(
+      List<String>.generate(9, (index) => 'Isi halaman ${index + 1}'),
+    );
+
+    final first = await McpRuntime.handle(
+      {
+        'jsonrpc': '2.0',
+        'id': 10,
+        'method': 'tools/call',
+        'params': {
+          'name': 'manage_document',
+          'arguments': {'action': 'read'},
+        },
+      },
+      disabledModules: <String>{},
+      pendingPdf: pdf,
+      pendingTextQuestion: 'Baca semuanya.',
+      pendingAttachmentName: 'dokumen.pdf',
+    );
+    var content = (first!['result'] as Map<String, dynamic>)['content'] as List<dynamic>;
+    var text = (content.single as Map)['text'] as String;
+    expect(text, contains('Isi halaman 1'));
+    expect(text, contains('Isi halaman 4'));
+    expect(text, isNot(contains('Isi halaman 5')));
+    expect(text, contains('Read pages 1-4 of 9.'));
+    expect(text, contains('Continue with page_start=5, page_end=8.'));
+
+    // The attachment is still pending, so the model can continue without a
+    // re-upload.
+    final next = await McpRuntime.handle(
+      {
+        'jsonrpc': '2.0',
+        'id': 11,
+        'method': 'tools/call',
+        'params': {
+          'name': 'manage_document',
+          'arguments': {'action': 'read', 'page_start': 5, 'page_end': 8},
+        },
+      },
+      disabledModules: <String>{},
+      pendingPdf: pdf,
+      pendingAttachmentName: 'dokumen.pdf',
+    );
+    content = (next!['result'] as Map<String, dynamic>)['content'] as List<dynamic>;
+    text = (content.single as Map)['text'] as String;
+    expect(text, contains('Isi halaman 5'));
+    expect(text, contains('Isi halaman 8'));
+    expect(text, isNot(contains('Isi halaman 4')));
+    expect(text, contains('Continue with page_start=9, page_end=9.'));
+  });
+
+  test('jumps to the page the model asks for in a pending PDF', () async {
+    final pdf = PdfExtraction(
+      List<String>.generate(12, (index) => 'Isi halaman ${index + 1}'),
+    );
+
+    final response = await McpRuntime.handle(
+      {
+        'jsonrpc': '2.0',
+        'id': 12,
+        'method': 'tools/call',
+        'params': {
+          'name': 'manage_document',
+          'arguments': {'action': 'read', 'page_start': 10, 'page_end': 10},
+        },
+      },
+      disabledModules: <String>{},
+      pendingPdf: pdf,
+      pendingAttachmentName: 'dokumen.pdf',
+    );
+    final content = (response!['result'] as Map<String, dynamic>)['content'] as List<dynamic>;
+    final text = (content.single as Map)['text'] as String;
+    expect(text, contains('Isi halaman 10'));
+    expect(text, isNot(contains('Isi halaman 9')));
+    expect(text, isNot(contains('Isi halaman 11')));
+    expect(text, contains('Read pages 10-10 of 12.'));
+  });
+
+  test('lists manage_document and hides take_photo while a PDF is pending',
+      () async {
+    final response = await McpRuntime.handle(
+      {'jsonrpc': '2.0', 'id': 13, 'method': 'tools/list'},
+      disabledModules: <String>{},
+      pendingPdf: PdfExtraction(<String>['Isi halaman 1']),
+      pendingAttachmentName: 'dokumen.pdf',
+    );
+
+    final result = response!['result'] as Map<String, dynamic>;
+    final names = (result['tools'] as List<dynamic>)
+        .map((tool) => (tool as Map)['name'])
+        .toList();
+    expect(names, contains('manage_document'));
+    expect(names, isNot(contains('take_photo')));
   });
 }

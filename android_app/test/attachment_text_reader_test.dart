@@ -80,4 +80,81 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('slices a multi-page PDF into page chunks with a continuation hint', () {
+    final extraction = PdfExtraction(List<String>.generate(10, (index) => 'Halaman ${index + 1}'));
+
+    final first = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
+    expect(first, contains('Halaman 1'));
+    expect(first, contains('Halaman 4'));
+    expect(first, isNot(contains('Halaman 5')));
+    expect(first, contains('Read pages 1-4 of 10.'));
+    expect(first, contains('Continue with page_start=5, page_end=8.'));
+  });
+
+  test('jumps to a requested PDF page', () {
+    final extraction = PdfExtraction(List<String>.generate(10, (index) => 'Halaman ${index + 1}'));
+
+    final jump = AttachmentTextReader.slicePdf(
+      extraction: extraction,
+      pageStart: 7,
+      pageEnd: 7,
+    );
+    expect(jump, contains('Halaman 7'));
+    expect(jump, isNot(contains('Halaman 6')));
+    expect(jump, isNot(contains('Halaman 8')));
+    expect(jump, contains('Read pages 7-7 of 10.'));
+    expect(jump, contains('Continue with page_start=8, page_end=10.'));
+  });
+
+  test('reaches the last PDF page and reports the end', () {
+    final extraction = PdfExtraction(List<String>.generate(6, (index) => 'Halaman ${index + 1}'));
+
+    final last = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 5);
+    expect(last, contains('Halaman 5'));
+    expect(last, contains('Halaman 6'));
+    expect(last, contains('Read pages 5-6 of 6.'));
+    expect(last, isNot(contains('Continue with')));
+  });
+
+  test('rejects a PDF page_start beyond the last page', () {
+    final extraction = PdfExtraction(<String>['Halaman 1']);
+
+    final error = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 9);
+    expect(error, contains("exceeds the document's 1 pages"));
+  });
+
+  test('never reads past the last page when page_end is omitted', () {
+    // 5 pages: a default read from page 4 must stop at 5, not at 7.
+    final extraction =
+        PdfExtraction(List<String>.generate(5, (index) => 'Halaman ${index + 1}'));
+
+    final tail = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 4);
+    expect(tail, contains('Halaman 4'));
+    expect(tail, contains('Halaman 5'));
+    expect(tail, contains('Read pages 4-5 of 5.'));
+    expect(tail, isNot(contains('Continue with')));
+  });
+
+  test('skips blank pages and still reports progress', () {
+    final extraction = PdfExtraction(<String>['', '', 'Halaman 3']);
+
+    final blank = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
+    expect(blank, contains('no extractable text'));
+    expect(blank, contains('Continue with page_start=3, page_end=3.'));
+  });
+
+  test('chunks a non-PDF document with a continuation hint', () {
+    final text = List<String>.generate(
+      3000,
+      (index) => 'baris ${index + 1}',
+    ).join('\n');
+
+    final first = AttachmentTextReader.sliceDocument(text: text, chunkIndex: 1);
+    expect(first, contains('baris 1'));
+    expect(first, contains('Read chunk 1. Continue with chunk_index=2.'));
+
+    final second = AttachmentTextReader.sliceDocument(text: text, chunkIndex: 2);
+    expect(second, contains('Read chunk 2. Continue with chunk_index=3.'));
+  });
 }
