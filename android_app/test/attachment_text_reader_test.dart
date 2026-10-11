@@ -118,7 +118,7 @@ void main() {
   });
 
   test('rejects a PDF page_start beyond the last page', () {
-    final extraction = PdfExtraction(<String>['Halaman 1']);
+    const extraction = PdfExtraction(<String>['Halaman 1']);
 
     final error = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 9);
     expect(error, contains("exceeds the document's 1 pages"));
@@ -137,7 +137,7 @@ void main() {
   });
 
   test('skips blank pages and still reports progress', () {
-    final extraction = PdfExtraction(<String>['', '', 'Halaman 3']);
+    const extraction = PdfExtraction(<String>['', '', 'Halaman 3']);
 
     final blank = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
     expect(blank, contains('no extractable text'));

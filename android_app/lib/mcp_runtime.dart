@@ -339,8 +339,9 @@ class McpRuntime {
           if (name is! String || arguments is! Map) {
             return _error(id, -32602, 'Invalid tool name or arguments');
           }
+          final hasPdfAttachment = pendingPdf != null && pendingPdf!.pageCount > 0;
           if (name == 'take_photo' &&
-              ((pendingTextAttachment != null && pendingTextAttachment.isNotEmpty) ||
+              ((pendingTextAttachment != null && pendingTextAttachment!.isNotEmpty) ||
                   hasPdfAttachment ||
                   pendingImageAsDocument)) {
             return _result(id, {
@@ -375,10 +376,12 @@ class McpRuntime {
                 'content': [
                   {
                     'type': 'text',
-                    'text': '$questionHint${AttachmentTextReader.slicePdf('
-                        'extraction: pendingPdf, '
-                        'pageStart: pageStart, '
-                        'pageEnd: pageEnd)}',
+                    'text': '$questionHint'
+                        '${AttachmentTextReader.slicePdf(
+                          extraction: pendingPdf,
+                          pageStart: pageStart,
+                          pageEnd: pageEnd,
+                        )}',
                   },
                 ],
                 'isError': false,
@@ -404,8 +407,11 @@ class McpRuntime {
                 'content': [
                   {
                     'type': 'text',
-                    'text': '$questionHint${AttachmentTextReader.sliceDocument('
-                        'text: pendingTextAttachment, chunkIndex: chunkIndex)}',
+                    'text': '$questionHint'
+                        '${AttachmentTextReader.sliceDocument(
+                          text: pendingTextAttachment,
+                          chunkIndex: chunkIndex,
+                        )}',
                   },
                 ],
                 'isError': false,

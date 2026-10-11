@@ -396,7 +396,7 @@ void main() {
     final response = await McpRuntime.handle(
       {'jsonrpc': '2.0', 'id': 13, 'method': 'tools/list'},
       disabledModules: <String>{},
-      pendingPdf: PdfExtraction(<String>['Isi halaman 1']),
+      pendingPdf: const PdfExtraction(<String>['Isi halaman 1']),
       pendingAttachmentName: 'dokumen.pdf',
     );
 

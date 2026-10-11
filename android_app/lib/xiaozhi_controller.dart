@@ -517,15 +517,23 @@ class XiaozhiController extends ChangeNotifier {
       // AbortReason.WAKE_WORD_DETECTED + clear_audio_queue in Python.
       _sendJson(ProtocolMessages.abort(sessionId, 'wake_word_detected'));
       _silencePollTimer?.cancel();
+      _speakingWatchdog?.cancel();
+      _speakingWatchdog = null;
       _suppressMic = false;
       _ttsBuffer.clear();
       _ttsFeeding = false;
       _ttsNeedsPrebuffer = true;
       if (_playerStarted) {
-        _player.stopPlayer().then((_) {
-          if (isConnected) _startPlayerStream();
-        });
-        _playerStarted = false;
+        // Serialize the restart: the old code set _playerStarted = false here and
+        // restarted inside a .then(), so an audio frame arriving in that window saw
+        // a stopped stream and re-armed it twice (startPlayerFromStream on an
+        // already-open stream throws), or the restart raced with the interrupt's
+        // own restart. Both left the next utterance silent.
+        unawaited(
+          _stopPlayerStream().then((_) {
+            if (isConnected) _startPlayerStream();
+          }),
+        );
       }
       isSpeaking = false;
       _switchToAutoConversation();
@@ -658,13 +666,12 @@ class XiaozhiController extends ChangeNotifier {
     _pendingPdf = null;
     _pendingAttachmentName = null;
     _silencePollTimer?.cancel();
+    _speakingWatchdog?.cancel();
+    _speakingWatchdog = null;
     _suppressMic = false;
     _ttsBuffer.clear();
     await _closeSocket();
-    if (_playerStarted) {
-      await _player.stopPlayer();
-      _playerStarted = false;
-    }
+    await _stopPlayerStream();
     sessionId = '';
     status = 'Terputus';
     // Back to the dimmed placeholder, like the disconnected desktop GUI.
@@ -1050,6 +1057,17 @@ class XiaozhiController extends ChangeNotifier {
         // the server's VAD interrupts the assistant mid-sentence in realtime mode.
         _beginTtsPlayback();
         _ttsNeedsPrebuffer = true;
+        // A stale timestamp from the previous utterance would make the silence
+        // period's hold math run against an unrelated clock, so the drain timer
+        // starts fresh here and _handleTtsStop/_flushTtsBuffer refresh it as the
+        // real frames flow.
+        _lastTtsFrameAt = DateTime.now();
+        // The server's tts "stop" can be lost (socket drops mid-utterance, the
+        // server is killed). Without a cap isSpeaking/_suppressMic would stay true
+        // forever and the mic would never answer again. Cleared by the real stop
+        // and by every path that tears playback down.
+        _speakingWatchdog?.cancel();
+        _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
         notifyListeners();
       }
       final text = data['text'];
@@ -1062,6 +1080,8 @@ class XiaozhiController extends ChangeNotifier {
         isSpeaking = false;
         status = 'Terhubung';
         _assistantMessageIndex = null;
+        _speakingWatchdog?.cancel();
+        _speakingWatchdog = null;
         unawaited(_handleTtsStop());
       }
     } else if (type == 'llm') {
@@ -1095,19 +1115,25 @@ class XiaozhiController extends ChangeNotifier {
     if (!isSpeaking && !_suppressMic) return;
     _sendJson(ProtocolMessages.abort(sessionId));
     _silencePollTimer?.cancel();
+    _speakingWatchdog?.cancel();
+    _speakingWatchdog = null;
     _suppressMic = false;
     _discardTtsAudioUntilStart = true;
     _ttsBuffer.clear();
+    _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
     isSpeaking = false;
+    // Stop and restart as one serialized unit. The old code set _playerStarted =
+    // false first and re-armed in a separate await, so a frame arriving in between
+    // hit _handleAudio's re-arm path on a half-stopped player and threw, dropping
+    // the whole following utterance.
     if (_playerStarted) {
-      try {
-        await _player.stopPlayer();
-      } catch (_) {}
-      _playerStarted = false;
-      try {
-        if (isConnected) await _startPlayerStream();
-      } catch (_) {}
+      await _stopPlayerStream();
+      if (isConnected) {
+        try {
+          await _startPlayerStream();
+        } catch (_) {}
+      }
     }
   }
   @visibleForTesting
@@ -1157,8 +1183,7 @@ class XiaozhiController extends ChangeNotifier {
       _decoder = SimpleOpusDecoder(sampleRate: rate, channels: 1);
     }
     if (_playerStarted) {
-      await _player.stopPlayer();
-      _playerStarted = false;
+      await _stopPlayerStream();
       await _startPlayerStream();
     }
     notifyListeners();
@@ -1251,7 +1276,8 @@ class XiaozhiController extends ChangeNotifier {
       // The stream is torn down by an interrupt or a sample-rate change while the
       // server keeps sending frames; re-arm it instead of dropping the utterance.
       // Gated on isSpeaking so an abort (which clears that flag) cannot resurrect
-      // playback of frames that are still in flight.
+      // playback of frames that are still in flight. The serialized start means a
+      // concurrent stop/interrupt wins instead of throwing here.
       try {
         if (!_player.isOpen()) await _player.openPlayer();
         await _startPlayerStream();
@@ -1301,6 +1327,10 @@ class XiaozhiController extends ChangeNotifier {
           // next network frame retry instead of deadlocking the whole utterance.
           break;
         }
+        // An interrupt (wake word, text send, abort) clears the buffer and the
+        // flags between bursts; stop pushing the interrupted utterance's audio into
+        // a stream that may already have been restarted for the next one.
+        if (_discardTtsAudioUntilStart || !isSpeaking) break;
       }
     } finally {
       _ttsFeeding = false;
@@ -1324,6 +1354,23 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> _handleTtsStop() async {
     await _flushTtsBuffer();
     _beginSilencePeriod();
+  }
+
+  /// Safety net for a tts "stop" that never arrives (the socket dies mid-utterance
+  /// or the server is killed). Without it isSpeaking stays true, the mic stays
+  /// suppressed, and the app looks alive but never listens again. This mirrors the
+  /// _SILENCE_PERIOD_MAX_S deadline in src/plugins/audio.py, applied to the whole
+  /// speaking window because the Android client owns both flags.
+  void _handleLostTtsStop() {
+    if (!isSpeaking) return;
+    isSpeaking = false;
+    status = 'Terhubung';
+    _assistantMessageIndex = null;
+    _ttsBuffer.clear();
+    _ttsFeeding = false;
+    _ttsNeedsPrebuffer = true;
+    _beginSilencePeriod();
+    notifyListeners();
   }
 
   /// Called on tts "start". The mic must stay suppressed for the entire playback
@@ -1390,6 +1437,8 @@ class XiaozhiController extends ChangeNotifier {
     mcpInitialized = false;
     mcpToolsListed = false;
     _silencePollTimer?.cancel();
+    _speakingWatchdog?.cancel();
+    _speakingWatchdog = null;
     _suppressMic = false;
     _ttsBuffer.clear();
     status = reason;
@@ -1408,8 +1457,7 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _stopPlayer() async {
-    await _player.stopPlayer();
-    _playerStarted = false;
+    await _stopPlayerStream();
   }
 
   Future<void> _closeSocket() async {
@@ -1427,6 +1475,7 @@ class XiaozhiController extends ChangeNotifier {
   @override
   void dispose() {
     _silencePollTimer?.cancel();
+    _speakingWatchdog?.cancel();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     unawaited(_socketSubscription?.cancel());

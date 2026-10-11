@@ -87,4 +87,15 @@ void main() {
       expect(controller.autoConnect, isTrue);
     });
   });
+
+  group('tts segment joining', () {
+    test('appends a segment on a new line unless one already ends a line', () {
+      expect(XiaozhiController.appendTtsSegment('', 'Halo'), 'Halo');
+      expect(XiaozhiController.appendTtsSegment('Halo', 'semua'), 'Halo\nsemua');
+      // A segment that itself starts a newline is joined verbatim.
+      expect(XiaozhiController.appendTtsSegment('Halo', '\nsemua'), 'Halo\nsemua');
+      // A current text already ending in a newline does not gain a second one.
+      expect(XiaozhiController.appendTtsSegment('Halo\n', 'semua'), 'Halo\nsemua');
+    });
+  });
 }
