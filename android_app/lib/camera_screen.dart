@@ -248,11 +248,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
-    // camera.value.aspectRatio is the sensor-native landscape ratio
-    // (width/height, e.g. ~1.78). In portrait CameraPreview sizes itself to the
-    // inverse of that through its own internal AspectRatio.
-    final aspect = camera.value.aspectRatio;
-    if (!aspect.isFinite || aspect <= 0) return const SizedBox.shrink();
+    // camera.value.previewSize is the sensor-native size, which is landscape on
+    // phones (width > height). CameraPreview's own AspectRatio divides it as
+    // width/height, so in portrait the box it wants is previewSize flipped to
+    // portrait: height wide x height tall.
+    final previewSize = camera.value.previewSize;
+    if (previewSize == null ||
+        previewSize.width <= 0 ||
+        previewSize.height <= 0) {
+      return const SizedBox.shrink();
+    }
 
     return GestureDetector(
       onTap: widget.enableCapture ? _capture : null,
@@ -262,12 +267,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           fit: BoxFit.cover,
           // FittedBox leaves its child unconstrained, and CameraPreview's
           // internal AspectRatio cannot pick a size without a bounded
-          // constraint, so the preview collapses and nothing is drawn. Pin the
-          // sensor's portrait ratio here with a tight box, then let FittedBox
-          // scale it up to cover the screen the way the WhatsApp camera does.
+          // constraint, so the preview collapses and nothing is drawn. Give it
+          // a real box first -- the sensor's portrait frame, in actual preview
+          // pixels -- then let FittedBox scale it up to cover the screen the
+          // way the WhatsApp camera does.
           child: SizedBox(
-            width: 1 / aspect,
-            height: 1,
+            width: previewSize.height,
+            height: previewSize.height,
             child: CameraPreview(camera),
           ),
         ),
