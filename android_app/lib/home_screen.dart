@@ -63,11 +63,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openCamera() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => CameraScreen(lensDirection: widget.controller.cameraFacing),
+    final bytes = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute<Uint8List>(
+        builder: (_) => CameraScreen(
+          lensDirection: widget.controller.cameraFacing,
+          onCameraFacingChanged: (facing) =>
+              widget.controller.setCameraFacing(facing),
+        ),
       ),
     );
+    if (bytes == null || bytes.isEmpty || !mounted) return;
+    // The captured photo becomes the chat attachment, exactly like a picked
+    // image file, so the existing send path handles the vision request.
+    setState(() {
+      _attachment = PlatformFile(
+        name: 'foto_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        size: bytes.length,
+        bytes: bytes,
+      );
+      _attachmentBytes = bytes;
+    });
   }
 
   Future<void> _sendText() async {

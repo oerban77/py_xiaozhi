@@ -58,6 +58,18 @@ class XiaozhiController extends ChangeNotifier {
   String deviceId = '';
   String clientId = '';
   String cameraFacing = 'back';
+
+  /// Persists a camera-facing change made outside the settings page, so the
+  /// next take_photo and the settings SegmentedButton stay in sync. Mirrors the
+  /// persistence done for the self.camera.switch MCP tool.
+  Future<void> setCameraFacing(String facing) async {
+    final normalized = facing == 'front' ? 'front' : 'back';
+    if (normalized == cameraFacing) return;
+    cameraFacing = normalized;
+    await _preferences?.setString('camera_facing', cameraFacing);
+    notifyListeners();
+  }
+
   String localVlUrl = defaultVisionUrl;
   String vlApiKey = '';
   String visionUrl = defaultVisionUrl;

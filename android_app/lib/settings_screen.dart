@@ -716,7 +716,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
-                          builder: (_) => CameraScreen(lensDirection: _cameraFacing),
+                          builder: (_) => CameraScreen(
+                            lensDirection: _cameraFacing,
+                            onCameraFacingChanged: (facing) {
+                              setState(() => _cameraFacing = facing);
+                              widget.controller.setCameraFacing(facing);
+                            },
+                          ),
                         ),
                       ),
                       icon: const Icon(Icons.visibility_outlined),

@@ -16,6 +16,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   const recordChannel = MethodChannel('com.llfbandit.record/messages');
@@ -85,6 +86,49 @@ void main() {
     test('auto-connect defaults to enabled', () {
       final controller = XiaozhiController();
       expect(controller.autoConnect, isTrue);
+    });
+  });
+
+  group('camera facing', () {
+    test('normalizes and stores a switch made from the camera screen', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final controller = XiaozhiController();
+      expect(controller.cameraFacing, 'back');
+
+      await controller.setCameraFacing('front');
+
+      expect(controller.cameraFacing, 'front');
+    });
+
+    test('ignores an unknown facing instead of storing it', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final controller = XiaozhiController();
+
+      await controller.setCameraFacing('side');
+
+      expect(controller.cameraFacing, 'back');
+    });
+
+    test('skips a redundant update', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final controller = XiaozhiController();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await controller.setCameraFacing('back');
+
+      expect(notifications, 0);
+    });
+
+    test('notifies listeners when the facing actually changes', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final controller = XiaozhiController();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await controller.setCameraFacing('front');
+
+      expect(notifications, 1);
     });
   });
 
