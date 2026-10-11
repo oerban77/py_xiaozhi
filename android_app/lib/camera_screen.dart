@@ -13,11 +13,16 @@ import 'camera_selection.dart';
 /// preview to take a photo, or press the switch button to flip between the
 /// front and back lens. Returns the JPEG bytes of the captured photo, or null
 /// when the user backs out without taking one.
+///
+/// Set [enableCapture] to false for a plain preview, e.g. the settings page,
+/// where only the switch button should do anything and tapping the preview
+/// must not take a photo.
 class CameraScreen extends StatefulWidget {
   const CameraScreen({
     super.key,
     required this.lensDirection,
     this.onCameraFacingChanged,
+    this.enableCapture = true,
   });
 
   final String lensDirection;
@@ -25,6 +30,10 @@ class CameraScreen extends StatefulWidget {
   /// Notified when the user flips the lens, so the caller keeps its own
   /// camera-facing state in sync with the persisted choice.
   final void Function(String facing)? onCameraFacingChanged;
+
+  /// Whether tapping the preview takes a photo. Always leaves the switch
+  /// button working, so the settings preview can still flip the lens.
+  final bool enableCapture;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -35,6 +44,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   String? _error;
   bool _loading = true;
   bool _capturing = false;
+  bool _initializing = false;
   late String _facing;
 
   @override
@@ -60,7 +70,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Future<void> _initializeCamera() async {
-    if (_loading && _cameraController != null) return;
+    // Guards against overlapping initialize() calls: the lifecycle observer
+    // can fire "resumed" while a lens switch is still opening the new camera,
+    // and a second initialize() would race the first for the camera service.
+    // Gating on _loading instead would break the switch flow, which sets
+    // _loading before calling this and would then bail out and never flip.
+    if (_initializing) return;
+    _initializing = true;
     setState(() {
       _loading = true;
       _error = null;
@@ -111,28 +127,38 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             : error.toString().replaceFirst('Bad state: ', '');
         _loading = false;
       });
+    } finally {
+      _initializing = false;
     }
   }
 
   Future<void> _switchCamera() async {
-    if (_loading || _capturing) return;
+    if (_initializing || _capturing) return;
     final next = _facing == 'front' ? 'back' : 'front';
+    // Show the spinner right away so the preview does not look frozen while
+    // the native camera service is being flipped.
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     // CameraRuntime.switchCamera reports whether the lens exists and persists
     // the choice to the same key take_photo reads.
     final decoded = jsonDecode(await CameraRuntime.switchCamera(next));
     if (decoded is! Map || decoded['success'] != true) {
       if (!mounted) return;
+      final reason = decoded is Map
+          ? '${decoded['reason'] ?? 'Kamera tidak dapat diganti.'}'
+          : 'Kamera tidak dapat diganti.';
+      // Keep the lens that is already running; the SnackBar explains why
+      // nothing flipped instead of replacing a working preview with an error.
+      setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(decoded is Map
-              ? '${decoded['reason'] ?? 'Kamera tidak dapat diganti.'}'
-              : 'Kamera tidak dapat diganti.'),
-        ),
+        SnackBar(content: Text(reason)),
       );
       return;
     }
     widget.onCameraFacingChanged?.call(next);
-    setState(() => _facing = next);
+    _facing = next;
     await _initializeCamera();
   }
 
@@ -204,11 +230,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             else
               _buildPreview(camera),
             if (ready) _buildSwitchButton(padding),
-            if (ready) _buildCaptureHint(padding),
-            AnimatedOpacity(
-              opacity: _capturing ? 1 : 0,
-              duration: const Duration(milliseconds: 100),
-              child: const ColoredBox(color: Colors.white),
+            if (ready && widget.enableCapture) _buildCaptureHint(padding),
+            // IgnorePointer keeps the invisible (opacity 0) flash from
+            // swallowing taps, so the preview stays tappable between shots.
+            IgnorePointer(
+              ignoring: !_capturing,
+              child: AnimatedOpacity(
+                opacity: _capturing ? 1 : 0,
+                duration: const Duration(milliseconds: 100),
+                child: const ColoredBox(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -217,24 +248,18 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
-    final aspect = camera.value.aspectRatio;
-    // FittedBox + a box matching the sensor aspect ratio fills the whole screen
-    // the way the WhatsApp camera does, cropping the overflow instead of
-    // letterboxing the preview.
-    if (!aspect.isFinite || aspect <= 0) {
-      return const ColoredBox(color: Colors.black);
-    }
     return GestureDetector(
-      onTap: _capture,
+      onTap: widget.enableCapture ? _capture : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
+        // CameraPreview already sizes itself to the sensor's aspect ratio for
+        // the current orientation, so all that is left to do is scale that box
+        // until it covers the screen the way the WhatsApp camera does. Sizing
+        // it by hand instead makes the inner AspectRatio fight a tight box of a
+        // mismatched ratio and stretches the texture.
         child: FittedBox(
           fit: BoxFit.cover,
-          child: SizedBox(
-            width: 1000,
-            height: 1000 / aspect,
-            child: CameraPreview(camera),
-          ),
+          child: CameraPreview(camera),
         ),
       ),
     );

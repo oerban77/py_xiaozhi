@@ -718,6 +718,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         MaterialPageRoute<void>(
                           builder: (_) => CameraScreen(
                             lensDirection: _cameraFacing,
+                            enableCapture: false,
                             onCameraFacingChanged: (facing) {
                               setState(() => _cameraFacing = facing);
                               widget.controller.setCameraFacing(facing);
