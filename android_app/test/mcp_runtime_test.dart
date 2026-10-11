@@ -239,30 +239,36 @@ void main() {
 
   test('saves a new alarm sound even when one launch fails', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'android_mcp_reminders': jsonEncode([
+        {
+          'id': 1,
+          'title': 'Alarm pertama',
+          'message': 'Alarm pertama',
+          'mode': 'daily',
+          'time': '07:30',
+          'enabled': true,
+        },
+        {
+          'id': 2,
+          'title': 'Alarm kedua',
+          'message': 'Alarm kedua',
+          'mode': 'daily',
+          'time': '08:00',
+          'enabled': true,
+        },
+      ]),
+    });
 
     var launchCount = 0;
     final captured = <Map<String, dynamic>>[];
     ReminderRuntime.launchAlarm = (extras) async {
+      launchCount++;
       // The first re-scheduled reminder hits an unavailable clock app; the
       // second must still be launched with the new sound.
-      launchCount++;
       if (launchCount == 1) throw StateError('No Activity found to handle Intent');
       captured.add(extras);
     };
-
-    await ReminderRuntime.call('add_reminder', {
-      'title': 'Alarm pertama',
-      'mode': 'daily',
-      'time': '07:30',
-    });
-    await ReminderRuntime.call('add_reminder', {
-      'title': 'Alarm kedua',
-      'mode': 'daily',
-      'time': '08:00',
-    });
-    launchCount = 0;
-    captured.clear();
 
     await ReminderRuntime.setAlarmSound(
       uri: 'content://media/external/audio/media/43',
@@ -275,6 +281,11 @@ void main() {
       captured.single['android.intent.extra.alarm.RINGTONE'],
       'content://media/external/audio/media/43',
     );
+
+    // The preference is stored even though one reminder could not be re-scheduled.
+    final (uri, name) = await ReminderRuntime.getAlarmSound();
+    expect(uri, 'content://media/external/audio/media/43');
+    expect(name, 'Nada dering kustom');
 
     ReminderRuntime.launchAlarm = null;
   });
