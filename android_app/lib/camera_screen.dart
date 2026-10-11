@@ -248,18 +248,28 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
+    // camera.value.aspectRatio is the sensor-native landscape ratio
+    // (width/height, e.g. ~1.78). In portrait CameraPreview sizes itself to the
+    // inverse of that through its own internal AspectRatio.
+    final aspect = camera.value.aspectRatio;
+    if (!aspect.isFinite || aspect <= 0) return const SizedBox.shrink();
+
     return GestureDetector(
       onTap: widget.enableCapture ? _capture : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
-        // CameraPreview already sizes itself to the sensor's aspect ratio for
-        // the current orientation, so all that is left to do is scale that box
-        // until it covers the screen the way the WhatsApp camera does. Sizing
-        // it by hand instead makes the inner AspectRatio fight a tight box of a
-        // mismatched ratio and stretches the texture.
         child: FittedBox(
           fit: BoxFit.cover,
-          child: CameraPreview(camera),
+          // FittedBox leaves its child unconstrained, and CameraPreview's
+          // internal AspectRatio cannot pick a size without a bounded
+          // constraint, so the preview collapses and nothing is drawn. Pin the
+          // sensor's portrait ratio here with a tight box, then let FittedBox
+          // scale it up to cover the screen the way the WhatsApp camera does.
+          child: SizedBox(
+            width: 1 / aspect,
+            height: 1,
+            child: CameraPreview(camera),
+          ),
         ),
       ),
     );
