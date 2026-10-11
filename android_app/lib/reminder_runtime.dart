@@ -225,10 +225,19 @@ class ReminderRuntime {
     );
     await preferences.setString(_alarmSoundNameKey, name);
     // The clock app reads the ringtone from the intent, so already-registered
-    // alarms keep the previous sound until they are re-scheduled.
+    // alarms keep the previous sound until they are re-scheduled. Re-scheduling
+    // is best-effort: an expired one-shot reminder has no future trigger and is
+    // skipped instead of aborting the save, and a reminder whose launch fails
+    // must not stop the rest from picking up the new sound.
     final reminders = await _load();
     for (final reminder in reminders.where((item) => item['enabled'] == true)) {
-      await _schedule(reminder);
+      if (_nextTrigger(reminder) == null) continue;
+      try {
+        await _schedule(reminder);
+      } catch (_) {
+        // The clock app still holds the previous alarm; the new sound applies to
+        // the reminders that could be re-scheduled and to every future one.
+      }
     }
   }
 

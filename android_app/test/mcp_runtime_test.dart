@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -181,6 +182,99 @@ void main() {
     // The alarm sound configured in the settings screen is forwarded verbatim.
     expect(captured[2]['android.intent.extra.alarm.RINGTONE'],
         ReminderRuntime.defaultAlarmSoundUri);
+
+    ReminderRuntime.launchAlarm = null;
+  });
+
+  test('saves a new alarm sound even when a reminder has expired', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final expired = DateTime.now().subtract(const Duration(hours: 1)).toIso8601String();
+    SharedPreferences.setMockInitialValues({
+      'android_mcp_reminders': jsonEncode([
+        {
+          'id': 1,
+          'title': 'Alarm kedaluwarsa',
+          'message': 'Alarm kedaluwarsa',
+          'mode': 'once',
+          'datetime': expired,
+          'enabled': true,
+        },
+        {
+          'id': 2,
+          'title': 'Alarm harian',
+          'message': 'Alarm harian',
+          'mode': 'daily',
+          'time': '07:30',
+          'enabled': true,
+        },
+      ]),
+    });
+
+    final captured = <Map<String, dynamic>>[];
+    ReminderRuntime.launchAlarm = (extras) async {
+      captured.add(extras);
+    };
+
+    // The expired one-shot has no future trigger, so re-scheduling it is
+    // skipped rather than aborting the save; the daily reminder still picks up
+    // the new sound.
+    await ReminderRuntime.setAlarmSound(
+      uri: 'content://media/external/audio/media/42',
+      name: 'Nada dering kustom',
+    );
+
+    expect(captured, hasLength(1));
+    expect(captured.single['android.intent.extra.alarm.MESSAGE'], 'Alarm harian');
+    expect(
+      captured.single['android.intent.extra.alarm.RINGTONE'],
+      'content://media/external/audio/media/42',
+    );
+
+    final (uri, name) = await ReminderRuntime.getAlarmSound();
+    expect(uri, 'content://media/external/audio/media/42');
+    expect(name, 'Nada dering kustom');
+
+    ReminderRuntime.launchAlarm = null;
+  });
+
+  test('saves a new alarm sound even when one launch fails', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    var launchCount = 0;
+    final captured = <Map<String, dynamic>>[];
+    ReminderRuntime.launchAlarm = (extras) async {
+      // The first re-scheduled reminder hits an unavailable clock app; the
+      // second must still be launched with the new sound.
+      launchCount++;
+      if (launchCount == 1) throw StateError('No Activity found to handle Intent');
+      captured.add(extras);
+    };
+
+    await ReminderRuntime.call('add_reminder', {
+      'title': 'Alarm pertama',
+      'mode': 'daily',
+      'time': '07:30',
+    });
+    await ReminderRuntime.call('add_reminder', {
+      'title': 'Alarm kedua',
+      'mode': 'daily',
+      'time': '08:00',
+    });
+    launchCount = 0;
+    captured.clear();
+
+    await ReminderRuntime.setAlarmSound(
+      uri: 'content://media/external/audio/media/43',
+      name: 'Nada dering kustom',
+    );
+
+    expect(captured, hasLength(1));
+    expect(captured.single['android.intent.extra.alarm.MESSAGE'], 'Alarm kedua');
+    expect(
+      captured.single['android.intent.extra.alarm.RINGTONE'],
+      'content://media/external/audio/media/43',
+    );
 
     ReminderRuntime.launchAlarm = null;
   });
