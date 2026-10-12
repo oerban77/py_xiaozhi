@@ -9,10 +9,11 @@ import 'app_theme.dart';
 import 'camera_runtime.dart';
 import 'camera_selection.dart';
 
-/// Fullscreen camera view, mirroring the WhatsApp camera: tap anywhere on the
-/// preview to take a photo, or press the switch button to flip between the
-/// front and back lens. Returns the JPEG bytes of the captured photo, or null
-/// when the user backs out without taking one.
+/// Camera view, mirroring the WhatsApp camera: tap anywhere on the preview to
+/// take a photo, or press the switch button to flip between the front and back
+/// lens. Returns the JPEG bytes of the captured photo, or null when the user
+/// backs out without taking one. The preview keeps its native aspect ratio and
+/// is letterboxed rather than stretched edge-to-edge.
 ///
 /// Set [enableCapture] to false for a plain preview, e.g. the settings page,
 /// where only the switch button should do anything and tapping the preview
@@ -248,34 +249,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
-    // camera.value.previewSize is the sensor-native size, which is landscape on
-    // phones (width > height). CameraPreview's own AspectRatio divides it as
-    // width/height, so in portrait the box it wants is previewSize flipped to
-    // portrait: height wide x height tall.
-    final previewSize = camera.value.previewSize;
-    if (previewSize == null ||
-        previewSize.width <= 0 ||
-        previewSize.height <= 0) {
-      return const SizedBox.shrink();
+    final aspect = camera.value.aspectRatio;
+    if (!aspect.isFinite || aspect <= 0) {
+      return const ColoredBox(color: Colors.black);
     }
-
+    // Contain, not cover: the preview keeps its exact sensor aspect ratio and
+    // is letterboxed instead of stretched or cropped, so a 4:3 sensor is not
+    // pulled edge-to-edge on a 16:9-ish portrait screen.
     return GestureDetector(
       onTap: widget.enableCapture ? _capture : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          // FittedBox leaves its child unconstrained, and CameraPreview's
-          // internal AspectRatio cannot pick a size without a bounded
-          // constraint, so the preview collapses and nothing is drawn. Give it
-          // a real box first -- the sensor's portrait frame, in actual preview
-          // pixels -- then let FittedBox scale it up to cover the screen the
-          // way the WhatsApp camera does.
-          child: SizedBox(
-            width: previewSize.height,
-            height: previewSize.height,
-            child: CameraPreview(camera),
-          ),
+        child: AspectRatio(
+          aspectRatio: aspect,
+          child: CameraPreview(camera),
         ),
       ),
     );
