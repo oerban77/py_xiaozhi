@@ -407,6 +407,15 @@ class XiaozhiController extends ChangeNotifier {
     await _secureStorage.write(key: 'smart_home_password', value: smartHomePassword);
     status = 'Pengaturan tersimpan';
     notifyListeners();
+    // The user just saved connection settings, so the intent is clearly to be
+    // connected to the new server. disconnect() above disabled auto-reconnect,
+    // and without this the app would sit idle showing "Pengaturan tersimpan"
+    // until the user manually taps Hubungkan (issue: "tidak bisa autoconnect
+    // setelah save setting"). Reconnect immediately when the feature is on and
+    // the new settings are complete.
+    if (newAutoConnect && _canAutoConnect) {
+      unawaited(connect());
+    }
   }
 
   Future<void> setAutoConversation(bool enabled) async {
@@ -532,10 +541,21 @@ class XiaozhiController extends ChangeNotifier {
       _speakingWatchdog?.cancel();
       _speakingWatchdog = null;
       _suppressMic = false;
+      // Mirrors clear_audio_queue in WakeWordPlugin._on_detected: frames of the
+      // interrupted utterance are still in flight on the socket and would otherwise
+      // land in _ttsBuffer after the clear below, then play out of the restarted
+      // stream -- the old answer would keep talking over the user's new question.
+      _discardTtsAudioUntilStart = true;
       _ttsBuffer.clear();
       _ttsFeeding = false;
       _ttsNeedsPrebuffer = true;
-      if (_playerStarted) {
+      // The detector pauses itself for 300ms after a hit (see
+      // WakeWordDetector._onDetected) so the interrupt can complete before the
+      // buffered audio that contains the wake word is re-processed. Resuming it
+      // here is not needed -- the detector's own timer re-enables it -- but the
+      // restart below must not be skipped when the player was already stopped
+      // by a previous interrupt, otherwise the next utterance stays silent.
+      if (_playerStarted || _player.isOpen()) {
         // Serialize the restart: the old code set _playerStarted = false here and
         // restarted inside a .then(), so an audio frame arriving in that window saw
         // a stopped stream and re-armed it twice (startPlayerFromStream on an
@@ -627,7 +647,19 @@ class XiaozhiController extends ChangeNotifier {
         _handleSocketMessage,
         onError: (Object error) => _handleConnectionFailure(error.toString()),
         onDone: () {
-          if (isConnected || isConnecting) {
+          if (!(isConnected || isConnecting)) return;
+          // closeCode is populated before onDone fires: the channel adapter sets
+          // it on CloseReceived and only then closes the stream. 1000/1001/1005
+          // are a normal server-side close -- the server taking back the session
+          // ("bye bye") -- which mirrors the clean=True branch of
+          // _handle_connection_loss in src/protocols/protocol.py: the device just
+          // returns to IDLE. Anything else, including null (an abrupt TCP reset),
+          // is a network fault. A close during the handshake is always a failure,
+          // never a "bye bye".
+          final code = channel.closeCode;
+          if (isConnected && isCleanCloseCode(code)) {
+            unawaited(_handleCleanClose());
+          } else {
             _handleConnectionFailure('Koneksi server ditutup');
           }
         },
@@ -645,8 +677,11 @@ class XiaozhiController extends ChangeNotifier {
       liveText = '';
       // Arm the wake word detector after the handshake so the model load does not
       // compete with the connection for CPU (WakeWordPlugin.start runs after the
-      // protocol is up for the same reason).
-      if (wakeWordOptions.enabled) {
+      // protocol is up for the same reason). Skip the reload when the spotter is
+      // already armed: a normal server-side close keeps it running (see
+      // _handleCleanClose), and reloading the ONNX model on every reconnect would
+      // burn CPU and briefly drop the mic stream the detector is fed from.
+      if (wakeWordOptions.enabled && !wakeWordDetector.isRunning) {
         await _startWakeWordDetector();
       }
     } catch (error) {
@@ -823,6 +858,14 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> startVoice() async {
     if (!isConnected || isRecording) return;
+    // The user explicitly asked to speak, so any residual post-TTS silence period
+    // is irrelevant: without this the recorder opens but _handleMicData still sees
+    // _suppressMic true and sends nothing to the server, which is exactly the
+    // "mic tidak direspon setelah TTS" symptom. The period's own timers clear the
+    // flag eventually, but not before the user has already started talking.
+    _silencePollTimer?.cancel();
+    _silencePollTimer = null;
+    _suppressMic = false;
     if (_wakeWordMicActive) {
       _wakeWordMicActive = false;
       isRecording = true;
@@ -1139,7 +1182,12 @@ class XiaozhiController extends ChangeNotifier {
     // false first and re-armed in a separate await, so a frame arriving in between
     // hit _handleAudio's re-arm path on a half-stopped player and threw, dropping
     // the whole following utterance.
-    if (_playerStarted) {
+    //
+    // The isOpen() half mirrors _handleWakeWordDetected: an interrupt that arrives
+    // after the stream was already stopped (a previous interrupt, a sample-rate
+    // change) still needs the restart, otherwise the next utterance finds no live
+    // stream and stays silent.
+    if (_playerStarted || _player.isOpen()) {
       await _stopPlayerStream();
       if (isConnected) {
         try {
@@ -1169,6 +1217,13 @@ class XiaozhiController extends ChangeNotifier {
   @visibleForTesting
   bool get canAutoConnect => _canAutoConnect;
 
+  /// Normal server-side close codes (RFC 6455): the server is taking back the
+  /// session ("bye bye") rather than reporting a network fault. Exposed for
+  /// tests so the clean-close classification can be asserted without a socket.
+  @visibleForTesting
+  static bool isCleanCloseCode(int? code) =>
+      code == 1000 || code == 1001 || code == 1005;
+
   Future<void> _initializeAudio() async {
     if (!_opusInitialized) {
       initOpus(await opus_flutter.load());
@@ -1180,8 +1235,12 @@ class XiaozhiController extends ChangeNotifier {
       _decoder = SimpleOpusDecoder(sampleRate: _outputSampleRate, channels: 1);
       _opusInitialized = true;
     }
-    if (!_player.isOpen()) await _player.openPlayer();
-    await _startPlayerStream();
+    // The player is opened and started lazily by _handleAudio when the first TTS
+    // frame actually arrives. Doing it here on every handshake requests Android
+    // audio focus and stops a song playing in the background even when no TTS is
+    // coming -- exactly the "server time out -> bye bye -> lagu putus" symptom,
+    // because every auto-reconnect ran this. _handleAudio's re-arm path opens and
+    // starts the stream on demand, so an answer still starts promptly.
   }
 
   /// Changes the Opus decode sample rate. The decoder and the player stream are
@@ -1301,6 +1360,14 @@ class XiaozhiController extends ChangeNotifier {
       final pcm = decoder.decode(input: packet);
       if (pcm.isEmpty) return;
       _lastTtsFrameAt = DateTime.now();
+      // Re-arm on every frame: the watchdog is a stall detector, not a hard cap on
+      // utterance length. A long answer (a story, a long explanation) used to hit
+      // the fixed 15s deadline mid-sentence, and _handleLostTtsStop then cleared
+      // the buffer and flipped isSpeaking, so the rest of the answer arrived into
+      // a "not speaking" state and played with a gap or not at all ("TTS sering
+      // tidak keluar suaranya"). Only a genuine 15s gap between frames is a stall.
+      _speakingWatchdog?.cancel();
+      _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
       _ttsBuffer.add(pcm);
       // Guard the buffer: if the consumer stalls, never grow unbounded. The 10s cap
       // means this only trips on a genuine stall, and dropping the oldest then
@@ -1389,9 +1456,17 @@ class XiaozhiController extends ChangeNotifier {
   /// window (not just the post-stop tail), because Android has no acoustic echo
   /// cancellation: any audio sent now is the assistant's own voice coming out of
   /// the speaker, which the server reads as user speech and interrupts.
+  ///
+  /// The wake word spotter is *not* paused here. Unlike the uplink, it must keep
+  /// seeing the audio during TTS so the user can interrupt the assistant, exactly
+  /// as src/plugins/wake_word.py does (the Python detector runs through the
+  /// SPEAKING window and its callback aborts the speech). The detector's own
+  /// 300ms post-hit pause plus the cooldown keeps the speaker output from
+  /// re-triggering it.
   void _beginTtsPlayback() {
     _suppressMic = true;
     _silencePollTimer?.cancel();
+    _silencePollTimer = null;
     _lastTtsFrameAt = DateTime.now();
   }
 
@@ -1429,6 +1504,23 @@ class XiaozhiController extends ChangeNotifier {
         _suppressMic = false;
       }
     });
+    // The poll above only fires every 40ms and only while _playerStarted is true.
+    // If the player was already torn down (an interrupt, a sample-rate change, or
+    // the connection dropping right at the end of the utterance) the timer never
+    // runs and _suppressMic stays true forever -- the mic then never answers again
+    // even though the UI shows "Terhubung". Clearing it after the hold window,
+    // unconditionally, is the floor that keeps the state machine from sticking.
+    // The identity check keeps this from clobbering a *newer* silence period: a
+    // wake word right at the tail of one answer starts another TTS window whose
+    // own _beginTtsPlayback re-arms _suppressMic, and this timer must not clear
+    // that one.
+    final pollTimer = _silencePollTimer;
+    Timer(_silencePeriodHold + const Duration(milliseconds: 250), () {
+      if (!identical(_silencePollTimer, pollTimer)) return;
+      pollTimer?.cancel();
+      _silencePollTimer = null;
+      _suppressMic = false;
+    });
   }
 
   void _sendJson(Map<String, Object?> message) {
@@ -1440,6 +1532,71 @@ class XiaozhiController extends ChangeNotifier {
     if (channel != null) channel.sink.add(jsonEncode(message));
   }
 
+  /// The server closed the connection normally (close code 1000/1001/1005): it
+  /// is taking back the session ("bye bye"), not a network fault. Mirrors the
+  /// clean=True branch of _handle_connection_loss in src/protocols/protocol.py,
+  /// which only resets the device state to IDLE and neither reports a network
+  /// error nor tears local playback down.
+  ///
+  /// Music keeps playing. just_audio is independent of the socket, and this path
+  /// no longer stops and re-arms the TTS player stream on reconnect (see
+  /// _initializeAudio), so the reconnect cannot steal Android audio focus and
+  /// pause the song. The wake word detector and its microphone also stay armed,
+  /// so the user can start the next conversation hands-free while the reconnect
+  /// runs in the background.
+  Future<void> _handleCleanClose() async {
+    isConnected = false;
+    isConnecting = false;
+    // The server's tool list is per-session, so the next hello has to re-list;
+    // leaving these true would make the UI claim "MCP siap" for a dead session.
+    mcpInitialized = false;
+    mcpToolsListed = false;
+    // The uplink recording has nowhere to go, but the microphone itself stays
+    // open for the wake word detector, exactly as stopVoice hands the stream
+    // over with _wakeWordMicActive. When the detector is not armed there is
+    // nothing to hand the stream to, so it must be closed here; otherwise the
+    // recorder keeps capturing while every flag says it is idle, and the next
+    // startVoice/startStream would fail with "already recording".
+    if (isRecording && wakeWordOptions.enabled && wakeWordListening) {
+      _wakeWordMicActive = true;
+    } else if (isRecording) {
+      await _closeMicStream();
+    }
+    isRecording = false;
+    // The auto-conversation session died with the socket; without this the next
+    // setAutoConversation(false) would see a stale flag and try to stop a
+    // recording that no longer exists.
+    _micAutoManaged = false;
+    autoSessionActive = false;
+    _suppressMic = false;
+    _silencePollTimer?.cancel();
+    _silencePollTimer = null;
+    _speakingWatchdog?.cancel();
+    _speakingWatchdog = null;
+    // A dropped socket mid-utterance leaves isSpeaking true and the player
+    // holding the last TTS frames; clearing it is what makes this end in idle
+    // instead of a stuck "Xiaozhi sedang berbicara" state.
+    isSpeaking = false;
+    _assistantMessageIndex = null;
+    _ttsBuffer.clear();
+    _ttsFeeding = false;
+    _ttsNeedsPrebuffer = true;
+    status = 'Idle';
+    if (!(_helloCompleter?.isCompleted ?? true)) {
+      _helloCompleter!.completeError(StateError('Koneksi server ditutup'));
+    }
+    // Only the socket is closed; the mic stays open for the detector above.
+    unawaited(_closeSocketOnly());
+    if (_playerStarted) unawaited(_stopPlayer());
+    // Music is local (just_audio), so it must survive a server disconnect: the
+    // Python client's MusicPlayer is likewise independent of the protocol layer
+    // and keeps playing across a goodbye. Do not stop it here.
+    if (_wasConnected) {
+      _scheduleReconnect();
+    }
+    notifyListeners();
+  }
+
   void _handleConnectionFailure(String reason) {
     isConnected = false;
     isConnecting = false;
@@ -1449,10 +1606,21 @@ class XiaozhiController extends ChangeNotifier {
     mcpInitialized = false;
     mcpToolsListed = false;
     _silencePollTimer?.cancel();
+    _silencePollTimer = null;
     _speakingWatchdog?.cancel();
     _speakingWatchdog = null;
     _suppressMic = false;
     _ttsBuffer.clear();
+    _ttsFeeding = false;
+    _ttsNeedsPrebuffer = true;
+    // A dropped socket mid-utterance leaves isSpeaking true and the player
+    // holding the last TTS frames. Clearing it here is what makes the
+    // "server time out -> bye bye" path end in idle instead of a stuck
+    // "Xiaozhi sedang berbicara" state that never listens again. Mirrors
+    // _on_audio_channel_closed in src/bootstrap/session.py, which only resets
+    // the device state to IDLE and does not touch local playback.
+    isSpeaking = false;
+    _assistantMessageIndex = null;
     status = reason;
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError(reason));
@@ -1460,6 +1628,9 @@ class XiaozhiController extends ChangeNotifier {
     unawaited(wakeWordDetector.stop());
     unawaited(_closeSocket());
     if (_playerStarted) unawaited(_stopPlayer());
+    // Music is local (just_audio), so it must survive a server disconnect: the
+    // Python client's MusicPlayer is likewise independent of the protocol layer
+    // and keeps playing across a goodbye. Do not stop it here.
     // Auto-reconnect only after a connection that was actually up; a failed
     // first connect() (bad endpoint, handshake timeout) must not spin forever.
     if (_wasConnected) {
@@ -1473,11 +1644,14 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _closeSocket() async {
-    await _micSubscription?.cancel();
-    _micSubscription = null;
-    try {
-      if (await _recorder.isRecording()) await _recorder.stop();
-    } catch (_) {}
+    await _closeMicStream();
+    await _closeSocketOnly();
+  }
+
+  /// Cancels the socket subscription and closes the channel without touching the
+  /// microphone, so a normal server-side close can keep feeding the wake word
+  /// detector while the reconnect runs.
+  Future<void> _closeSocketOnly() async {
     await _socketSubscription?.cancel();
     _socketSubscription = null;
     await _channel?.sink.close();

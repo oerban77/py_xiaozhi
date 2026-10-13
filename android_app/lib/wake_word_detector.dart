@@ -1,11 +1,14 @@
 // Port of src/audio_processing/wake_word_detect.py (sherpa-onnx KeywordSpotter).
 //
 // The detector is fed from the same 16 kHz PCM16 microphone stream the controller
-// already records for the uplink, so no second recorder is needed. Detection is
-// gated by the controller: while the assistant is speaking the mic is suppressed
-// (Android has no acoustic echo cancellation), so the spotter must be paused for
-// the whole TTS window, otherwise the assistant's own voice out of the speaker
-// triggers the wake word.
+// already records for the uplink, so no second recorder is needed. The spotter
+// keeps running through the whole TTS window -- the controller suppresses only
+// the *uplink* (_suppressMic), never the detector -- so the user can interrupt
+// the assistant with the wake word exactly as src/plugins/wake_word.py does
+// (the Python detector is never paused for TTS either; its _on_detected aborts
+// the speech and clears the queue). The detector's own 300ms post-hit pause and
+// its cooldown keep the assistant's voice out of the speaker from re-triggering
+// it.
 
 import 'dart:async';
 import 'dart:io';
@@ -81,8 +84,9 @@ typedef WakeWordCallback = void Function(String keyword);
 ///
 /// Lifecycle mirrors the Python detector: [start] loads the model and creates the
 /// stream, [feed] pushes mic audio, [stop] releases everything. [pause]/[resume]
-/// mirror the Python `_paused` flag and are used to keep the spotter quiet while
-/// the assistant speaks.
+/// mirror the Python `_paused` flag; the controller does not use them for the TTS
+/// window because the spotter must stay armed so the wake word can interrupt the
+/// assistant (see the file header).
 class WakeWordDetector {
   WakeWordDetector();
 

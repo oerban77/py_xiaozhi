@@ -142,4 +142,23 @@ void main() {
       expect(XiaozhiController.appendTtsSegment('Halo\n', 'semua'), 'Halo\nsemua');
     });
   });
+
+  group('clean close classification', () {
+    // The server taking back the session ("bye bye") must not be treated as a
+    // network fault: a fault tears the wake word detector and the mic down and
+    // reports an error, a clean close keeps them alive and just goes idle.
+    test('1000/1001/1005 are a normal server-side close', () {
+      expect(XiaozhiController.isCleanCloseCode(1000), isTrue);
+      expect(XiaozhiController.isCleanCloseCode(1001), isTrue);
+      expect(XiaozhiController.isCleanCloseCode(1005), isTrue);
+    });
+
+    test('an error code or an abrupt reset is a network fault', () {
+      expect(XiaozhiController.isCleanCloseCode(1006), isFalse);
+      expect(XiaozhiController.isCleanCloseCode(1011), isFalse);
+      expect(XiaozhiController.isCleanCloseCode(4000), isFalse);
+      // A null code is a TCP reset with no close frame, not a "bye bye".
+      expect(XiaozhiController.isCleanCloseCode(null), isFalse);
+    });
+  });
 }
