@@ -48,6 +48,13 @@ jobs:
           # Flutter plugins (androidx.camera:* 1.6.1, androidx.core 1.17.0,
           # androidx.media3 1.9.0 all declare compileSdk 35/36 in their AAR
           # metadata). android-34 is kept as a fallback for older build-tools.
+          #
+          # No NDK is installed here on purpose. Flutter 3.47.x / AGP 9.1.0 default
+          # to NDK 28.2.13676358, which the runner image does not ship, and the
+          # sdkmanager download of it is flaky on the hosted runners. Instead the
+          # app's ndkVersion is pinned below to 27.3.13750724, which the runner
+          # image already has, so the Flutter Gradle plugin's NDK provisioning
+          # check short-circuits and never downloads anything.
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-34" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Create Android project structure
@@ -64,8 +71,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Pin the NDK to a version the CI runner already has installed.
+          #
+          # Flutter 3.47.x defaults `flutter.ndkVersion` to 28.2.13676358, which the
+          # ubuntu runner image does not ship. When the configured ndkVersion is not
+          # in `-Pflutter.installedNdkVersions`, the Flutter Gradle plugin runs
+          # `sdkmanager --install ndk;<version>` during Gradle's configuration phase.
+          # That download is flaky in CI ("Error on ZipFile unknown archive") and
+          # takes the whole build down with it. Setting an explicit ndkVersion that is
+          # already present makes that check short-circuit, so no download is ever
+          # attempted. 27.3.13750724 is the oldest NDK on the runner image and is
+          # well above the minimum AGP 9.1 accepts, so it is the safest choice.
+          #
+          # This is a plain shell variable rather than a $GITHUB_ENV entry because
+          # every patch below runs in this same step and needs the value now; a
+          # GITHUB_ENV write only applies to later steps.
+          XIAOZHI_NDK_VERSION="${XIAOZHI_NDK_VERSION:-27.3.13750724}"
+          export XIAOZHI_NDK_VERSION
+
           # Ensure the app can open sockets and reach HTTP-only media endpoints
           python - <<'PY'
+          import os
           import re
           from pathlib import Path
 
@@ -242,12 +268,18 @@ jobs:
           # Configure app/build.gradle for Java 17
           if [ -f android/app/build.gradle ]; then
             python - <<'PY'
+          import os
           from pathlib import Path
           p = Path('android/app/build.gradle')
           text = p.read_text()
           text = text.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
           text = text.replace('compileSdkVersion 34', 'compileSdkVersion 36')
           text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
+          # Pin the NDK to a version installed on the runner (see the manifest
+          # patch above for why). `flutter.ndkVersion` resolves to 28.2.13676358,
+          # which the runner does not have, so it must be overridden here.
+          ndk_version = os.environ.get('XIAOZHI_NDK_VERSION', '27.3.13750724')
+          text = text.replace('ndkVersion flutter.ndkVersion', f'ndkVersion "{ndk_version}"')
           text = text.replace('sourceCompatibility JavaVersion.VERSION_1_8', 'sourceCompatibility JavaVersion.VERSION_17')
           text = text.replace('targetCompatibility JavaVersion.VERSION_1_8', 'targetCompatibility JavaVersion.VERSION_17')
           text = text.replace('sourceCompatibility JavaVersion.VERSION_11', 'sourceCompatibility JavaVersion.VERSION_17')
@@ -306,12 +338,18 @@ jobs:
           # Configure app/build.gradle.kts for Kotlin DSL
           if [ -f android/app/build.gradle.kts ]; then
             python - <<'PY'
+          import os
           from pathlib import Path
           p = Path('android/app/build.gradle.kts')
           text = p.read_text()
           text = text.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
           text = text.replace('compileSdk = 34', 'compileSdk = 36')
           text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          # Pin the NDK to a version installed on the runner (see the manifest
+          # patch above for why). `flutter.ndkVersion` resolves to 28.2.13676358,
+          # which the runner does not have, so it must be overridden here.
+          ndk_version = os.environ.get('XIAOZHI_NDK_VERSION', '27.3.13750724')
+          text = text.replace('ndkVersion = flutter.ndkVersion', f'ndkVersion = "{ndk_version}"')
           if 'isCoreLibraryDesugaringEnabled = true' not in text and 'compileOptions {' in text:
               text = text.replace('compileOptions {', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', 1)
           if 'jvmTarget = "17"' not in text and 'kotlinOptions' in text:
