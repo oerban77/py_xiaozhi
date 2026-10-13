@@ -132,7 +132,7 @@ class XiaozhiController extends ChangeNotifier {
   /// Test-only seam so a host test can drive a state transition without a live
   /// socket. Production code goes through [_setDeviceState].
   @visibleForTesting
-  set setDeviceStateForTest(DeviceState next) => _setDeviceState(next);
+  void setDeviceStateForTest(DeviceState next) => _setDeviceState(next);
 
   /// Human-readable rendering of [deviceState], mirroring the status line the
   /// desktop GUI builds from the device state. Kept as a getter so a stale
