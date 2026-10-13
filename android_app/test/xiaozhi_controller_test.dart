@@ -95,6 +95,26 @@ void main() {
       final controller = XiaozhiController();
       expect(controller.autoConnect, isTrue);
     });
+
+    test('isSpeaking tracks the device state, not a separate flag', () {
+      // Regression: the tts "start" handler set deviceState to speaking but left
+      // the old isSpeaking boolean false, so the player-stream re-arm gate in
+      // _handleAudio never opened and no audio reached the speaker -- the live
+      // text kept updating while the answer stayed silent. isSpeaking is now
+      // derived from deviceState, the way StateManager.is_speaking() reads the
+      // enum, so the two can never disagree again.
+      final controller = XiaozhiController();
+      expect(controller.isSpeaking, isFalse);
+
+      controller.setDeviceStateForTest(DeviceState.speaking);
+      expect(controller.isSpeaking, isTrue);
+
+      controller.setDeviceStateForTest(DeviceState.idle);
+      expect(controller.isSpeaking, isFalse);
+
+      controller.setDeviceStateForTest(DeviceState.listening);
+      expect(controller.isSpeaking, isFalse);
+    });
   });
 
   group('camera facing', () {

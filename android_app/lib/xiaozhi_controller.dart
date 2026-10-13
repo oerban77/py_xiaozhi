@@ -129,6 +129,11 @@ class XiaozhiController extends ChangeNotifier {
   DeviceState _deviceState = DeviceState.idle;
   DeviceState get deviceState => _deviceState;
 
+  /// Test-only seam so a host test can drive a state transition without a live
+  /// socket. Production code goes through [_setDeviceState].
+  @visibleForTesting
+  set setDeviceStateForTest(DeviceState next) => _setDeviceState(next);
+
   /// Human-readable rendering of [deviceState], mirroring the status line the
   /// desktop GUI builds from the device state. Kept as a getter so a stale
   /// String can never survive a state change.
@@ -181,16 +186,6 @@ class XiaozhiController extends ChangeNotifier {
     if (_deviceState == next && !hasError) return;
     _deviceState = next;
     _error = '';
-    switch (next) {
-      case DeviceState.idle:
-        isSpeaking = false;
-        break;
-      case DeviceState.listening:
-        isSpeaking = false;
-        break;
-      case DeviceState.speaking:
-        break;
-    }
     notifyListeners();
   }
 
@@ -244,7 +239,12 @@ class XiaozhiController extends ChangeNotifier {
   bool isConnecting = false;
   bool isRecording = false;
   bool _wakeWordMicActive = false;
-  bool isSpeaking = false;
+  /// Derived from [deviceState], exactly like StateManager.is_speaking() reads
+  /// the state enum instead of keeping a second boolean. Keeping a separate
+  /// writable flag is how TTS went silent: the tts "start" handler set the state
+  /// to speaking but the flag stayed false, so the player-stream re-arm gate in
+  /// _handleAudio never opened and no audio ever reached the speaker.
+  bool get isSpeaking => _deviceState == DeviceState.speaking;
   bool _opusInitialized = false;
   bool _playerStarted = false;
   /// Monotonic token bumped on every player teardown. A stop/start is inherently
@@ -1258,7 +1258,8 @@ class XiaozhiController extends ChangeNotifier {
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
     // The caller decides the next state (interrupt goes to listening, a lost
-    // connection goes to idle); clearing isSpeaking here would race with that.
+    // connection goes to idle); isSpeaking is derived from that state, so it must
+    // not be touched here or it would race with the caller's transition.
     // Stop and restart as one serialized unit. The old code set _playerStarted =
     // false first and re-armed in a separate await, so a frame arriving in between
     // hit _handleAudio's re-arm path on a half-stopped player and threw, dropping
@@ -1426,9 +1427,10 @@ class XiaozhiController extends ChangeNotifier {
     if (!_playerStarted && isSpeaking) {
       // The stream is torn down by an interrupt or a sample-rate change while the
       // server keeps sending frames; re-arm it instead of dropping the utterance.
-      // Gated on isSpeaking so an abort (which clears that flag) cannot resurrect
-      // playback of frames that are still in flight. The serialized start means a
-      // concurrent stop/interrupt wins instead of throwing here.
+      // Gated on isSpeaking so an abort (which leaves the idle/listening state)
+      // cannot resurrect playback of frames that are still in flight. The
+      // serialized start means a concurrent stop/interrupt wins instead of
+      // throwing here.
       try {
         if (!_player.isOpen()) await _player.openPlayer();
         await _startPlayerStream();
@@ -1537,9 +1539,9 @@ class XiaozhiController extends ChangeNotifier {
     _resumeAfterTts();
   }
 
-  /// The state transition both tts-stop paths share. isSpeaking is cleared by
-  /// _setDeviceState, not by the callers, so there is exactly one place that
-  /// decides what follows a finished answer.
+  /// The state transition both tts-stop paths share. isSpeaking is derived from
+  /// [deviceState], so there is exactly one place that decides what follows a
+  /// finished answer: this method's choice of the next state.
   void _resumeAfterTts() {
     if (autoSessionActive) {
       // Continuous conversation: keep_listening is still true, so re-arm the
