@@ -327,10 +327,6 @@ class XiaozhiController extends ChangeNotifier {
   static const Duration _silencePeriodMax = Duration(seconds: 3);
   static const Duration _silencePeriodHold = Duration(milliseconds: 900);
   bool _suppressMic = false;
-  /// True when the mic recorder was started by a continuous conversation rather
-  /// than by the user tapping "Mulai bicara", so ending the conversation can stop
-  /// it again without touching a tap-started recording.
-  bool _micAutoManaged = false;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
   /// Wall-clock cap for the whole speaking window. The server's tts "stop" can be
@@ -538,7 +534,6 @@ class XiaozhiController extends ChangeNotifier {
     // the assistant stops talking.
     if (!isRecording) {
       await startVoice();
-      _micAutoManaged = isRecording;
     }
     _setDeviceState(DeviceState.listening);
   }
@@ -548,7 +543,6 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> stopConversation() async {
     if (!autoSessionActive) return;
     autoSessionActive = false;
-    _micAutoManaged = false;
     if (isRecording) {
       // stopVoice sends the listen-stop; sending it here too would duplicate it.
       await stopVoice();
@@ -802,7 +796,6 @@ class XiaozhiController extends ChangeNotifier {
     if (isRecording) await stopVoice();
     await _stopWakeWordDetector();
     autoSessionActive = false;
-    _micAutoManaged = false;
     isConnected = false;
     isConnecting = false;
     mcpInitialized = false;
@@ -992,7 +985,6 @@ class XiaozhiController extends ChangeNotifier {
   Future<void> stopVoice() async {
     if (!isRecording) return;
     isRecording = false;
-    _micAutoManaged = false;
     _sendJson(ProtocolMessages.listenStop(sessionId));
     if (isConnected && wakeWordOptions.enabled && wakeWordListening) {
       _wakeWordMicActive = true;
@@ -1031,7 +1023,6 @@ class XiaozhiController extends ChangeNotifier {
     } else {
       await startVoice();
     }
-    _micAutoManaged = isRecording;
   }
 
   void _handleSocketMessage(dynamic message) {
@@ -1673,7 +1664,6 @@ class XiaozhiController extends ChangeNotifier {
     isRecording = false;
     // The continuous conversation died with the socket; without this the next
     // tap would assume a session is still running and stop instead of starting.
-    _micAutoManaged = false;
     autoSessionActive = false;
     _suppressMic = false;
     _silencePollTimer?.cancel();
