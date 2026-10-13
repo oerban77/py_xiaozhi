@@ -43,7 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _smartHomePasswordController;
   late final TextEditingController _smartHomeDevicesController;
   late String _cameraFacing;
-  late bool _autoConversation;
   late bool _autoConnect;
   late bool _smartHomeUseTls;
   late int _outputSampleRate;
@@ -105,7 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ..._mcpModules.where((module) => !module.supported).map((module) => module.id),
     };
     _cameraFacing = widget.controller.cameraFacing;
-    _autoConversation = widget.controller.autoConversation;
     _autoConnect = widget.controller.autoConnect;
     _outputSampleRate = widget.controller.outputSampleRate;
     _wakeWordEnabled = widget.controller.wakeWordOptions.enabled;
@@ -347,7 +345,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newSmartHomeUseTls: _smartHomeUseTls,
       newSmartHomeDevicesJson: _smartHomeDevicesController.text,
       newDisabledMcpModules: _disabledMcpModules.toList()..sort(),
-      newAutoConversation: _autoConversation,
       newAutoConnect: _autoConnect,
       newOutputSampleRate: _outputSampleRate,
       newWakeWordEnabled: _wakeWordEnabled,
@@ -529,21 +526,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(color: Color(0xFF71817C), fontSize: 12, height: 1.5),
                     ),
                     const SizedBox(height: 28),
-                    const Text(
-                      'Auto Conversation',
-                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: _autoConversation,
-                      title: const Text('Aktifkan auto conversation'),
-                      subtitle: const Text('Mulai listening realtime saat mode otomatis aktif.'),
-                      onChanged: (value) => setState(() => _autoConversation = value),
-                      activeThumbColor: AppColors.green,
-                      activeTrackColor: AppColors.green.withValues(alpha: 0.35),
-                    ),
-                    const SizedBox(height: 12),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       value: _autoConnect,

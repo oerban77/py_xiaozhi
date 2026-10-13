@@ -75,12 +75,20 @@ void main() {
     });
   });
 
-  group('auto conversation', () {
-    test('starts disabled and is assignable, as the segmented button binds to it', () {
+  group('conversation state', () {
+    test('is always continuous; manual mode no longer exists', () {
       final controller = XiaozhiController();
-      expect(controller.autoConversation, isFalse);
-      controller.autoConversation = true;
+      // There is no manual mode anymore, so this is a constant: every
+      // conversation is a continuous realtime listen/speak loop.
       expect(controller.autoConversation, isTrue);
+    });
+
+    test('starts idle and derives the status from the device state', () {
+      final controller = XiaozhiController();
+      expect(controller.deviceState, DeviceState.idle);
+      // Disconnected idle is the "not connected yet" status, not a stale label.
+      expect(controller.status, 'Belum terhubung');
+      expect(controller.primaryActionLabel, 'Mulai bicara');
     });
 
     test('auto-connect defaults to enabled', () {

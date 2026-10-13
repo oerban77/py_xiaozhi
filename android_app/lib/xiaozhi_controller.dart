@@ -20,6 +20,14 @@ import 'mcp_runtime.dart';
 import 'protocol_messages.dart';
 import 'wake_word_detector.dart';
 
+/// Coarse device state, mirroring DeviceState in src/constants/constants.py.
+/// The Python client derives its status line and its button label from this
+/// single value (see SessionActions.on_device_state_changed), and the Android
+/// UI does the same: the status bar and the main button are driven by
+/// [XiaozhiController.deviceState] rather than by a loose String, so idle /
+/// listening / speaking can never disagree with each other.
+enum DeviceState { idle, listening, speaking }
+
 class XiaozhiController extends ChangeNotifier {
   static const maxTextAttachmentChars = 24000;
   static const defaultEndpoint = 'wss://api.tenclass.net/xiaozhi/v1/';
@@ -81,7 +89,15 @@ class XiaozhiController extends ChangeNotifier {
   bool smartHomeUseTls = false;
   String smartHomeDevicesJson = '[]';
   List<String> disabledMcpModules = [];
-  bool autoConversation = false;
+  /// The app is always in auto conversation, mirroring the Python client's
+  /// SessionActions which only ever sends ListeningMode.MANUAL from an explicit
+  /// "Hold to Talk" press. That press does not exist here, so there is no manual
+  /// mode at all: every conversation is a continuous listen/speak loop and the
+  /// mode can never be flipped to a state the UI no longer exposes.
+  bool get autoConversation => true;
+  /// Mirrors SessionActions._auto_session_active: true while a continuous
+  /// conversation is running, so the main button shows "Akhiri percakapan" and
+  /// tapping it stops the loop instead of starting a second one.
   bool autoSessionActive = false;
   /// Mirrors the desktop GUI's auto-connect: connect as soon as the app starts
   /// when the server settings are already complete, and reconnect after the
@@ -104,7 +120,90 @@ class XiaozhiController extends ChangeNotifier {
   /// the spotter is briefly paused for a cooldown or a TTS window.
   bool wakeWordListening = false;
   String wakeWordError = '';
-  String status = 'Belum terhubung';
+
+  /// The single source of truth for idle / listening / speaking, mirroring
+  /// StateManager._device_state in the Python client. Every transition goes
+  /// through [_setDeviceState], which is the only place that clears the flags
+  /// the old state implied, so the UI can never show a status that contradicts
+  /// isRecording / isSpeaking.
+  DeviceState _deviceState = DeviceState.idle;
+  DeviceState get deviceState => _deviceState;
+
+  /// Human-readable rendering of [deviceState], mirroring the status line the
+  /// desktop GUI builds from the device state. Kept as a getter so a stale
+  /// String can never survive a state change.
+  String get status {
+    if (!isConnected) {
+      if (isConnecting) return 'Menghubungkan...';
+      return _reconnectTimer != null
+          ? 'Mencoba menghubungkan kembali dalam ${reconnectDelaySeconds(_reconnectAttempt)}dtk...'
+          : 'Belum terhubung';
+    }
+    switch (_deviceState) {
+      case DeviceState.listening:
+        return wakeWordListening && !isRecording ? 'Wake word aktif' : 'Mendengarkan...';
+      case DeviceState.speaking:
+        return mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
+      case DeviceState.idle:
+        return autoSessionActive ? 'Menunggu jawaban...' : 'Terhubung';
+    }
+  }
+
+  /// Translates [deviceState] into the main button's label, mirroring
+  /// SessionActions.on_device_state_changed which flips the button between
+  /// "Mulai/Selesai bicara" and "Hentikan jawaban" from the state alone.
+  String get primaryActionLabel {
+    switch (_deviceState) {
+      case DeviceState.listening:
+        return 'Selesai bicara';
+      case DeviceState.speaking:
+        return 'Hentikan jawaban';
+      case DeviceState.idle:
+        return autoSessionActive ? 'Selesai bicara' : 'Mulai bicara';
+    }
+  }
+
+  /// The last error the user needs to see (a failed handshake, a rejected
+  /// attachment, a player that would not start). Only set by [_reportError] and
+  /// cleared by [_setDeviceState], so a transient error cannot linger after the
+  /// app has moved on -- which is what made the old loose `status` String show
+  /// "Mikrofon gagal dimulai" long after the mic was working again.
+  String _error = '';
+  String get error => _error;
+  bool get hasError => _error.isNotEmpty;
+
+  /// Mirrors StateManager.set_device_state: record the new state, reset the
+  /// flags that belonged to the old one, and notify once at the end. The Python
+  /// client also emits DEVICE_STATE_CHANGED here, which the audio plugin uses
+  /// to re-open the mic after TTS; the equivalent Android work is done inline
+  /// by the callers (the silence-period timers) before they call this.
+  void _setDeviceState(DeviceState next) {
+    if (_deviceState == next && !hasError) return;
+    _deviceState = next;
+    _error = '';
+    switch (next) {
+      case DeviceState.idle:
+        isSpeaking = false;
+        break;
+      case DeviceState.listening:
+        isSpeaking = false;
+        break;
+      case DeviceState.speaking:
+        break;
+    }
+    notifyListeners();
+  }
+
+  void _reportError(String message) {
+    _error = message;
+    notifyListeners();
+  }
+
+  void clearError() {
+    if (_error.isEmpty) return;
+    _error = '';
+    notifyListeners();
+  }
   /// Current emotion name, mirroring mainModel.emotionUrl in the desktop GUI.
   /// Driven by the `llm` message's `emotion` field (see UiPresenter
   /// show_protocol_message) and reset to "neutral" on device-state changes, like
@@ -228,9 +327,9 @@ class XiaozhiController extends ChangeNotifier {
   static const Duration _silencePeriodMax = Duration(seconds: 3);
   static const Duration _silencePeriodHold = Duration(milliseconds: 900);
   bool _suppressMic = false;
-  /// True when the mic recorder was started by auto conversation rather than by
-  /// the user pressing "Mulai bicara", so disabling auto conversation can stop it
-  /// again without touching a manually started recording.
+  /// True when the mic recorder was started by a continuous conversation rather
+  /// than by the user tapping "Mulai bicara", so ending the conversation can stop
+  /// it again without touching a tap-started recording.
   bool _micAutoManaged = false;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
@@ -261,7 +360,6 @@ class XiaozhiController extends ChangeNotifier {
     smartHomeUseTls = _preferences?.getBool('smart_home_use_tls') ?? false;
     smartHomeDevicesJson = _preferences?.getString('smart_home_devices') ?? '[]';
     disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
-    autoConversation = _preferences?.getBool('auto_conversation') ?? false;
     autoConnect = _preferences?.getBool('auto_connect') ?? true;
     _autoConnectEnabled = autoConnect;
     final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
@@ -314,7 +412,7 @@ class XiaozhiController extends ChangeNotifier {
     _isReconnecting = true;
     _reconnectAttempt += 1;
     final delay = reconnectDelaySeconds(_reconnectAttempt);
-    status = 'Mencoba menghubungkan kembali dalam ${delay}dtk...';
+    // status is derived from _reconnectTimer now, so this only needs the notify.
     notifyListeners();
     _reconnectTimer = Timer(Duration(seconds: delay), () {
       _reconnectTimer = null;
@@ -348,7 +446,6 @@ class XiaozhiController extends ChangeNotifier {
     required bool newSmartHomeUseTls,
     required String newSmartHomeDevicesJson,
     required List<String> newDisabledMcpModules,
-    required bool newAutoConversation,
     required bool newAutoConnect,
     required int newOutputSampleRate,
     required bool newWakeWordEnabled,
@@ -375,7 +472,8 @@ class XiaozhiController extends ChangeNotifier {
       ? '[]'
       : newSmartHomeDevicesJson.trim();
     disabledMcpModules = List.of(newDisabledMcpModules);
-    autoConversation = newAutoConversation;
+    // Saving settings tears down any open conversation (disconnect() ran above),
+    // so the session is no longer active.
     autoSessionActive = false;
     autoConnect = newAutoConnect;
     _autoConnectEnabled = newAutoConnect;
@@ -392,7 +490,6 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setBool('smart_home_use_tls', smartHomeUseTls);
     await _preferences?.setString('smart_home_devices', smartHomeDevicesJson);
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
-    await _preferences?.setBool('auto_conversation', autoConversation);
     await _preferences?.setBool('auto_connect', autoConnect);
     await setOutputSampleRate(newOutputSampleRate);
     // disconnect() above stopped the detector and cleared isConnected, so arm it
@@ -405,8 +502,7 @@ class XiaozhiController extends ChangeNotifier {
     await _secureStorage.write(key: 'camera_vl_api_key', value: vlApiKey);
     await _secureStorage.write(key: 'camera_explain_token', value: visionToken);
     await _secureStorage.write(key: 'smart_home_password', value: smartHomePassword);
-    status = 'Pengaturan tersimpan';
-    notifyListeners();
+    _setDeviceState(DeviceState.idle);
     // The user just saved connection settings, so the intent is clearly to be
     // connected to the new server. disconnect() above disabled auto-reconnect,
     // and without this the app would sit idle showing "Pengaturan tersimpan"
@@ -418,44 +514,67 @@ class XiaozhiController extends ChangeNotifier {
     }
   }
 
-  Future<void> setAutoConversation(bool enabled) async {
+  /// Starts a continuous conversation, mirroring
+  /// ConversationSession.start_auto_conversation: send listen in realtime mode
+  /// (Android has no AEC, so the mic must stay open for the whole session) and
+  /// mark the session active so the main button offers "Akhiri percakapan".
+  ///
+  /// This replaces the old setAutoConversation(true). Manual mode is gone, so
+  /// there is no mode to toggle -- the only choice is whether a conversation is
+  /// running, and that is what the main button already controls.
+  Future<void> startConversation() async {
     if (!isConnected) {
-      autoConversation = false;
-      autoSessionActive = false;
-      status = 'Hubungkan perangkat terlebih dahulu untuk auto conversation';
-      notifyListeners();
+      _reportError('Hubungkan perangkat terlebih dahulu');
       return;
     }
-    autoConversation = enabled;
-    await _preferences?.setBool('auto_conversation', autoConversation);
-    if (enabled) {
-      autoSessionActive = true;
-      _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
-      // Realtime mode needs a live microphone for the whole session. The uplink is
-      // gated by _suppressMic while the assistant speaks (see _beginTtsPlayback), so
-      // the state machine ends up exactly as expected: speaking -> the answer plays
-      // out of the speaker, listening -> the mic reaches the server. Without starting
-      // the recorder here the server waits for user audio that never arrives once
-      // the assistant stops talking.
-      if (!isRecording) {
-        await startVoice();
-        _micAutoManaged = isRecording;
-      }
-      status = 'Auto conversation aktif';
-    } else {
-      autoSessionActive = false;
-      _sendJson(ProtocolMessages.listenStop(sessionId));
-      if (_micAutoManaged && isRecording) {
-        await stopVoice();
-      }
-      _micAutoManaged = false;
-      status = 'Auto conversation dimatikan';
+    if (autoSessionActive) return;
+    autoSessionActive = true;
+    _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
+    // Realtime mode needs a live microphone for the whole session. The uplink is
+    // gated by _suppressMic while the assistant speaks (see _beginTtsPlayback), so
+    // the state machine ends up exactly as expected: speaking -> the answer plays
+    // out of the speaker, listening -> the mic reaches the server. Without starting
+    // the recorder here the server waits for user audio that never arrives once
+    // the assistant stops talking.
+    if (!isRecording) {
+      await startVoice();
+      _micAutoManaged = isRecording;
     }
-    notifyListeners();
+    _setDeviceState(DeviceState.listening);
   }
 
-  Future<void> toggleAutoConversation() async {
-    await setAutoConversation(!autoConversation);
+  /// Ends the continuous conversation, mirroring ConversationSession.stop_listening:
+  /// stop listening, drop keep_listening, and return to idle.
+  Future<void> stopConversation() async {
+    if (!autoSessionActive) return;
+    autoSessionActive = false;
+    _micAutoManaged = false;
+    if (isRecording) {
+      // stopVoice sends the listen-stop; sending it here too would duplicate it.
+      await stopVoice();
+    } else {
+      // The mic is in wake-word mode, so stopVoice is a no-op, but the server is
+      // still in a realtime listen and needs the stop.
+      _sendJson(ProtocolMessages.listenStop(sessionId));
+    }
+    _setDeviceState(DeviceState.idle);
+  }
+
+  /// The main button: start or end a conversation, mirroring
+  /// SessionActions.auto_session_toggle. While the assistant is speaking the same
+  /// tap interrupts the answer (SessionActions._stop_auto_session stops first,
+  /// then aborts, so the interruption is not resumed by the listen continuation).
+  Future<void> toggleConversation() async {
+    if (!isConnected) return;
+    if (isSpeaking) {
+      await interrupt();
+      return;
+    }
+    if (autoSessionActive || isRecording) {
+      await stopConversation();
+      return;
+    }
+    await startConversation();
   }
 
   /// Applies new wake word settings and persists them, mirroring the
@@ -495,12 +614,14 @@ class XiaozhiController extends ChangeNotifier {
           _wakeWordMicActive = !isRecording;
           wakeWordListening = true;
           wakeWordError = '';
-          if (!isRecording) status = 'Wake word aktif';
+          // The status bar derives from deviceState; the spotter running on its
+          // own (no conversation yet) is idle, not "listening".
+          if (!isRecording) _setDeviceState(DeviceState.idle);
         } catch (error) {
           await wakeWordDetector.stop();
           wakeWordListening = false;
           wakeWordError = error.toString();
-          status = 'Wake word gagal dimulai: $wakeWordError';
+          _reportError('Wake word gagal dimulai: $wakeWordError');
         }
         break;
       case WakeWordStartResult.disabled:
@@ -511,7 +632,7 @@ class XiaozhiController extends ChangeNotifier {
       case WakeWordStartResult.initFailed:
         wakeWordListening = false;
         wakeWordError = wakeWordDetector.lastError;
-        status = 'Wake word gagal dimulai: $wakeWordError';
+        _reportError('Wake word gagal dimulai: $wakeWordError');
         break;
     }
   }
@@ -525,13 +646,10 @@ class XiaozhiController extends ChangeNotifier {
   /// Mirrors WakeWordPlugin._on_detected: interrupt TTS, or start a voice session
   /// so the speech following the wake word reaches the server.
   ///
-  /// The session the wake word opens always runs in auto mode. In manual mode
-  /// the server waits for a listen-stop that never comes (there is no tap to
-  /// send it), so the conversation hangs; WakeWordPlugin._on_detected in Python
-  /// picks AUTO_STOP/REALTIME for the same reason. When the user has the app in
-  /// manual mode, the detection also flips the persisted setting to auto so the
-  /// UI's Manual/Auto segmented button and the mic lifecycle stay consistent for
-  /// the rest of the session.
+  /// The session the wake word opens always runs in realtime mode, exactly as
+  /// ConversationSession.start_auto_conversation picks REALTIME when AEC is on.
+  /// There is no manual mode to fall back to, so the server never waits for a
+  /// listen-stop that no tap will ever send.
   void _handleWakeWordDetected(String keyword) {
     if (!isConnected) return;
     if (isSpeaking) {
@@ -567,10 +685,10 @@ class XiaozhiController extends ChangeNotifier {
           }),
         );
       }
-      isSpeaking = false;
-      _switchToAutoConversation();
-      status = 'Wake word terdeteksi, TTS dihentikan';
-      notifyListeners();
+      // The conversation is continuous now, so the session stays active and the
+      // state goes back to listening for the user's next sentence.
+      autoSessionActive = true;
+      _setDeviceState(DeviceState.listening);
       // The abort flow needs the mic live so the user's next sentence is heard.
       // startVoice is a no-op when already recording.
       startVoice();
@@ -579,29 +697,12 @@ class XiaozhiController extends ChangeNotifier {
     // Not speaking: tell the server the wake word fired and open the mic, so the
     // conversation starts without a tap (send_wake_word_detected + start_listening
     // with AUTO_STOP, since Android has no AEC).
-    _switchToAutoConversation();
+    autoSessionActive = true;
     if (!isRecording) {
       unawaited(startVoice());
     }
     _sendJson(ProtocolMessages.detectText(sessionId, wakeWordOptions.wakeWord));
-    status = 'Wake word terdeteksi: ${wakeWordOptions.wakeWord}';
-    notifyListeners();
-  }
-
-  /// Flips manual -> auto conversation when the wake word fires, persisting the
-  /// change so the segmented button stays in sync. No-op when already auto.
-  /// Mirrors start_auto_conversation in src/bootstrap/session.py, which sets
-  /// keep_listening so the session survives the assistant's reply.
-  ///
-  /// The flag is set synchronously and the persist is fire-and-forget:
-  /// _handleWakeWordDetected calls this right before startVoice(), which reads
-  /// autoConversation to pick the listening mode, so the flag has to be updated
-  /// before that call and cannot wait on SharedPreferences.
-  void _switchToAutoConversation() {
-    if (autoConversation) return;
-    autoConversation = true;
-    autoSessionActive = true;
-    unawaited(_preferences?.setBool('auto_conversation', autoConversation));
+    _setDeviceState(DeviceState.listening);
   }
 
   Future<void> connect() async {
@@ -613,20 +714,17 @@ class XiaozhiController extends ChangeNotifier {
     // "Hubungkan" clearly wants a live connection again.
     _autoConnectEnabled = autoConnect;
     if (endpoint.isEmpty || token.isEmpty || deviceId.isEmpty || clientId.isEmpty) {
-      status = 'Lengkapi koneksi di Pengaturan';
-      notifyListeners();
+      _reportError('Lengkapi koneksi di Pengaturan');
       return;
     }
 
     final uri = Uri.tryParse(endpoint);
     if (uri == null || !{'ws', 'wss'}.contains(uri.scheme) || uri.host.isEmpty) {
-      status = 'Alamat server harus dimulai dengan ws:// atau wss://';
-      notifyListeners();
+      _reportError('Alamat server harus dimulai dengan ws:// atau wss://');
       return;
     }
 
     isConnecting = true;
-    status = 'Menghubungkan...';
     _helloCompleter = Completer<void>();
     notifyListeners();
 
@@ -670,7 +768,9 @@ class XiaozhiController extends ChangeNotifier {
       isConnected = true;
       _wasConnected = true;
       isConnecting = false;
-      status = 'Terhubung';
+      // Mirrors _on_audio_channel_opened: the channel is up but nothing is
+      // listening yet, so the device is idle until the user starts a conversation.
+      _setDeviceState(DeviceState.idle);
       // Mirrors UiPresenter.show_device_state, which resets the emotion to
       // "neutral" whenever the device state changes.
       emotion = EmotionService.hasAnimation(emotion) ? emotion : 'neutral';
@@ -688,7 +788,7 @@ class XiaozhiController extends ChangeNotifier {
       await _closeSocket();
       isConnected = false;
       isConnecting = false;
-      status = 'Gagal terhubung: ${error.toString()}';
+      _reportError('Gagal terhubung: ${error.toString()}');
       emotion = '';
       liveText = '';
     }
@@ -701,7 +801,6 @@ class XiaozhiController extends ChangeNotifier {
     _cancelReconnect();
     if (isRecording) await stopVoice();
     await _stopWakeWordDetector();
-    autoConversation = false;
     autoSessionActive = false;
     _micAutoManaged = false;
     isConnected = false;
@@ -720,7 +819,7 @@ class XiaozhiController extends ChangeNotifier {
     await _closeSocket();
     await _stopPlayerStream();
     sessionId = '';
-    status = 'Terputus';
+    _setDeviceState(DeviceState.idle);
     // Back to the dimmed placeholder, like the disconnected desktop GUI.
     emotion = '';
     liveText = '';
@@ -849,9 +948,11 @@ class XiaozhiController extends ChangeNotifier {
         pendingText != null || pendingPdf != null || imageBytes != null;
     _pendingAttachmentName = hasAttachment ? attachmentName : null;
     messages.add(ChatMessage(text: displayText, isUser: true));
-    status = hasAttachment ? 'Mengirim attachment...' : 'Menunggu jawaban...';
-    notifyListeners();
-    _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
+    // The conversation is continuous, so a text send keeps the session alive and
+    // the state stays listening while the answer is being prepared.
+    autoSessionActive = true;
+    _setDeviceState(DeviceState.listening);
+    _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
     _sendJson(ProtocolMessages.detectText(sessionId, detectText));
     return true;
   }
@@ -869,25 +970,23 @@ class XiaozhiController extends ChangeNotifier {
     if (_wakeWordMicActive) {
       _wakeWordMicActive = false;
       isRecording = true;
-      _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
-      status = 'Mendengarkan...';
+      _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
       emotion = 'neutral';
       liveText = '';
-      notifyListeners();
+      _setDeviceState(DeviceState.listening);
       return;
     }
     try {
       await _openMicStream();
-      _sendJson(ProtocolMessages.listenStart(sessionId, autoConversation ? 'realtime' : 'manual'));
+      _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
       isRecording = true;
-      status = 'Mendengarkan...';
       // DeviceState.LISTENING in the desktop GUI resets the emotion to neutral.
       emotion = 'neutral';
       liveText = '';
+      _setDeviceState(DeviceState.listening);
     } catch (error) {
-      status = 'Mikrofon gagal dimulai: ${error.toString()}';
+      _reportError('Mikrofon gagal dimulai: ${error.toString()}');
     }
-    notifyListeners();
   }
 
   Future<void> stopVoice() async {
@@ -897,12 +996,12 @@ class XiaozhiController extends ChangeNotifier {
     _sendJson(ProtocolMessages.listenStop(sessionId));
     if (isConnected && wakeWordOptions.enabled && wakeWordListening) {
       _wakeWordMicActive = true;
-      status = 'Wake word aktif';
     } else {
       await _closeMicStream();
-      status = 'Menunggu jawaban...';
     }
-    notifyListeners();
+    // A continuous conversation goes back to idle and waits for the next wake
+    // word or tap; the status bar derives the label from this.
+    _setDeviceState(DeviceState.idle);
   }
 
   Future<void> _openMicStream() async {
@@ -928,15 +1027,11 @@ class XiaozhiController extends ChangeNotifier {
     if (!isConnected) return;
     await _interruptTtsForTextInput();
     if (isRecording) {
-      if (!autoConversation) {
-        _sendJson(ProtocolMessages.listenStart(sessionId, 'manual'));
-      }
-      status = 'Mendengarkan...';
-      notifyListeners();
+      _setDeviceState(DeviceState.listening);
     } else {
       await startVoice();
     }
-    if (autoConversation) _micAutoManaged = isRecording;
+    _micAutoManaged = isRecording;
   }
 
   void _handleSocketMessage(dynamic message) {
@@ -944,8 +1039,7 @@ class XiaozhiController extends ChangeNotifier {
       try {
         _handleJson(jsonDecode(message) as Map<String, dynamic>);
       } on FormatException {
-        status = 'Pesan server tidak valid';
-        notifyListeners();
+        _reportError('Pesan server tidak valid');
       }
     } else if (message is List<int>) {
       final packet = Uint8List.fromList(message);
@@ -953,7 +1047,7 @@ class XiaozhiController extends ChangeNotifier {
         try {
           await _handleAudio(packet);
         } catch (_) {
-          status = 'Paket audio tidak dapat diputar';
+          _reportError('Paket audio tidak dapat diputar');
           notifyListeners();
         }
       });
@@ -996,8 +1090,7 @@ class XiaozhiController extends ChangeNotifier {
             request = Map<String, dynamic>.from(decoded);
           }
         } on FormatException {
-          status = 'Payload MCP tidak valid';
-          notifyListeners();
+          _reportError('Payload MCP tidak valid');
           return;
         }
       }
@@ -1101,15 +1194,13 @@ class XiaozhiController extends ChangeNotifier {
     } else if (type == 'tts') {
       final state = data['state'];
       if (state == 'start') {
-        isSpeaking = true;
         _discardTtsAudioUntilStart = false;
         _assistantText = '';
         _assistantMessageIndex = null;
-        status = mcpToolsListed ? 'Xiaozhi sedang berbicara' : 'MCP belum siap';
-        // Android has no AEC, so unlike the Python client (which keeps the mic open
-        // during SPEAKING only when AEC is enabled) we must gate the mic for the
-        // whole playback window. Otherwise the speaker output leaks into the mic and
-        // the server's VAD interrupts the assistant mid-sentence in realtime mode.
+        // Mirrors ConversationSession._handle_tts_start: the device is speaking
+        // unless a continuous realtime session keeps the mic open. Android has no
+        // AEC, so the mic is always gated during playback and the state is always
+        // SPEAKING here.
         _beginTtsPlayback();
         _ttsNeedsPrebuffer = true;
         // A stale timestamp from the previous utterance would make the silence
@@ -1123,7 +1214,7 @@ class XiaozhiController extends ChangeNotifier {
         // and by every path that tears playback down.
         _speakingWatchdog?.cancel();
         _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
-        notifyListeners();
+        _setDeviceState(DeviceState.speaking);
       }
       final text = data['text'];
       if (text is String && text.isNotEmpty) {
@@ -1132,8 +1223,6 @@ class XiaozhiController extends ChangeNotifier {
         notifyListeners();
       }
       if (state == 'stop') {
-        isSpeaking = false;
-        status = 'Terhubung';
         _assistantMessageIndex = null;
         _speakingWatchdog?.cancel();
         _speakingWatchdog = null;
@@ -1148,7 +1237,7 @@ class XiaozhiController extends ChangeNotifier {
         notifyListeners();
       }
     } else if (type == 'error') {
-      status = (data['message'] ?? data['error'] ?? 'Kesalahan server').toString();
+      _reportError((data['message'] ?? data['error'] ?? 'Kesalahan server').toString());
     }
     notifyListeners();
   }
@@ -1177,7 +1266,8 @@ class XiaozhiController extends ChangeNotifier {
     _ttsBuffer.clear();
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
-    isSpeaking = false;
+    // The caller decides the next state (interrupt goes to listening, a lost
+    // connection goes to idle); clearing isSpeaking here would race with that.
     // Stop and restart as one serialized unit. The old code set _playerStarted =
     // false first and re-armed in a separate await, so a frame arriving in between
     // hit _handleAudio's re-arm path on a half-stopped player and threw, dropping
@@ -1300,8 +1390,7 @@ class XiaozhiController extends ChangeNotifier {
       // startPlayerFromStream throws when the player is not open or the stream is
       // already started. Swallowing keeps a failed restart from breaking the
       // connection; the next frame re-arms the stream via _handleAudio.
-      status = 'Audio tidak dapat dimulai: $error';
-      notifyListeners();
+      _reportError('Audio tidak dapat dimulai: $error');
     } finally {
       completer.complete();
     }
@@ -1377,8 +1466,7 @@ class XiaozhiController extends ChangeNotifier {
       }
       unawaited(_feedTtsFromBuffer());
     } catch (_) {
-      status = 'Paket audio tidak dapat diputar';
-      notifyListeners();
+      _reportError('Paket audio tidak dapat diputar');
     }
   }
 
@@ -1430,9 +1518,17 @@ class XiaozhiController extends ChangeNotifier {
   /// Called when the server signals the end of a TTS utterance. The last frames may
   /// still be sitting in the jitter buffer or the OS playback buffer, so flush what
   /// we have and hold the mic off until playback has actually drained.
+  ///
+  /// Mirrors ConversationSession._handle_tts_stop: a continuous conversation goes
+  /// back to LISTENING (re-arming the uplink once the speaker has drained), and a
+  /// one-shot conversation goes back to IDLE. Getting this wrong is exactly what
+  /// made the state machine look "ngaco": the app finished speaking but the status
+  /// bar still said "sedang berbicara", or it went idle in the middle of a
+  /// continuous chat and the mic never opened again.
   Future<void> _handleTtsStop() async {
     await _flushTtsBuffer();
     _beginSilencePeriod();
+    _resumeAfterTts();
   }
 
   /// Safety net for a tts "stop" that never arrives (the socket dies mid-utterance
@@ -1442,14 +1538,26 @@ class XiaozhiController extends ChangeNotifier {
   /// speaking window because the Android client owns both flags.
   void _handleLostTtsStop() {
     if (!isSpeaking) return;
-    isSpeaking = false;
-    status = 'Terhubung';
     _assistantMessageIndex = null;
     _ttsBuffer.clear();
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
     _beginSilencePeriod();
-    notifyListeners();
+    _resumeAfterTts();
+  }
+
+  /// The state transition both tts-stop paths share. isSpeaking is cleared by
+  /// _setDeviceState, not by the callers, so there is exactly one place that
+  /// decides what follows a finished answer.
+  void _resumeAfterTts() {
+    if (autoSessionActive) {
+      // Continuous conversation: keep_listening is still true, so re-arm the
+      // uplink and go back to listening. The silence period gates the mic until
+      // the speaker has actually drained.
+      _setDeviceState(DeviceState.listening);
+    } else {
+      _setDeviceState(DeviceState.idle);
+    }
   }
 
   /// Called on tts "start". The mic must stay suppressed for the entire playback
@@ -1563,9 +1671,8 @@ class XiaozhiController extends ChangeNotifier {
       await _closeMicStream();
     }
     isRecording = false;
-    // The auto-conversation session died with the socket; without this the next
-    // setAutoConversation(false) would see a stale flag and try to stop a
-    // recording that no longer exists.
+    // The continuous conversation died with the socket; without this the next
+    // tap would assume a session is still running and stop instead of starting.
     _micAutoManaged = false;
     autoSessionActive = false;
     _suppressMic = false;
@@ -1573,15 +1680,14 @@ class XiaozhiController extends ChangeNotifier {
     _silencePollTimer = null;
     _speakingWatchdog?.cancel();
     _speakingWatchdog = null;
-    // A dropped socket mid-utterance leaves isSpeaking true and the player
-    // holding the last TTS frames; clearing it is what makes this end in idle
-    // instead of a stuck "Xiaozhi sedang berbicara" state.
-    isSpeaking = false;
+    // A dropped socket mid-utterance leaves the player holding the last TTS
+    // frames; ending in idle is what makes this recover instead of sticking in a
+    // "Xiaozhi sedang berbicara" state that never listens again.
     _assistantMessageIndex = null;
     _ttsBuffer.clear();
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
-    status = 'Idle';
+    _setDeviceState(DeviceState.idle);
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError('Koneksi server ditutup'));
     }
@@ -1613,15 +1719,14 @@ class XiaozhiController extends ChangeNotifier {
     _ttsBuffer.clear();
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
-    // A dropped socket mid-utterance leaves isSpeaking true and the player
-    // holding the last TTS frames. Clearing it here is what makes the
-    // "server time out -> bye bye" path end in idle instead of a stuck
-    // "Xiaozhi sedang berbicara" state that never listens again. Mirrors
-    // _on_audio_channel_closed in src/bootstrap/session.py, which only resets
-    // the device state to IDLE and does not touch local playback.
-    isSpeaking = false;
+    // A dropped socket mid-utterance leaves the player holding the last TTS
+    // frames. Ending in idle is what makes the "server time out -> bye bye" path
+    // recover instead of sticking in a "Xiaozhi sedang berbicara" state that never
+    // listens again. Mirrors _on_audio_channel_closed in src/bootstrap/session.py,
+    // which only resets the device state to IDLE and does not touch local
+    // playback.
     _assistantMessageIndex = null;
-    status = reason;
+    _setDeviceState(DeviceState.idle);
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError(reason));
     }

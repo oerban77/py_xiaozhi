@@ -275,9 +275,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildStatusBar() {
     final controller = widget.controller;
-    final status = controller.status == 'Belum terhubung'
-        ? 'Idle'
-        : controller.status;
+    // An error is transient and always more urgent than the state label, so it
+    // takes the line until the next state change clears it.
+    final status = controller.hasError ? controller.error : controller.status;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: controller.isRecording
+                color: controller.deviceState == DeviceState.listening
                     ? const Color(0xFFCC634F)
                     : const Color(0xFF2583E8),
                 fontSize: 12,
@@ -311,6 +311,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  /// The primary button's icon, derived from deviceState so it can never
+  /// disagree with the label or the status bar.
+  IconData _primaryActionIcon() {
+    switch (widget.controller.deviceState) {
+      case DeviceState.listening:
+        return Icons.stop_rounded;
+      case DeviceState.speaking:
+        return Icons.stop_circle_outlined;
+      case DeviceState.idle:
+        return Icons.mic_none_rounded;
+    }
+  }
+
+  Color _primaryActionColor() {
+    switch (widget.controller.deviceState) {
+      case DeviceState.idle:
+        return AppColors.green;
+      case DeviceState.listening:
+      case DeviceState.speaking:
+        return const Color(0xFFB94E3C);
+    }
   }
 
   Widget _buildConnectionAction(bool connected, bool connecting) {
@@ -499,60 +522,28 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment<bool>(
-                  value: false,
-                  icon: Icon(Icons.keyboard_voice_outlined),
-                  label: Text('Manual'),
-                ),
-                ButtonSegment<bool>(
-                  value: true,
-                  icon: Icon(Icons.auto_awesome_outlined),
-                  label: Text('Auto'),
-                ),
-              ],
-              selected: {widget.controller.autoConversation},
-              onSelectionChanged: (selection) async {
-                if (selection.isEmpty) return;
-                await widget.controller.setAutoConversation(selection.first);
-              },
-              style: const ButtonStyle(
-                minimumSize: WidgetStatePropertyAll(Size.fromHeight(42)),
-              ),
-            ),
-            const SizedBox(height: 10),
+            // One primary button, driven by deviceState exactly like the desktop
+            // GUI's single "Mulai/Selesai bicara" / "Hentikan jawaban" button. The
+            // old Manual/Auto segmented button is gone: there is no manual mode
+            // anymore, so a second control could only put the idle/listening/
+            // speaking state out of sync with the mic.
             Row(
               children: [
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: !widget.controller.isConnected
                         ? null
-                        : widget.controller.isRecording
-                            ? widget.controller.stopVoice
-                            : widget.controller.startVoice,
-                    icon: Icon(widget.controller.isRecording ? Icons.stop_rounded : Icons.mic_none_rounded),
-                    label: Text(widget.controller.isRecording ? 'Selesai bicara' : 'Mulai bicara'),
+                        : widget.controller.toggleConversation,
+                    icon: Icon(_primaryActionIcon()),
+                    label: Text(widget.controller.primaryActionLabel),
                     style: FilledButton.styleFrom(
-                      backgroundColor: widget.controller.isRecording ? const Color(0xFFB94E3C) : AppColors.green,
+                      backgroundColor: _primaryActionColor(),
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
                 ),
-                if (widget.controller.isSpeaking) ...[
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: 'Hentikan jawaban',
-                    onPressed: widget.controller.interrupt,
-                    style: IconButton.styleFrom(
-                      foregroundColor: const Color(0xFFB94E3C),
-                      fixedSize: const Size(48, 48),
-                    ),
-                    icon: const Icon(Icons.stop_circle_outlined),
-                  ),
-                ],
               ],
             ),
           ],

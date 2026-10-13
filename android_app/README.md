@@ -1,6 +1,6 @@
 # Xiaozhi Android
 
-Flutter Android client for Xiaozhi WebSocket servers. It provides a mobile chat screen, manual voice input, Opus audio playback, text messages, interruption, and a separate connection settings screen.
+Flutter Android client for Xiaozhi WebSocket servers. It provides a mobile chat screen, continuous voice conversation (tap to start, tap to stop, tap while the assistant answers to interrupt), Opus audio playback, text messages, and a separate connection settings screen.
 
 ## Build locally
 
