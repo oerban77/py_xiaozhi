@@ -548,63 +548,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengaturan'),
-        leading: IconButton(
-          tooltip: 'Kembali',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Pengaturan'),
+          leading: IconButton(
+            tooltip: 'Kembali',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Umum'),
+              Tab(text: 'MCP Modules'),
+            ],
+          ),
         ),
-        bottom: const TabBar(
-          tabs: [
-            Tab(text: 'Umum'),
-            Tab(text: 'MCP Modules'),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: TabBarView(
-          children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-              children: [
-                const Text(
-                  'Koneksi server',
-                  style: TextStyle(color: AppColors.ink, fontSize: 21, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Masukkan detail WebSocket Xiaozhi yang diberikan oleh server Anda.',
-                  style: TextStyle(color: Color(0xFF71817C), height: 1.45),
-                ),
-                const SizedBox(height: 22),
-                const _FieldLabel(label: 'Alamat WebSocket'),
-                TextField(
-                  controller: _urlController,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    hintText: 'wss://api.tenclass.net/xiaozhi/v1/',
-                    prefixIcon: Icon(Icons.dns_outlined),
+        body: SafeArea(
+          child: TabBarView(
+            children: [
+              ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                children: [
+                  const Text(
+                    'Koneksi server',
+                    style: TextStyle(color: AppColors.ink, fontSize: 21, fontWeight: FontWeight.w700),
                   ),
-                ),
-                const SizedBox(height: 18),
-                const _FieldLabel(label: 'Access token'),
-                TextField(
-                  controller: _tokenController,
-                  obscureText: true,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    hintText: 'test-token',
-                    prefixIcon: Icon(Icons.key_outlined),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Masukkan detail WebSocket Xiaozhi yang diberikan oleh server Anda.',
+                    style: TextStyle(color: Color(0xFF71817C), height: 1.45),
                   ),
-                ),
-                const SizedBox(height: 26),
-                const Text(
-                  'Identitas perangkat',
-                  style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
-                ),
+                  const SizedBox(height: 22),
+                  const _FieldLabel(label: 'Alamat WebSocket'),
+                  TextField(
+                    controller: _urlController,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      hintText: 'wss://api.tenclass.net/xiaozhi/v1/',
+                      prefixIcon: Icon(Icons.dns_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const _FieldLabel(label: 'Access token'),
+                  TextField(
+                    controller: _tokenController,
+                    obscureText: true,
+                    autocorrect: false,
+                    decoration: const InputDecoration(
+                      hintText: 'test-token',
+                      prefixIcon: Icon(Icons.key_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                  const Text(
+                    'Identitas perangkat',
+                    style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
                     const SizedBox(height: 14),
                     const _FieldLabel(label: 'Device ID'),
                     TextField(
@@ -1092,9 +1094,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-      );
+        ),
+      ),
+    );
   }
 }
+
 class _McpModule {
   const _McpModule(
     this.id,
