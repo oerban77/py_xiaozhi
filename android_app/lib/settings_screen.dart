@@ -1107,7 +1107,7 @@ class _McpModule {
     this.description, {
     this.desktopOnly = false,
     this.supported = false,
-  }
+  });
 
   final String id;
   final String title;
