@@ -793,8 +793,26 @@ class XiaozhiController extends ChangeNotifier {
       // already armed: a normal server-side close keeps it running (see
       // _handleCleanClose), and reloading the ONNX model on every reconnect would
       // burn CPU and briefly drop the mic stream the detector is fed from.
-      if (wakeWordOptions.enabled && !wakeWordDetector.isRunning) {
-        await _startWakeWordDetector();
+      if (wakeWordOptions.enabled) {
+        if (!wakeWordDetector.isRunning) {
+          await _startWakeWordDetector();
+        } else if (!wakeWordListening) {
+          // Detector is running (kept alive across clean close) but mic stream
+          // and flags were reset in _handleCleanClose. Re-arm without reloading
+          // the model so wake word works immediately after reconnect.
+          try {
+            wakeWordDetector.onDetected = _handleWakeWordDetected;
+            if (!isRecording && !_wakeWordMicActive) await _openMicStream();
+            _wakeWordMicActive = !isRecording;
+            wakeWordListening = true;
+            wakeWordError = '';
+            if (!isRecording) _setDeviceState(DeviceState.idle);
+          } catch (error) {
+            wakeWordListening = false;
+            wakeWordError = error.toString();
+            _reportError('Wake word gagal di-rearm: $wakeWordError');
+          }
+        }
       }
     } catch (error) {
       await _closeSocket();
