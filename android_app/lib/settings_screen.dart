@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingReminderSound = false;
   bool _previewingReminderSound = false;
 
-  static _mcpModules = <_McpModule>[
+  static final _mcpModules = <_McpModule>[
     _McpModule('app', 'App', 'Pengelolaan aplikasi'),
     _McpModule('blender', 'Blender', 'Kontrol Blender 3D', desktopOnly: true),
     _McpModule('camera', 'Camera', 'Kamera', supported: true),
@@ -106,7 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _smartHomeUseTls = widget.controller.smartHomeUseTls;
     _disabledMcpModules = {
       ...widget.controller.disabledMcpModules,
-      ..._mcpModules.where((module) => !module!.supported).map((module) => module!.id),
+      ..._mcpModules.where((module) => !module.supported).map((module) => module.id),
     };
     _cameraFacing = widget.controller.cameraFacing;
     _autoConnect = widget.controller.autoConnect;
@@ -542,7 +542,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      );
+      ],
+    );
   }
 
   @override
