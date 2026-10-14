@@ -66,25 +66,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingReminderSound = false;
   bool _previewingReminderSound = false;
 
-  static final _mcpModules = <_McpModule>[
-    _McpModule('app', 'App', 'Pengelolaan aplikasi'),
-    _McpModule('blender', 'Blender', 'Kontrol Blender 3D', desktopOnly: true),
-    _McpModule('camera', 'Camera', 'Kamera', supported: true),
-    _McpModule('coding', 'Coding', 'Operasi workspace dan kode', desktopOnly: true),
-    _McpModule('documents', 'Documents', 'Dokumen'),
-    _McpModule('hardware', 'Hardware', 'Akses perangkat dan sistem', desktopOnly: true),
-    _McpModule('indonesia_holiday', 'Indonesia Holiday', 'Hari libur Indonesia', supported: true),
-    _McpModule('kali', 'Kali', 'Tool keamanan dan jaringan', desktopOnly: true),
-    _McpModule('music', 'Music', 'Musik', supported: true),
-    _McpModule('news', 'News', 'Berita', supported: true),
-    _McpModule('prayer', 'Prayer', 'Jadwal sholat', supported: true),
-    _McpModule('qrcode', 'QRCode', 'Kode QR', supported: true),
-    _McpModule('reminder', 'Reminder', 'Pengingat', supported: true),
-    _McpModule('screenshot', 'Screenshot', 'Tangkapan layar desktop', desktopOnly: true),
-    _McpModule('smarthome', 'Smart Home', 'Otomasi rumah', supported: true),
-    _McpModule('volume', 'Volume', 'Kontrol volume sistem', supported: true),
-    _McpModule('weather', 'Weather', 'Cuaca', supported: true),
-    _McpModule('websearch', 'Web Search', 'Pencarian web', supported: true),
+  static const _mcpModules = <_McpModule>[
+    const _McpModule('app', 'App', 'Pengelolaan aplikasi'),
+    const _McpModule('blender', 'Blender', 'Kontrol Blender 3D', desktopOnly: true),
+    const _McpModule('camera', 'Camera', 'Kamera', supported: true),
+    const _McpModule('coding', 'Coding', 'Operasi workspace dan kode', desktopOnly: true),
+    const _McpModule('documents', 'Documents', 'Dokumen'),
+    const _McpModule('hardware', 'Hardware', 'Akses perangkat dan sistem', desktopOnly: true),
+    const _McpModule('indonesia_holiday', 'Indonesia Holiday', 'Hari libur Indonesia', supported: true),
+    const _McpModule('kali', 'Kali', 'Tool keamanan dan jaringan', desktopOnly: true),
+    const _McpModule('music', 'Music', 'Musik', supported: true),
+    const _McpModule('news', 'News', 'Berita', supported: true),
+    const _McpModule('prayer', 'Prayer', 'Jadwal sholat', supported: true),
+    const _McpModule('qrcode', 'QRCode', 'Kode QR', supported: true),
+    const _McpModule('reminder', 'Reminder', 'Pengingat', supported: true),
+    const _McpModule('screenshot', 'Screenshot', 'Tangkapan layar desktop', desktopOnly: true),
+    const _McpModule('smarthome', 'Smart Home', 'Otomasi rumah', supported: true),
+    const _McpModule('volume', 'Volume', 'Kontrol volume sistem', supported: true),
+    const _McpModule('weather', 'Weather', 'Cuaca', supported: true),
+    const _McpModule('websearch', 'Web Search', 'Pencarian web', supported: true),
   ];
 
   @override
