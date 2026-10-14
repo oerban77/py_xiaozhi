@@ -217,11 +217,15 @@ void main() {
     });
 
     test('a code-3 packet reads the frame count from the second byte', () {
-      // toc & 0x03 == 3 means the count is in the low 6 bits of byte 1.
-      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([104, 0x2A]));
+      // 107 == 104 | 0x03: same SWB/20ms config as the 24000 Hz case above, but
+      // with code 3, which means the count is in the low 6 bits of byte 1.
+      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([107, 0x2A]));
       expect(parsed, isNotNull);
       // 0x2A & 0x3F == 42.
       expect(parsed!.frames, 42);
+      // The config bits are untouched by the code bits.
+      expect(parsed.bandwidth, 'SWB');
+      expect(parsed.frameMs, 20);
     });
 
     test('an empty packet parses to nothing instead of throwing', () {
@@ -229,9 +233,10 @@ void main() {
     });
 
     test('a code-3 packet with no length byte falls back to one frame', () {
-      // The frame-count byte is missing, so the count cannot be read; one frame is
-      // the safe default rather than crashing the audio path.
-      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([104]));
+      // 107 has code 3, so the count would come from byte 1, but that byte is
+      // missing and cannot be read; one frame is the safe default rather than
+      // crashing the audio path.
+      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([107]));
       expect(parsed, isNotNull);
       expect(parsed!.frames, 1);
     });
