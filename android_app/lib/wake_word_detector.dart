@@ -12,6 +12,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' show sqrt;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -30,7 +31,9 @@ class WakeWordOptions {
     this.numThreads = 2,
     this.maxActivePaths = 2,
     this.keywordsScore = 1.8,
-    this.keywordsThreshold = 0.2,
+    // Increased from 0.2 to 0.35 to reduce false positives from noise/clicks
+    // when switching apps or adjusting hardware volume.
+    this.keywordsThreshold = 0.35,
     this.numTrailingBlanks = 1,
   });
 
@@ -267,9 +270,20 @@ class WakeWordDetector {
     if (spotter == null || stream == null) return null;
     if (pcm16.length < 2) return null;
 
+    // Skip very quiet audio (noise/clicks) to prevent false wake word triggers
+    // when switching apps or adjusting hardware volume. RMS threshold of ~0.001
+    // corresponds to roughly -60 dBFS, well below speech level.
     final sampleCount = pcm16.length ~/ 2;
-    final samples = Float32List(sampleCount);
     final byteData = ByteData.sublistView(pcm16);
+    double sumSquares = 0.0;
+    for (var i = 0; i < sampleCount; i++) {
+      final sample = byteData.getInt16(i * 2, Endian.little) / 32768.0;
+      sumSquares += sample * sample;
+    }
+    final rms = sqrt(sumSquares / sampleCount);
+    if (rms < 0.001) return null; // Ignore near-silence / button clicks
+
+    final samples = Float32List(sampleCount);
     for (var i = 0; i < sampleCount; i++) {
       // PCM16 -> float in [-1, 1], as sherpa-onnx expects.
       samples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;

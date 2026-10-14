@@ -108,13 +108,15 @@ class WakeWordDetector:
         self._provider = config.get_config("WAKE_WORD_OPTIONS.PROVIDER", "cpu")
         self._max_active_paths = config.get_config("WAKE_WORD_OPTIONS.MAX_ACTIVE_PATHS", 2)
         self._keywords_score = config.get_config("WAKE_WORD_OPTIONS.KEYWORDS_SCORE", 1.8)
-        self._keywords_threshold = config.get_config("WAKE_WORD_OPTIONS.KEYWORDS_THRESHOLD", 0.2)
+        # Increased from 0.2 to 0.35 to reduce false positives from noise/clicks
+        # when switching apps or adjusting hardware volume.
+        self._keywords_threshold = config.get_config("WAKE_WORD_OPTIONS.KEYWORDS_THRESHOLD", 0.35)
         self._num_trailing_blanks = config.get_config("WAKE_WORD_OPTIONS.NUM_TRAILING_BLANKS", 1)
 
         # Validate
         if not 0.1 <= self._keywords_threshold <= 1.0:
-            logger.warning(f"Keyword threshold {self._keywords_threshold}  out of range; reset to 0.25")
-            self._keywords_threshold = 0.25
+            logger.warning(f"Keyword threshold {self._keywords_threshold}  out of range; reset to 0.35")
+            self._keywords_threshold = 0.35
 
         if not 0.1 <= self._keywords_score <= 10.0:
             logger.warning(f"Keyword score {self._keywords_score}  out of range; reset to 2.0")

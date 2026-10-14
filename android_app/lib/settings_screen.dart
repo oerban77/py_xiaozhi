@@ -51,6 +51,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Live validation result for the typed wake word; empty string means valid.
   String _wakeWordHint = '';
   bool _wakeWordValid = false;
+  late int _wakeWordNumThreads;
+  late int _wakeWordMaxActivePaths;
+  late double _wakeWordKeywordsScore;
+  late double _wakeWordKeywordsThreshold;
+  late int _wakeWordNumTrailingBlanks;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
   bool _scanningSmartHome = false;
@@ -108,6 +113,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _outputSampleRate = widget.controller.outputSampleRate;
     _wakeWordEnabled = widget.controller.wakeWordOptions.enabled;
     _wakeWordController = TextEditingController(text: widget.controller.wakeWordOptions.wakeWord);
+    _wakeWordNumThreads = widget.controller.wakeWordOptions.numThreads;
+    _wakeWordMaxActivePaths = widget.controller.wakeWordOptions.maxActivePaths;
+    _wakeWordKeywordsScore = widget.controller.wakeWordOptions.keywordsScore;
+    _wakeWordKeywordsThreshold = widget.controller.wakeWordOptions.keywordsThreshold;
+    _wakeWordNumTrailingBlanks = widget.controller.wakeWordOptions.numTrailingBlanks;
     unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
@@ -349,6 +359,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newOutputSampleRate: _outputSampleRate,
       newWakeWordEnabled: _wakeWordEnabled,
       newWakeWordText: _wakeWordController.text,
+      newWakeWordNumThreads: _wakeWordNumThreads,
+      newWakeWordMaxActivePaths: _wakeWordMaxActivePaths,
+      newWakeWordKeywordsScore: _wakeWordKeywordsScore,
+      newWakeWordKeywordsThreshold: _wakeWordKeywordsThreshold,
+      newWakeWordNumTrailingBlanks: _wakeWordNumTrailingBlanks,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -446,8 +461,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) => DefaultTabController(
+  /// Builds a slider widget for a double-valued wake word option.
+  Widget _buildWakeWordSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required int precision,
+    required bool enabled,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: AppColors.ink),
+            ),
+            Text(
+              value.toStringAsFixed(precision),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          activeColor: AppColors.green,
+          inactiveColor: AppColors.green.withValues(alpha: 0.2),
+          onChanged: enabled ? onChanged : null,
+        ),
+      ],
+    );
+  }
+
+  /// Builds a stepper widget for an int-valued wake word option.
+  Widget _buildWakeWordIntField({
+    required String label,
+    required int value,
+    required int min,
+    required int max,
+    required bool enabled,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: AppColors.ink),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, size: 20),
+              onPressed: enabled && value > min ? () => onChanged(value - 1) : null,
+              iconSize: 20,
+              color: AppColors.ink,
+            ),
+            SizedBox(
+              width: 32,
+              child: Text(
+                '$value',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 20),
+              onPressed: enabled && value < max ? () => onChanged(value + 1) : null,
+              iconSize: 20,
+              color: AppColors.ink,
+            ),
+          ],
         length: 2,
         child: Scaffold(
           appBar: AppBar(
@@ -584,6 +677,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _validateWakeWord();
                         setState(() {});
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildWakeWordSlider(
+                      label: 'Ambang deteksi (threshold)',
+                      value: _wakeWordKeywordsThreshold,
+                      min: 0.1,
+                      max: 1.0,
+                      divisions: 9,
+                      precision: 2,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordKeywordsThreshold = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordSlider(
+                      label: 'Skor kata kunci',
+                      value: _wakeWordKeywordsScore,
+                      min: 0.5,
+                      max: 3.0,
+                      divisions: 25,
+                      precision: 1,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordKeywordsScore = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Jumlah utas (numThreads)',
+                      value: _wakeWordNumThreads,
+                      min: 1,
+                      max: 4,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordNumThreads = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Jalur aktif maksimal',
+                      value: _wakeWordMaxActivePaths,
+                      min: 1,
+                      max: 4,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordMaxActivePaths = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Bunyi hening trailing',
+                      value: _wakeWordNumTrailingBlanks,
+                      min: 0,
+                      max: 3,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordNumTrailingBlanks = value),
                     ),
                     const SizedBox(height: 28),
                     const Text(
@@ -779,6 +921,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         hintText: 'Bearer token untuk layanan vision',
                         prefixIcon: Icon(Icons.shield_outlined),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildWakeWordSlider(
+                      label: 'Ambang deteksi (threshold)',
+                      value: _wakeWordKeywordsThreshold,
+                      min: 0.1,
+                      max: 1.0,
+                      divisions: 9,
+                      precision: 2,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordKeywordsThreshold = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordSlider(
+                      label: 'Skor kata kunci',
+                      value: _wakeWordKeywordsScore,
+                      min: 0.5,
+                      max: 3.0,
+                      divisions: 25,
+                      precision: 1,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordKeywordsScore = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Jumlah utas (numThreads)',
+                      value: _wakeWordNumThreads,
+                      min: 1,
+                      max: 4,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordNumThreads = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Jalur aktif maksimal',
+                      value: _wakeWordMaxActivePaths,
+                      min: 1,
+                      max: 4,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordMaxActivePaths = value),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWakeWordIntField(
+                      label: 'Bunyi hening trailing',
+                      value: _wakeWordNumTrailingBlanks,
+                      min: 0,
+                      max: 3,
+                      enabled: _wakeWordEnabled,
+                      onChanged: (value) => setState(() => _wakeWordNumTrailingBlanks = value),
                     ),
                   ],
                 ),
@@ -977,4 +1168,70 @@ class _FieldLabel extends StatelessWidget {
           style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
         ),
       );
+}
+
+Widget _buildWakeWordSlider({
+  required String label,
+  required double value,
+  required double min,
+  required double max,
+  required int divisions,
+  required double precision,
+  required bool enabled,
+  required void Function(double) onChanged,
+}) {
+  return Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
+      SizedBox(
+        width: 10,
+        child: Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          precision: precision,
+          enabled: enabled,
+          onChanged: onChanged,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildWakeWordIntField({
+  required String label,
+  required int value,
+  required int min,
+  required int max,
+  required bool enabled,
+  required void Function(int) onChanged,
+}) {
+  return Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
+      SizedBox(
+        width: 10,
+        child: DropdownButton<int>(
+          value: value,
+          items: List.generate(
+            max - min + 1,
+            (index) => DropdownMenuItem<int>(value: min + index),
+          ),
+          enabled: enabled,
+          onChanged: onChanged,
+        ),
+      ),
+    ],
+  );
 }

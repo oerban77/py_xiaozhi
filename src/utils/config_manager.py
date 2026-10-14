@@ -83,7 +83,9 @@ class ConfigManager:
             "PROVIDER": "cpu",
             "MAX_ACTIVE_PATHS": 2,
             "KEYWORDS_SCORE": 1.8,
-            "KEYWORDS_THRESHOLD": 0.2,
+            // Increased from 0.2 to 0.35 to reduce false positives from noise/clicks
+            // when switching apps or adjusting hardware volume.
+            "KEYWORDS_THRESHOLD": 0.35,
             "NUM_TRAILING_BLANKS": 1,
             "WAKE_WORD": "Hello Xiaozhi",
             "WAKE_WORD_LANG": "en",

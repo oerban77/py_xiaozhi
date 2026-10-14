@@ -69,6 +69,10 @@ class _XiaozhiAppState extends State<XiaozhiApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(ReminderRuntime.initialize());
+      // Suppress wake word detection for 2 seconds after resume to prevent
+      // false triggers from button clicks, volume adjustments, or other
+      // noise when switching back to the app.
+      widget.controller.suppressWakeWordAfterResume();
     }
   }
 

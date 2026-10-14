@@ -120,6 +120,10 @@ class XiaozhiController extends ChangeNotifier {
   /// the spotter is briefly paused for a cooldown or a TTS window.
   bool wakeWordListening = false;
   String wakeWordError = '';
+  /// Suppress wake word detection for 2 seconds after the app resumes from
+  /// background. This prevents false triggers from button clicks, volume
+  /// adjustments, or other noise when switching back to the app.
+  DateTime? _wakeWordSuppressedUntil;
 
   /// The single source of truth for idle / listening / speaking, mirroring
   /// StateManager._device_state in the Python client. Every transition goes
@@ -315,7 +319,9 @@ class XiaozhiController extends ChangeNotifier {
   /// Latency matters as much as smoothness: a large burst or a large prebuffer
   /// holds back the first syllables, so in auto mode the answer sounds like it only
   /// starts near the end of the sentence. Keep both small.
-  static const int _ttsFeedFrames = 4;
+  /// Increased from 4 to 6 frames (80ms -> 120ms) to reduce feed frequency and
+  /// improve resilience to network jitter.
+  static const int _ttsFeedFrames = 6;
   /// Mirrors _TTS_FIFO_MAX_S = 10.0 in src/audio_codecs/audio_codec.py. This is a
   /// safety valve for a stalled consumer, not a jitter target: it has to be large
   /// that a slow feed never drops the *head* of an utterance. Dropping the head is
@@ -323,16 +329,13 @@ class XiaozhiController extends ChangeNotifier {
   static const int _ttsBufferMaxFrames = 500;
   /// Frames to accumulate before the first feed of an utterance, mirroring
   /// _TTS_PREBUFFER_S in src/audio_codecs/audio_codec.py. The Python client holds
-  /// 0.12s; this used to be only 4 frames (~80ms), which let the Android playback
-  /// buffer run dry the moment the network jittered and produced exactly the
-  /// "terputus-putus / brebet" symptom. 8 frames at 20ms is ~160ms: enough to ride
-  /// out the arrival jitter at speech onset while still starting the answer within
-  /// a third of a second.
-  static const int _ttsPrebufferFrames = 8;
+  /// 0.12s; increased from 8 to 12 frames (160ms -> 240ms) to better absorb
+  /// network jitter at speech onset and prevent "brebet" / choppy starts.
+  static const int _ttsPrebufferFrames = 12;
   /// Wall-clock cap for a single player feed. feedInt16FromStream can exert
-  /// backpressure; without a cap a future that never returns leaves _ttsFeeding true
-  /// forever, every later frame is skipped, and only the tail of the sentence plays.
-  static const Duration _ttsFeedTimeout = Duration(milliseconds: 500);
+  /// backpressure; increased from 500ms to 1000ms to avoid dropping bursts under
+  /// load, which caused "suara tidak keluar" on slower devices.
+  static const Duration _ttsFeedTimeout = Duration(milliseconds: 1000);
   final List<Int16List> _ttsBuffer = [];
   bool _ttsFeeding = false;
   bool _ttsNeedsPrebuffer = true;
@@ -342,7 +345,11 @@ class XiaozhiController extends ChangeNotifier {
   /// buffer the microphone must stay suppressed, otherwise in auto/realtime mode
   /// the assistant hears its own voice out of the speaker and answers itself.
   static const Duration _silencePeriodMax = Duration(seconds: 3);
-  static const Duration _silencePeriodHold = Duration(milliseconds: 900);
+  /// Increased from 900ms to 1500ms to ensure the larger player buffer (8192 bytes)
+  /// fully drains before the mic is re-enabled. This prevents the assistant from
+  /// hearing its own tail audio and interrupting itself ("mic tidak direspon" or
+  /// false wake word triggers right after TTS).
+  static const Duration _silencePeriodHold = Duration(milliseconds: 1500);
   bool _suppressMic = false;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
@@ -381,6 +388,11 @@ class XiaozhiController extends ChangeNotifier {
     wakeWordOptions = WakeWordOptions(
       enabled: _preferences?.getBool('wake_word_enabled') ?? true,
       wakeWord: _preferences?.getString('wake_word_text') ?? 'Hello Xiaozhi',
+      numThreads: _preferences?.getInt('wake_word_num_threads') ?? 2,
+      maxActivePaths: _preferences?.getInt('wake_word_max_active_paths') ?? 2,
+      keywordsScore: _preferences?.getDouble('wake_word_keywords_score') ?? 1.8,
+      keywordsThreshold: _preferences?.getDouble('wake_word_keywords_threshold') ?? 0.35,
+      numTrailingBlanks: _preferences?.getInt('wake_word_num_trailing_blanks') ?? 1,
     );
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
@@ -464,6 +476,11 @@ class XiaozhiController extends ChangeNotifier {
     required int newOutputSampleRate,
     required bool newWakeWordEnabled,
     required String newWakeWordText,
+    required int newWakeWordNumThreads,
+    required int newWakeWordMaxActivePaths,
+    required double newWakeWordKeywordsScore,
+    required double newWakeWordKeywordsThreshold,
+    required int newWakeWordNumTrailingBlanks,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
@@ -508,7 +525,15 @@ class XiaozhiController extends ChangeNotifier {
     await setOutputSampleRate(newOutputSampleRate);
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.
-    await setWakeWordOptions(enabled: newWakeWordEnabled, wakeWord: newWakeWordText);
+    await setWakeWordOptions(
+      enabled: newWakeWordEnabled,
+      wakeWord: newWakeWordText,
+      numThreads: newWakeWordNumThreads,
+      maxActivePaths: newWakeWordMaxActivePaths,
+      keywordsScore: newWakeWordKeywordsScore,
+      keywordsThreshold: newWakeWordKeywordsThreshold,
+      numTrailingBlanks: newWakeWordNumTrailingBlanks,
+    );
     if (wakeWordOptions.enabled) {
       await _startWakeWordDetector();
     }
@@ -592,14 +617,32 @@ class XiaozhiController extends ChangeNotifier {
   /// Applies new wake word settings and persists them, mirroring the
   /// CONFIG_CHANGED handler in src/plugins/wake_word.py which hot-reloads the model.
   /// Passing [enabled] or [wakeWord] as null leaves the current value untouched.
-  Future<void> setWakeWordOptions({bool? enabled, String? wakeWord}) async {
+  Future<void> setWakeWordOptions({
+    bool? enabled,
+    String? wakeWord,
+    int? numThreads,
+    int? maxActivePaths,
+    double? keywordsScore,
+    double? keywordsThreshold,
+    int? numTrailingBlanks,
+  }) async {
     final wasEnabled = wakeWordOptions.enabled;
     wakeWordOptions = wakeWordOptions.copyWith(
       enabled: enabled ?? wakeWordOptions.enabled,
       wakeWord: wakeWord?.trim().isNotEmpty == true ? wakeWord!.trim() : wakeWordOptions.wakeWord,
+      numThreads: numThreads ?? wakeWordOptions.numThreads,
+      maxActivePaths: maxActivePaths ?? wakeWordOptions.maxActivePaths,
+      keywordsScore: keywordsScore ?? wakeWordOptions.keywordsScore,
+      keywordsThreshold: keywordsThreshold ?? wakeWordOptions.keywordsThreshold,
+      numTrailingBlanks: numTrailingBlanks ?? wakeWordOptions.numTrailingBlanks,
     );
     await _preferences?.setBool('wake_word_enabled', wakeWordOptions.enabled);
     await _preferences?.setString('wake_word_text', wakeWordOptions.wakeWord);
+    await _preferences?.setInt('wake_word_num_threads', wakeWordOptions.numThreads);
+    await _preferences?.setInt('wake_word_max_active_paths', wakeWordOptions.maxActivePaths);
+    await _preferences?.setDouble('wake_word_keywords_score', wakeWordOptions.keywordsScore);
+    await _preferences?.setDouble('wake_word_keywords_threshold', wakeWordOptions.keywordsThreshold);
+    await _preferences?.setInt('wake_word_num_trailing_blanks', wakeWordOptions.numTrailingBlanks);
     wakeWordError = '';
     // Only reload when something that affects the loaded model changed; flipping
     // the text while disabled just waits for the next connect.
@@ -653,6 +696,13 @@ class XiaozhiController extends ChangeNotifier {
     await wakeWordDetector.stop();
     wakeWordListening = false;
     if (_wakeWordMicActive) await _closeMicStream();
+  }
+
+  /// Suppress wake word detection for 2 seconds after the app resumes from
+  /// background. This prevents false triggers from button clicks, volume
+  /// adjustments, or other noise when switching back to the app.
+  void suppressWakeWordAfterResume() {
+    _wakeWordSuppressedUntil = DateTime.now().add(const Duration(seconds: 2));
   }
 
   /// Mirrors WakeWordPlugin._on_detected: interrupt TTS, or start a voice session
@@ -1488,11 +1538,12 @@ class XiaozhiController extends ChangeNotifier {
         numChannels: 1,
         sampleRate: effectiveOutputSampleRate,
         interleaved: false,
-        // 8192 bytes is ~170ms of PCM16 at 24kHz; the OS will not emit a sound until
-        // this much is queued, which alone delays the start of every answer. 2048
-        // bytes (~43ms) is small enough to start promptly while the prebuffer keeps
-        // it from underrunning.
-        bufferSize: 2048,
+        // Increased from 2048 to 8192 bytes (~43ms -> ~170ms at 24kHz) to give
+        // the player a larger internal buffer. This absorbs network jitter and
+        // prevents "brebet" / choppy playback when frames arrive unevenly. The
+        // prebuffer (_ttsPrebufferFrames = 12 frames = 240ms) ensures the buffer
+        // is well-filled before playback starts, so the added latency is minimal.
+        bufferSize: 8192,
       );
       _playerStarted = true;
     });
@@ -1539,7 +1590,14 @@ class XiaozhiController extends ChangeNotifier {
     // so no second recorder is opened. It must see the audio even while the uplink
     // is suppressed: the whole point of the wake word is to interrupt TTS, and
     // _suppressMic is true for that entire window.
-    if (wakeWordDetector.isRunning) {
+    //
+    // After the app resumes from background, button clicks and volume-key noise
+    // can reach the mic and be misread as the wake word (the assistant then
+    // answers "Sama-sama" to a phantom "terima kasih"). Skip feeding the
+    // detector for the suppression window set by suppressWakeWordAfterResume().
+    final suppressedUntil = _wakeWordSuppressedUntil;
+    if (wakeWordDetector.isRunning &&
+        (suppressedUntil == null || DateTime.now().isAfter(suppressedUntil))) {
       wakeWordDetector.feed(data);
     }
     if (!isRecording) return;
@@ -1728,6 +1786,11 @@ class XiaozhiController extends ChangeNotifier {
     _silencePollTimer?.cancel();
     _silencePollTimer = null;
     _lastTtsFrameAt = DateTime.now();
+    // Reset prebuffer flag for the new utterance so _feedTtsFromBuffer holds
+    // the first frames until the prebuffer threshold is reached. Without this,
+    /// a new TTS after a previous one would skip prebuffering and could underrun
+    /// immediately ("brebet" at the start of answers).
+    _ttsNeedsPrebuffer = true;
   }
 
   Future<void> _flushTtsBuffer() async {
