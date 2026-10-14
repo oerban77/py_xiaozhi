@@ -189,4 +189,55 @@ void main() {
       expect(XiaozhiController.isCleanCloseCode(null), isFalse);
     });
   });
+
+  // The TOC byte of an Opus packet names the encoder's bandwidth (RFC 6716
+  // §3.1), which is what makes "auto sample rate" possible. These values were
+  // captured from the Python encoder (src/audio_codecs/opus_codec.py) so the Dart
+  // port stays in lockstep with it: a 20ms frame at each rate encodes to exactly
+  // these bytes.
+  group('parseOpusToc', () {
+    test('reads the bandwidth the encoder wrote at each sample rate', () {
+      // 8000 Hz -> SILK/NB, 12000 Hz -> SILK/MB, 16000 Hz -> SILK/WB,
+      // 24000 Hz -> Hybrid/SWB, 48000 Hz -> CELT/FB. All at 20ms.
+      const cases = [
+        (8, 'NB', 8000),
+        (40, 'MB', 12000),
+        (72, 'WB', 16000),
+        (104, 'SWB', 24000),
+        (248, 'FB', 48000),
+      ];
+      for (final (toc, bandwidth, rate) in cases) {
+        final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([toc, 0x00]));
+        expect(parsed, isNotNull, reason: 'TOC $toc should parse');
+        expect(parsed!.bandwidth, bandwidth, reason: 'TOC $toc');
+        expect(parsed.frameMs, 20, reason: 'TOC $toc');
+        expect(parsed.mode, isNotEmpty, reason: 'TOC $toc');
+        expect(XiaozhiController.sampleRateForBandwidth(bandwidth), rate, reason: 'TOC $toc');
+      }
+    });
+
+    test('a code-3 packet reads the frame count from the second byte', () {
+      // toc & 0x03 == 3 means the count is in the low 6 bits of byte 1.
+      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([104, 0x2A]));
+      expect(parsed, isNotNull);
+      // 0x2A & 0x3F == 42.
+      expect(parsed!.frames, 42);
+    });
+
+    test('an empty packet parses to nothing instead of throwing', () {
+      expect(XiaozhiController.parseOpusToc(Uint8List(0)), isNull);
+    });
+
+    test('a code-3 packet with no length byte falls back to one frame', () {
+      // The frame-count byte is missing, so the count cannot be read; one frame is
+      // the safe default rather than crashing the audio path.
+      final parsed = XiaozhiController.parseOpusToc(Uint8List.fromList([104]));
+      expect(parsed, isNotNull);
+      expect(parsed!.frames, 1);
+    });
+
+    test('an unknown bandwidth maps to no sample rate', () {
+      expect(XiaozhiController.sampleRateForBandwidth('XX'), isNull);
+    });
+  });
 }

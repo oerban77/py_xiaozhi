@@ -592,14 +592,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Sample rate decode Opus harus cocok dengan encode rate server. '
-                      'Server resmi 24000 Hz; server pihak ketiga biasanya 16000 Hz. '
-                      'Jika TTS terdengar robotic/terganggu, coba ganti nilai ini.',
+                      'Sample rate decode Opus harus cocok dengan rate encode server. '
+                      'Mode "Otomatis" membaca rate tersebut dari paket Opus pertama, '
+                      'jadi tidak perlu menebak. Server resmi 24000 Hz; server pihak '
+                      'ketiga biasanya 16000 Hz. Pakai manual hanya jika otomatis salah.',
                       style: TextStyle(color: Color(0xFF71817C), height: 1.45),
                     ),
                     const SizedBox(height: 14),
                     SegmentedButton<int>(
                       segments: const [
+                        ButtonSegment<int>(
+                          value: XiaozhiController.autoOutputSampleRate,
+                          label: Text('Otomatis'),
+                        ),
                         ButtonSegment<int>(
                           value: 24000,
                           label: Text('24000 Hz'),
@@ -615,6 +620,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() => _outputSampleRate = selection.first);
                       },
                     ),
+                    if (_outputSampleRate == XiaozhiController.autoOutputSampleRate)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          widget.controller.isAutoDetectingOutputSampleRate
+                              ? 'Tunggu sampai percakapan pertama: rate terdeteksi dari paket audio pertama.'
+                              : 'Terdeteksi: ${widget.controller.effectiveOutputSampleRate} Hz.',
+                          style: const TextStyle(color: Color(0xFF71817C), height: 1.45),
+                        ),
+                      ),
                     const SizedBox(height: 28),
                     const Text(
                       'Alarm & Reminder',

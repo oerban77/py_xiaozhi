@@ -232,9 +232,25 @@ class XiaozhiController extends ChangeNotifier {
   /// (AUDIO_DEVICES.opus_output_sample_rate: 24000 official / 16000 third-party);
   /// the decoder must match it, otherwise frames decode at the wrong size and TTS
   /// sounds distorted. Mirrors src/ui/tui/settings_data.py.
-  int _outputSampleRate = 24000;
-  static const List<int> supportedOutputSampleRates = [24000, 16000];
+  ///
+  /// A value of [autoOutputSampleRate] means "detect it from the stream": every
+  /// Opus packet's TOC byte names the encoder's bandwidth (RFC 6716 §3.1), so the
+  /// first frame tells us the rate instead of forcing the user to guess. This is
+  /// the default, because guessing wrong is exactly what makes TTS sound broken.
+  static const int autoOutputSampleRate = 0;
+  static const List<int> supportedOutputSampleRates = [autoOutputSampleRate, 24000, 16000];
+  int _outputSampleRate = autoOutputSampleRate;
   int get outputSampleRate => _outputSampleRate;
+  /// The rate actually in use, after auto-detection resolved the stream's
+  /// bandwidth. Until the first packet arrives this is the manual default.
+  int get effectiveOutputSampleRate =>
+      _outputSampleRate == autoOutputSampleRate ? _detectedOutputSampleRate : _outputSampleRate;
+  int _detectedOutputSampleRate = 24000;
+  /// True while the decoder/player are still bound to the pre-first-frame default
+  /// and an auto-detection is pending. The first audio packet resolves it.
+  bool get isAutoDetectingOutputSampleRate =>
+      _outputSampleRate == autoOutputSampleRate && !_autoRateDetected;
+  bool _autoRateDetected = false;
   bool isConnected = false;
   bool isConnecting = false;
   bool isRecording = false;
@@ -306,12 +322,13 @@ class XiaozhiController extends ChangeNotifier {
   /// exactly what makes TTS sound like it begins mid-sentence.
   static const int _ttsBufferMaxFrames = 500;
   /// Frames to accumulate before the first feed of an utterance, mirroring
-  /// _TTS_PREBUFFER_S in src/audio_codecs/audio_codec.py but kept smaller: the
-  /// Android OS playback buffer already adds its own start-up latency on top, so a
-  /// full 0.12s hold here delays the first syllable noticeably. 4 frames at 20 ms
-  /// is ~80 ms, enough to absorb the arrival jitter at speech onset without
-  /// letting the OS buffer run dry between bursts.
-  static const int _ttsPrebufferFrames = 4;
+  /// _TTS_PREBUFFER_S in src/audio_codecs/audio_codec.py. The Python client holds
+  /// 0.12s; this used to be only 4 frames (~80ms), which let the Android playback
+  /// buffer run dry the moment the network jittered and produced exactly the
+  /// "terputus-putus / brebet" symptom. 8 frames at 20ms is ~160ms: enough to ride
+  /// out the arrival jitter at speech onset while still starting the answer within
+  /// a third of a second.
+  static const int _ttsPrebufferFrames = 8;
   /// Wall-clock cap for a single player feed. feedInt16FromStream can exert
   /// backpressure; without a cap a future that never returns leaves _ttsFeeding true
   /// forever, every later frame is skipped, and only the tail of the sentence plays.
@@ -358,8 +375,9 @@ class XiaozhiController extends ChangeNotifier {
     disabledMcpModules = _preferences?.getStringList('mcp_disabled_modules') ?? [];
     autoConnect = _preferences?.getBool('auto_connect') ?? true;
     _autoConnectEnabled = autoConnect;
-    final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? 24000;
-    _outputSampleRate = supportedOutputSampleRates.contains(storedRate) ? storedRate : 24000;
+    final storedRate = _preferences?.getInt('opus_output_sample_rate') ?? autoOutputSampleRate;
+    _outputSampleRate =
+        supportedOutputSampleRates.contains(storedRate) ? storedRate : autoOutputSampleRate;
     wakeWordOptions = WakeWordOptions(
       enabled: _preferences?.getBool('wake_word_enabled') ?? true,
       wakeWord: _preferences?.getString('wake_word_text') ?? 'Hello Xiaozhi',
@@ -1306,6 +1324,96 @@ class XiaozhiController extends ChangeNotifier {
   static bool isCleanCloseCode(int? code) =>
       code == 1000 || code == 1001 || code == 1005;
 
+  /// Parses the encoding parameters out of the TOC byte of an Opus packet,
+  /// mirroring parse_opus_toc in src/audio_codecs/opus_codec.py (RFC 6716 §3.1):
+  /// the high 5 bits are the config (mode + bandwidth + frame duration) and the
+  /// low 2 bits are the code (frame count).
+  ///
+  /// This is what makes "auto sample rate" possible: the encoder's bandwidth is
+  /// written into every packet, so the client never has to guess the server's
+  /// [AUDIO_DEVICES.opus_output_sample_rate].
+  @visibleForTesting
+  static OpusToc? parseOpusToc(Uint8List packet) {
+    if (packet.isEmpty) return null;
+    final toc = packet[0];
+    final config = (toc >> 3) & 0x1F;
+    final code = toc & 0x03;
+
+    final String mode;
+    final String bandwidth;
+    final int frameMs;
+    if (config < 12) {
+      mode = 'SILK';
+      bandwidth = const ['NB', 'MB', 'WB'][config ~/ 4];
+      frameMs = const [10, 20, 40, 60][config % 4];
+    } else if (config < 16) {
+      mode = 'Hybrid';
+      bandwidth = const ['SWB', 'FB'][(config - 12) ~/ 2];
+      frameMs = const [10, 20][config % 2];
+    } else {
+      mode = 'CELT';
+      bandwidth = const ['NB', 'WB', 'SWB', 'FB'][(config - 16) ~/ 4];
+      frameMs = const [2, 5, 10, 20][config % 4];
+    }
+
+    final int frames;
+    if (code == 0) {
+      frames = 1;
+    } else if (code <= 2) {
+      frames = 2;
+    } else {
+      frames = (packet.length >= 2) ? (packet[1] & 0x3F) : 1;
+    }
+
+    return OpusToc(
+      bandwidth: bandwidth,
+      frameMs: frameMs,
+      frames: frames,
+      mode: mode,
+    );
+  }
+
+  /// Maps an Opus bandwidth to the sample rate the decoder must be configured
+  /// with. libopus resamples internally, so decoding a 16kHz-bandwidth stream at
+  /// 24kHz still plays at the right *speed* -- the rate only sets the output
+  /// bandwidth -- but decoding below the encoded bandwidth throws away the top of
+  /// the spectrum and sounds muffled, and the player stream must be opened at the
+  /// same rate the decoder produces. Returns null for a bandwidth this client does
+  /// not support.
+  @visibleForTesting
+  static int? sampleRateForBandwidth(String bandwidth) {
+    switch (bandwidth) {
+      case 'NB':
+        return 8000;
+      case 'MB':
+        return 12000;
+      case 'WB':
+        return 16000;
+      case 'SWB':
+        return 24000;
+      case 'FB':
+        return 48000;
+      default:
+        return null;
+    }
+  }
+
+  /// Rebuilds the decoder and the player stream around [effectiveOutputSampleRate].
+  /// Called when auto-detection resolves a different rate than the stream was
+  /// started with; the two are bound together, so both must move together.
+  Future<void> _applyOutputSampleRate() async {
+    final rate = effectiveOutputSampleRate;
+    if (_opusInitialized) {
+      _decoder?.destroy();
+      _decoder = SimpleOpusDecoder(sampleRate: rate, channels: 1);
+    }
+    if (_playerStarted) {
+      await _stopPlayerStream();
+      await _startPlayerStream();
+    }
+    notifyListeners();
+  }
+
   Future<void> _initializeAudio() async {
     if (!_opusInitialized) {
       initOpus(await opus_flutter.load());
@@ -1314,8 +1422,15 @@ class XiaozhiController extends ChangeNotifier {
         channels: 1,
         application: Application.voip,
       );
-      _decoder = SimpleOpusDecoder(sampleRate: _outputSampleRate, channels: 1);
+      _decoder = SimpleOpusDecoder(sampleRate: effectiveOutputSampleRate, channels: 1);
       _opusInitialized = true;
+    }
+    // A new connection means a new stream whose bandwidth is unknown until the
+    // first packet, so re-arm auto-detection. Without this, a switch from a 24kHz
+    // server to a 16kHz one would keep the stale detected rate from the previous
+    // session.
+    if (_outputSampleRate == autoOutputSampleRate) {
+      _autoRateDetected = false;
     }
     // The player is opened and started lazily by _handleAudio when the first TTS
     // frame actually arrives. Doing it here on every handshake requests Android
@@ -1326,18 +1441,21 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   /// Changes the Opus decode sample rate. The decoder and the player stream are
-  /// bound to this rate, so both must be rebuilt when it changes.
+  /// bound to this rate, so both must be rebuilt when it changes. Passing
+  /// [autoOutputSampleRate] switches to detection from the stream.
   Future<void> setOutputSampleRate(int rate) async {
-    if (!supportedOutputSampleRates.contains(rate) || rate == _outputSampleRate) return;
+    if (!supportedOutputSampleRates.contains(rate)) return;
+    final wasAuto = _outputSampleRate == autoOutputSampleRate;
+    final wasEffective = effectiveOutputSampleRate;
     _outputSampleRate = rate;
+    _autoRateDetected = rate != autoOutputSampleRate;
     await _preferences?.setInt('opus_output_sample_rate', rate);
-    if (_opusInitialized) {
-      _decoder?.destroy();
-      _decoder = SimpleOpusDecoder(sampleRate: rate, channels: 1);
-    }
-    if (_playerStarted) {
-      await _stopPlayerStream();
-      await _startPlayerStream();
+    // Rebuild only when the *effective* rate actually moves. Switching between
+    // "auto" and a manual value that happens to match what auto already detected
+    // would otherwise tear a working stream down for nothing.
+    if (wasAuto != (_outputSampleRate == autoOutputSampleRate) ||
+        wasEffective != effectiveOutputSampleRate) {
+      await _applyOutputSampleRate();
     }
     notifyListeners();
   }
@@ -1350,7 +1468,7 @@ class XiaozhiController extends ChangeNotifier {
       await _player.startPlayerFromStream(
         codec: Codec.pcm16,
         numChannels: 1,
-        sampleRate: _outputSampleRate,
+        sampleRate: effectiveOutputSampleRate,
         interleaved: false,
         // 8192 bytes is ~170ms of PCM16 at 24kHz; the OS will not emit a sound until
         // this much is queued, which alone delays the start of every answer. 2048
@@ -1424,6 +1542,29 @@ class XiaozhiController extends ChangeNotifier {
     if (_discardTtsAudioUntilStart) return;
     final decoder = _decoder;
     if (decoder == null || packet.isEmpty) return;
+    // Auto sample rate: the TOC byte of every packet names the encoder's
+    // bandwidth (RFC 6716 §3.1), so the first frame of the session resolves the
+    // server's AUDIO_DEVICES.opus_output_sample_rate without the user having to
+    // guess it. The decoder and the player stream must both be rebuilt when it
+    // differs from what they were started with, otherwise the player consumes the
+    // PCM at the wrong rate.
+    //
+    // Done before the player re-arm below so the stream opens at the detected rate
+    // the first time and there is nothing to tear down. The packet is not decoded
+    // here; the decode below uses the freshly rebuilt decoder.
+    if (isAutoDetectingOutputSampleRate) {
+      final toc = parseOpusToc(packet);
+      final detected = toc == null ? null : sampleRateForBandwidth(toc.bandwidth);
+      if (detected != null && detected != _detectedOutputSampleRate) {
+        _detectedOutputSampleRate = detected;
+        // Drop whatever was buffered at the old rate: it was decoded for a
+        // different bandwidth and would play as a brief glitch at the start of the
+        // utterance. Only the first frames of the first utterance are ever affected.
+        _ttsBuffer.clear();
+        await _applyOutputSampleRate();
+      }
+      _autoRateDetected = true;
+    }
     if (!_playerStarted && isSpeaking) {
       // The stream is torn down by an interrupt or a sample-rate change while the
       // server keeps sending frames; re-arm it instead of dropping the utterance.
@@ -1771,4 +1912,39 @@ class XiaozhiController extends ChangeNotifier {
     _decoder?.destroy();
     super.dispose();
   }
+}
+
+/// The encoding parameters read from the TOC byte of an Opus packet, mirroring
+/// the dict returned by parse_opus_toc in src/audio_codecs/opus_codec.py.
+/// See RFC 6716 §3.1.
+@immutable
+class OpusToc {
+  const OpusToc({
+    required this.bandwidth,
+    required this.frameMs,
+    required this.frames,
+    required this.mode,
+  });
+
+  /// 'NB' | 'MB' | 'WB' | 'SWB' | 'FB'. This is what names the encoder's sample
+  /// rate, and therefore what the decoder must be configured with.
+  final String bandwidth;
+  final int frameMs;
+  final int frames;
+  final String mode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OpusToc &&
+          bandwidth == other.bandwidth &&
+          frameMs == other.frameMs &&
+          frames == other.frames &&
+          mode == other.mode;
+
+  @override
+  int get hashCode => Object.hash(bandwidth, frameMs, frames, mode);
+
+  @override
+  String toString() => 'OpusToc($mode/$bandwidth ${frameMs}ms x$frames)';
 }
