@@ -541,64 +541,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: AppColors.ink,
             ),
           ],
-        length: 2,
-        child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Pengaturan'),
-            leading: IconButton(
-              tooltip: 'Kembali',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'Umum'),
-                Tab(text: 'MCP Modules'),
-              ],
-            ),
-          ),
-          body: SafeArea(
-            child: TabBarView(
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pengaturan'),
+        leading: IconButton(
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        bottom: const TabBar(
+          tabs: [
+            Tab(text: 'Umum'),
+            Tab(text: 'MCP Modules'),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: TabBarView(
+          children: [
+            ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
-                ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                  children: [
-                    const Text(
-                      'Koneksi server',
-                      style: TextStyle(color: AppColors.ink, fontSize: 21, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Masukkan detail WebSocket Xiaozhi yang diberikan oleh server Anda.',
-                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
-                    ),
-                    const SizedBox(height: 22),
-                    const _FieldLabel(label: 'Alamat WebSocket'),
-                    TextField(
-                      controller: _urlController,
-                      keyboardType: TextInputType.url,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        hintText: 'wss://api.tenclass.net/xiaozhi/v1/',
-                        prefixIcon: Icon(Icons.dns_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const _FieldLabel(label: 'Access token'),
-                    TextField(
-                      controller: _tokenController,
-                      obscureText: true,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        hintText: 'test-token',
-                        prefixIcon: Icon(Icons.key_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 26),
-                    const Text(
-                      'Identitas perangkat',
-                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
-                    ),
+                const Text(
+                  'Koneksi server',
+                  style: TextStyle(color: AppColors.ink, fontSize: 21, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Masukkan detail WebSocket Xiaozhi yang diberikan oleh server Anda.',
+                  style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                ),
+                const SizedBox(height: 22),
+                const _FieldLabel(label: 'Alamat WebSocket'),
+                TextField(
+                  controller: _urlController,
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    hintText: 'wss://api.tenclass.net/xiaozhi/v1/',
+                    prefixIcon: Icon(Icons.dns_outlined),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _FieldLabel(label: 'Access token'),
+                TextField(
+                  controller: _tokenController,
+                  obscureText: true,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    hintText: 'test-token',
+                    prefixIcon: Icon(Icons.key_outlined),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                const Text(
+                  'Identitas perangkat',
+                  style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                ),
                     const SizedBox(height: 14),
                     const _FieldLabel(label: 'Device ID'),
                     TextField(
@@ -922,55 +927,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.shield_outlined),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildWakeWordSlider(
-                      label: 'Ambang deteksi (threshold)',
-                      value: _wakeWordKeywordsThreshold,
-                      min: 0.1,
-                      max: 1.0,
-                      divisions: 9,
-                      precision: 2,
-                      enabled: _wakeWordEnabled,
-                      onChanged: (value) => setState(() => _wakeWordKeywordsThreshold = value),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildWakeWordSlider(
-                      label: 'Skor kata kunci',
-                      value: _wakeWordKeywordsScore,
-                      min: 0.5,
-                      max: 3.0,
-                      divisions: 25,
-                      precision: 1,
-                      enabled: _wakeWordEnabled,
-                      onChanged: (value) => setState(() => _wakeWordKeywordsScore = value),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildWakeWordIntField(
-                      label: 'Jumlah utas (numThreads)',
-                      value: _wakeWordNumThreads,
-                      min: 1,
-                      max: 4,
-                      enabled: _wakeWordEnabled,
-                      onChanged: (value) => setState(() => _wakeWordNumThreads = value),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildWakeWordIntField(
-                      label: 'Jalur aktif maksimal',
-                      value: _wakeWordMaxActivePaths,
-                      min: 1,
-                      max: 4,
-                      enabled: _wakeWordEnabled,
-                      onChanged: (value) => setState(() => _wakeWordMaxActivePaths = value),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildWakeWordIntField(
-                      label: 'Bunyi hening trailing',
-                      value: _wakeWordNumTrailingBlanks,
-                      min: 0,
-                      max: 3,
-                      enabled: _wakeWordEnabled,
-                      onChanged: (value) => setState(() => _wakeWordNumTrailingBlanks = value),
-                    ),
                   ],
                 ),
                 ListView(
@@ -1168,70 +1124,4 @@ class _FieldLabel extends StatelessWidget {
           style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
         ),
       );
-}
-
-Widget _buildWakeWordSlider({
-  required String label,
-  required double value,
-  required double min,
-  required double max,
-  required int divisions,
-  required double precision,
-  required bool enabled,
-  required void Function(double) onChanged,
-}) {
-  return Row(
-    children: [
-      Expanded(
-        child: Text(
-          label,
-          style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-      ),
-      SizedBox(
-        width: 10,
-        child: Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          precision: precision,
-          enabled: enabled,
-          onChanged: onChanged,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildWakeWordIntField({
-  required String label,
-  required int value,
-  required int min,
-  required int max,
-  required bool enabled,
-  required void Function(int) onChanged,
-}) {
-  return Row(
-    children: [
-      Expanded(
-        child: Text(
-          label,
-          style: const TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-      ),
-      SizedBox(
-        width: 10,
-        child: DropdownButton<int>(
-          value: value,
-          items: List.generate(
-            max - min + 1,
-            (index) => DropdownMenuItem<int>(value: min + index),
-          ),
-          enabled: enabled,
-          onChanged: onChanged,
-        ),
-      ),
-    ],
-  );
 }
