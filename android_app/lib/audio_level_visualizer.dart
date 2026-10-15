@@ -84,7 +84,7 @@ class _WaveformPainter extends CustomPainter {
   _WaveformPainter({
     required this.level,
     required Animation<double> animation,
-  }) : super(repaint: animation), animation = animation;
+  }) : animation = animation, super(repaint: animation);
 
   final double level;
   final Animation<double> animation;
