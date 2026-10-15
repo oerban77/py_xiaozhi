@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import 'audio_level_visualizer.dart';
 import 'app_theme.dart';
 import 'attachment_text_reader.dart';
 import 'camera_screen.dart';
@@ -219,6 +220,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildHeader(),
                 _buildStatusBar(),
                 Expanded(child: _buildConversation()),
+                // Live audio waveform (oscilloscope-style) shown while the mic
+                // is active (listening) or the assistant is speaking (TTS).
+                // Mirrors the animated emoji reactions in the desktop GUI.
+                if (widget.controller.deviceState != DeviceState.idle)
+                  _buildAudioVisualizer(),
                 _buildComposer(),
               ],
             ),
@@ -327,6 +333,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Live audio waveform (oscilloscope-style) shown above the composer while
+  /// listening (mic level) or speaking (TTS level), mirroring the animated
+  /// emoji reactions in the desktop GUI.
+  Widget _buildAudioVisualizer() {
+    final controller = widget.controller;
+    return StreamBuilder<double>(
+      stream: controller.audioLevelStream,
+      initialData: 0.0,
+      builder: (context, snapshot) {
+        return AudioLevelVisualizer(
+          audioLevelStream: controller.audioLevelStream,
+          deviceState: controller.deviceState.index,
+          emotion: controller.emotion,
+          barCount: 24,
+          maxHeight: 36,
+        );
+      },
     );
   }
 

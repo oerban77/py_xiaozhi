@@ -263,6 +263,15 @@ class XiaozhiController extends ChangeNotifier {
   bool isRecording = false;
   bool _wakeWordMicActive = false;
   StreamSubscription<bool>? _musicPlaybackSubscription;
+
+  /// Live audio level (0.0–1.0) for the oscilloscope-style visualizer.
+  /// Emits mic level while listening and TTS level while speaking, so the
+  /// UI can show a waveform that reacts to the mic or the assistant's voice.
+  final StreamController<double> _audioLevelController =
+      StreamController<double>.broadcast();
+  Stream<double> get audioLevelStream => _audioLevelController.stream;
+  double _micLevel = 0.0;
+  double _ttsLevel = 0.0;
   /// Derived from [deviceState], exactly like StateManager.is_speaking() reads
   /// the state enum instead of keeping a second boolean. Keeping a separate
   /// writable flag is how TTS went silent: the tts "start" handler set the state
@@ -1701,6 +1710,10 @@ class XiaozhiController extends ChangeNotifier {
       final bytes = Uint8List.fromList(_pendingMicBytes.take(frameBytes).toList());
       _pendingMicBytes.removeRange(0, frameBytes);
       final samples = Int16List.view(bytes.buffer, bytes.offsetInBytes, 320);
+      _micLevel = _rmsLevel(samples);
+      if (!_audioLevelController.isClosed) {
+        _audioLevelController.add(_micLevel);
+      }
       final packet = _encoder?.encode(input: samples);
       // During the post-TTS silence period the speaker is still draining; sending mic
       // audio now makes the assistant hear and answer itself in realtime mode.
@@ -1752,6 +1765,10 @@ class XiaozhiController extends ChangeNotifier {
     try {
       final pcm = decoder.decode(input: packet);
       if (pcm.isEmpty) return;
+      _ttsLevel = _rmsLevel(pcm);
+      if (!_audioLevelController.isClosed) {
+        _audioLevelController.add(_ttsLevel);
+      }
       _lastTtsFrameAt = DateTime.now();
       // Re-arm on every frame: the watchdog is a stall detector, not a hard cap on
       // utterance length. A long answer (a story, a long explanation) used to hit
@@ -1806,6 +1823,20 @@ class XiaozhiController extends ChangeNotifier {
     } finally {
       _ttsFeeding = false;
     }
+  }
+
+  /// Root-mean-square of a 16-bit PCM frame, normalized to 0.0–1.0.
+  /// Uses a fast integer approximation: sum of squares / (count * 32768^2),
+  /// then sqrt. This is cheap enough to run on every mic/TTS frame.
+  static double _rmsLevel(Int16List samples) {
+    if (samples.isEmpty) return 0.0;
+    var sumSq = 0;
+    for (final s in samples) {
+      sumSq += s * s;
+    }
+    final mean = sumSq / samples.length;
+    final rms = mean > 0 ? (mean / (32768 * 32768)) : 0.0;
+    return rms > 1.0 ? 1.0 : rms;
   }
 
   Int16List _mergeInt16(List<Int16List> chunks) {
