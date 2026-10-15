@@ -262,13 +262,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         // FittedBox leaves its child unconstrained, and CameraPreview's
         // internal AspectRatio cannot pick a size without a bounded
         // constraint, so the preview collapses and nothing is drawn. Pin the
-        // sensor's portrait ratio here with a tight box, then let FittedBox
+        // sensor's portrait ratio here with a large box, then let FittedBox
         // scale it up to cover the screen the way the WhatsApp camera does.
         child: FittedBox(
           fit: BoxFit.cover,
           child: SizedBox(
-            width: 1 / aspect,
-            height: 1,
+            width: 1000,
+            height: 1000 / aspect,
             child: CameraPreview(camera),
           ),
         ),

@@ -3,12 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-/// Oscilloscope-style waveform that visualizes live audio level (mic or TTS).
+/// Centered oscilloscope waveform that visualizes live audio level (mic or TTS).
 ///
-/// Mirrors the desktop GUI's animated emoji reactions: while the mic is active
-/// or the assistant speaks, a scrolling waveform reacts to the audio RMS level.
-/// The trace is a continuous line (not a bar chart), matching the oscilloscope
-/// look the reference image uses for the same purpose.
+/// Mirrors the ChatGPT / Gemini style: a single continuous line that oscillates
+/// in place (no scrolling), reacting to the audio RMS level. The background is
+/// transparent so it blends with the chat composer.
 class AudioLevelVisualizer extends StatefulWidget {
   const AudioLevelVisualizer({
     super.key,
@@ -33,21 +32,19 @@ class AudioLevelVisualizer extends StatefulWidget {
 
 class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
     with SingleTickerProviderStateMixin {
-  final List<double> _samples = [];
+  /// Smoothed audio level in [0, 1].
+  double _level = 0.0;
   StreamSubscription<double>? _subscription;
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill with silence so the line starts flat instead of empty.
-    _samples.addAll(List.filled(widget.minSamples, 0.0));
     _subscription = widget.audioLevelStream.listen(_onLevel);
-    // Ticks drive the high-frequency jitter so the trace keeps moving even
-    // between audio frames (otherwise a silent stretch would freeze it).
+    // Ticks drive the animation so the waveform keeps oscillating.
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
     )..repeat();
   }
 
@@ -58,26 +55,23 @@ class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
     super.dispose();
   }
 
-  void _onLevel(double level) {
+  void _onLevel(double rawLevel) {
     if (!mounted) return;
     setState(() {
-      _samples.add(level.clamp(0.0, 1.0));
-      if (_samples.length > widget.minSamples * 2) {
-        _samples.removeRange(0, _samples.length - widget.minSamples);
-      }
+      // Smooth with exponential moving average so the waveform doesn't jump.
+      final double level = rawLevel.clamp(0.0, 1.0);
+      _level = _level * 0.6 + level * 0.4;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       height: widget.maxHeight,
-      color: Colors.black,
       child: CustomPaint(
         painter: _WaveformPainter(
-          samples: List.unmodifiable(_samples),
-          maxHeight: widget.maxHeight,
+          level: _level,
           animation: _controller,
         ),
       ),
@@ -85,56 +79,44 @@ class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
   }
 }
 
+/// Paints a centered oscilloscope waveform that oscillates in place.
 class _WaveformPainter extends CustomPainter {
   _WaveformPainter({
-    required this.samples,
-    required this.maxHeight,
+    required this.level,
     required Animation<double> animation,
-  }) : animation = animation, super(repaint: animation);
+  }) : super(repaint: animation), animation = animation;
 
-  final List<double> samples;
-  final double maxHeight;
+  final double level;
   final Animation<double> animation;
 
+  /// Muted blue-grey matching the ChatGPT / Gemini composer waveform.
   static const _lineColor = Color(0xFF9FB0D0);
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (samples.isEmpty || size.width <= 0 || size.height <= 0) return;
+    if (size.width <= 0 || size.height <= 0) return;
 
     final paint = Paint()
       ..color = _lineColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final path = Path();
-    final n = samples.length;
-    // One point per pixel column gives the dense, fuzzy trace seen in the
-    // reference oscilloscope image (far more points than raw RMS samples).
     final int columns = max(2, size.width.floor());
-    final double dx = size.width / columns;
-    final double phase = animation.value;
+    final double dx = size.width / (columns - 1);
+    final double phase = animation.value * 2 * pi;
 
-    for (int i = 0; i <= columns; i++) {
-      final x = i * dx;
-      // Map the column across the visible sample window with linear
-      // interpolation so the trace scrolls smoothly as new levels arrive.
+    // Amplitude scales with audio level: at silence the line is nearly flat,
+    // at full level it fills most of the available height.
+    final double amplitude = level * size.height * 0.42;
+
+    for (int i = 0; i < columns; i++) {
+      final double x = i * dx;
+      // Combine a few harmonics for a natural oscilloscope texture.
       final double t = i / columns;
-      final double samplePos = t * (n - 1);
-      final int idx0 = samplePos.floor();
-      final int idx1 = min(idx0 + 1, n - 1);
-      final double frac = samplePos - idx0;
-      final double level = samples[idx0] * (1 - frac) + samples[idx1] * frac;
-
-      // Center vertically and scale by the RMS level.
-      final double baseY = size.height / 2 + (level - 0.5) * size.height * 0.92;
-
-      // High-frequency jitter, scaled by level, gives the fuzzy texture.
-      final double noiseAmp = (0.05 + level * 0.10) * size.height;
-      final double jitter = _jitter(i, phase) - 0.5;
-      final double y = baseY + jitter * 2 * noiseAmp;
+      final double y = _wave(t, phase, amplitude, size.height);
 
       if (i == 0) {
         path.moveTo(x, y);
@@ -146,15 +128,24 @@ class _WaveformPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  /// Deterministic pseudo-random in [0,1) that animates with [phase] so the
-  /// jitter pattern keeps shifting between frames.
-  double _jitter(int i, double phase) {
-    final int seed = (phase * 1e6).floor();
-    final int h = (i * 73856093) ^ (seed * 19349663) ^ (seed << 11);
+  /// Compute Y position for column at fraction [t] in [0,1].
+  double _wave(double t, double phase, double amplitude, double height) {
+    final double center = height / 2;
+    // Fundamental + 2nd harmonic + subtle noise for organic feel.
+    final double fundamental = sin(t * 2 * pi * 3 + phase);
+    final double harmonic = sin(t * 2 * pi * 7 + phase * 1.7) * 0.3;
+    final double noise = (_jitter(t, phase) - 0.5) * 0.2;
+    return center + (fundamental + harmonic + noise) * amplitude;
+  }
+
+  /// Deterministic pseudo-random in [0,1) that animates with [phase].
+  double _jitter(double t, double phase) {
+    final int seed = (phase * 1e5).floor();
+    final int h = ((t * 1000).floor() * 73856093) ^ (seed * 19349663);
     return (h & 0xFFFFFF) / 0xFFFFFF;
   }
 
   @override
   bool shouldRepaint(_WaveformPainter oldDelegate) =>
-      oldDelegate.samples != samples;
+      oldDelegate.level != level;
 }
