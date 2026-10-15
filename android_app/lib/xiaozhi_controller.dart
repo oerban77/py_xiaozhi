@@ -1328,6 +1328,15 @@ class XiaozhiController extends ChangeNotifier {
       if (text is String && text.isNotEmpty) {
         _appendAssistantText(text);
         liveText = _assistantText;
+        // Reset the watchdog on TTS text: for long documents (PDF, articles)
+        // the server may pause audio synthesis while processing the next
+        // chunk. Without this reset, a gap > 15s between audio frames would
+        // fire _handleLostTtsStop and kill the TTS session mid-utterance.
+        // Text messages prove the server is still actively generating.
+        if (isSpeaking) {
+          _speakingWatchdog?.cancel();
+          _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
+        }
         notifyListeners();
       }
       if (state == 'stop') {
@@ -1342,6 +1351,13 @@ class XiaozhiController extends ChangeNotifier {
       final value = data['emotion'];
       if (value is String && value.trim().isNotEmpty) {
         emotion = EmotionService.normalize(value);
+        // Reset the watchdog on LLM emotion: for very long responses the server
+        // may have gaps between TTS text chunks. LLM messages prove the server
+        // is still actively generating the response.
+        if (isSpeaking) {
+          _speakingWatchdog?.cancel();
+          _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
+        }
         notifyListeners();
       }
     } else if (type == 'error') {
