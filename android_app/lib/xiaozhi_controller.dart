@@ -800,6 +800,7 @@ class XiaozhiController extends ChangeNotifier {
     if (isConnected || isConnecting) return;
     _cancelReconnect();
     _wasConnected = false;
+    clearError(); // Clear any previous error when user manually connects
     // A manual connect re-enables auto-reconnect: disconnect() turns it off so
     // an intentional disconnect is not immediately undone, but the user tapping
     // "Hubungkan" clearly wants a live connection again.
@@ -859,6 +860,7 @@ class XiaozhiController extends ChangeNotifier {
       isConnected = true;
       _wasConnected = true;
       isConnecting = false;
+      clearError(); // Clear any previous connection error on successful connect
       // Mirrors _on_audio_channel_opened: the channel is up but nothing is
       // listening yet, so the device is idle until the user starts a conversation.
       _setDeviceState(DeviceState.idle);
@@ -900,6 +902,13 @@ class XiaozhiController extends ChangeNotifier {
       _reportError('Gagal terhubung: ${error.toString()}');
       emotion = '';
       liveText = '';
+      // Schedule reconnect for initial connection failures too (network down,
+      // server unreachable, etc.), but only if auto-connect is enabled and
+      // settings are valid. This mirrors the Python client's behavior of
+      // retrying indefinitely with backoff until the user disables auto-connect.
+      if (_autoConnectEnabled && _canAutoConnect) {
+        _scheduleReconnect();
+      }
     }
     notifyListeners();
   }
