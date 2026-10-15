@@ -249,29 +249,42 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
-    // camera.value.aspectRatio is the sensor-native landscape ratio
-    // (width/height, e.g. ~1.78). In portrait CameraPreview sizes itself to the
-    // inverse of that through its own internal AspectRatio.
+    // camera.value.aspectRatio is the sensor-native ratio (width/height,
+    // e.g. ~1.78 for a landscape sensor). We compute cover dimensions from the
+    // actual screen size so the preview fills the frame without stretching,
+    // regardless of portrait or landscape orientation.
     final aspect = camera.value.aspectRatio;
     if (!aspect.isFinite || aspect <= 0) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: widget.enableCapture ? _capture : null,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox.expand(
-        // FittedBox leaves its child unconstrained, and CameraPreview's
-        // internal AspectRatio cannot pick a size without a bounded
-        // constraint, so the preview collapses and nothing is drawn. Pin the
-        // sensor's portrait ratio here with a large box, then let FittedBox
-        // scale it up to cover the screen the way the WhatsApp camera does.
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: 1000,
-            height: 1000 / aspect,
-            child: CameraPreview(camera),
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          if (w <= 0 || h <= 0) return const SizedBox.shrink();
+
+          // Cover: scale the sensor ratio to fill the screen, crop overflow.
+          double pw, ph;
+          if (w / h > aspect) {
+            // Screen is wider than the sensor → fit by height.
+            ph = h;
+            pw = h * aspect;
+          } else {
+            // Screen is taller than the sensor → fit by width.
+            pw = w;
+            ph = w / aspect;
+          }
+
+          return Center(
+            child: SizedBox(
+              width: pw,
+              height: ph,
+              child: CameraPreview(camera),
+            ),
+          );
+        },
       ),
     );
   }
