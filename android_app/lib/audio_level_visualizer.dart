@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -89,7 +90,7 @@ class _WaveformPainter extends CustomPainter {
     required this.samples,
     required this.maxHeight,
     required Animation<double> animation,
-  }) : super(repaint: animation);
+  }) : super(repaint: animation), animation = animation;
 
   final List<double> samples;
   final double maxHeight;
