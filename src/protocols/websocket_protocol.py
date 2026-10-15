@@ -111,6 +111,9 @@ class WebsocketProtocol(Protocol):
                     "frame_duration": AudioConfig.FRAME_DURATION,
                 },
             }
+            # Include session_id if we have one (for session resume on reconnect)
+            if self.session_id:
+                hello_message["session_id"] = self.session_id
             await self.send_text(json.dumps(hello_message))
 
             # Wait for the server hello response
@@ -366,6 +369,12 @@ class WebsocketProtocol(Protocol):
             if not transport or transport != "websocket":
                 logger.error(f"Unsupported transport: {transport}")
                 return
+
+            # Extract and store session_id from server hello response
+            received_session_id = data.get("session_id")
+            if received_session_id and isinstance(received_session_id, str):
+                self.session_id = received_session_id
+                logger.info(f"Session ID received from server: {self.session_id}")
 
             # Settings hello receive event
             self.hello_received.set()

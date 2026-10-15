@@ -105,14 +105,32 @@ class MusicRuntime {
   static List<String> _lyrics = [];
   static int _volume = 100;
   static bool _initialized = false;
+  static final _playbackStateController = StreamController<bool>.broadcast();
+
+  /// Stream that emits true when music starts playing, false when it stops.
+  /// Allows the controller to keep the mic open for wake word detection during playback.
+  static Stream<bool> get playbackStateStream => _playbackStateController.stream;
 
   static Future<void> initialize() async {
     if (_initialized) return;
     final preferences = await SharedPreferences.getInstance();
     _volume = (preferences.getInt(_preferencesKey) ?? 100).clamp(0, 100).toInt();
     await _player.setVolume(_volume / 100);
+    // Listen to player state changes to notify about playback start/stop
+    _player.playerStateStream.listen((state) {
+      final playing = state.playing;
+      if (playing != _wasPlaying) {
+        _wasPlaying = playing;
+        _playbackStateController.add(playing);
+      }
+    });
     _initialized = true;
   }
+
+  static bool _wasPlaying = false;
+
+  /// Returns true if music is currently playing.
+  static bool get isPlaying => _currentUrl.isNotEmpty && _player.playing;
 
   /// Pause music for TTS playback (ducking/pause so wake word can be heard).
   /// Called from XiaozhiController when TTS starts.
@@ -130,6 +148,10 @@ class MusicRuntime {
     if (_currentUrl.isNotEmpty && !_player.playing) {
       unawaited(_player.play());
     }
+  }
+
+  static Future<void> dispose() async {
+    await _playbackStateController.close();
   }
 
   static Future<String> call(String name, Map<String, dynamic> arguments) async {

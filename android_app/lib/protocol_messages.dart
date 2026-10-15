@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 class ProtocolMessages {
-  static String hello() => jsonEncode({
+  static String hello([String? sessionId]) => jsonEncode({
         'type': 'hello',
         'version': 1,
         'features': {'mcp': true},
@@ -12,6 +12,7 @@ class ProtocolMessages {
           'channels': 1,
           'frame_duration': 20,
         },
+        if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
       });
 
   static Map<String, Object?> listenStart(String sessionId, [String mode = 'manual']) => {

@@ -262,6 +262,7 @@ class XiaozhiController extends ChangeNotifier {
   bool isConnecting = false;
   bool isRecording = false;
   bool _wakeWordMicActive = false;
+  StreamSubscription<bool>? _musicPlaybackSubscription;
   /// Derived from [deviceState], exactly like StateManager.is_speaking() reads
   /// the state enum instead of keeping a second boolean. Keeping a separate
   /// writable flag is how TTS went silent: the tts "start" handler set the state
@@ -411,6 +412,23 @@ class XiaozhiController extends ChangeNotifier {
       await _preferences?.setString('client_id', clientId);
     }
     notifyListeners();
+
+    // Listen for music playback state changes to keep mic open for wake word detection
+    await MusicRuntime.initialize();
+    _musicPlaybackSubscription = MusicRuntime.playbackStateStream.listen((playing) {
+      if (playing) {
+        // Music started - ensure mic is open for wake word detector
+        if (!_wakeWordMicActive && wakeWordOptions.enabled && wakeWordListening) {
+          _wakeWordMicActive = true;
+          unawaited(_openMicStream());
+        }
+      } else {
+        // Music stopped - close mic if not needed for wake word
+        if (_wakeWordMicActive && (!wakeWordOptions.enabled || !wakeWordListening)) {
+          unawaited(_closeMicStream());
+        }
+      }
+    });
 
     // Listen for network connectivity changes to trigger reconnect when network
     // comes back (e.g., after switching WiFi, mobile data, or airplane mode).
@@ -701,6 +719,13 @@ class XiaozhiController extends ChangeNotifier {
           // The status bar derives from deviceState; the spotter running on its
           // own (no conversation yet) is idle, not "listening".
           if (!isRecording) _setDeviceState(DeviceState.idle);
+          // If music is playing, ensure mic stays open for wake word detection
+          if (wakeWordListening && MusicRuntime.isPlaying) {
+            if (!_wakeWordMicActive) {
+              _wakeWordMicActive = true;
+              unawaited(_openMicStream());
+            }
+          }
         } catch (error) {
           await wakeWordDetector.stop();
           wakeWordListening = false;
@@ -855,7 +880,7 @@ class XiaozhiController extends ChangeNotifier {
         },
       );
       await channel.ready.timeout(const Duration(seconds: 15));
-      channel.sink.add(ProtocolMessages.hello());
+      channel.sink.add(ProtocolMessages.hello(sessionId));
       await _helloCompleter!.future.timeout(const Duration(seconds: 15));
       isConnected = true;
       _wasConnected = true;
@@ -888,6 +913,13 @@ class XiaozhiController extends ChangeNotifier {
             wakeWordListening = true;
             wakeWordError = '';
             if (!isRecording) _setDeviceState(DeviceState.idle);
+            // If music is playing, ensure mic stays open for wake word detection
+            if (wakeWordListening && MusicRuntime.isPlaying) {
+              if (!_wakeWordMicActive) {
+                _wakeWordMicActive = true;
+                unawaited(_openMicStream());
+              }
+            }
           } catch (error) {
             wakeWordListening = false;
             wakeWordError = error.toString();
@@ -1123,6 +1155,8 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _openMicStream() async {
+    // Don't open if already open
+    if (_micSubscription != null) return;
     if (!await _recorder.hasPermission()) {
       throw StateError('Izin mikrofon diperlukan');
     }
@@ -1132,6 +1166,10 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   Future<void> _closeMicStream() async {
+    // Only close if the mic is not needed for wake word detection
+    if (_wakeWordMicActive && wakeWordOptions.enabled && wakeWordListening) {
+      return; // Keep mic open for wake word detector
+    }
     _wakeWordMicActive = false;
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -2047,6 +2085,8 @@ class XiaozhiController extends ChangeNotifier {
     _reconnectTimer = null;
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
+    _musicPlaybackSubscription?.cancel();
+    _musicPlaybackSubscription = null;
     unawaited(_socketSubscription?.cancel());
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());
