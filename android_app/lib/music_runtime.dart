@@ -114,6 +114,24 @@ class MusicRuntime {
     _initialized = true;
   }
 
+  /// Pause music for TTS playback (ducking/pause so wake word can be heard).
+  /// Called from XiaozhiController when TTS starts.
+  static Future<void> pauseForTts() async {
+    await initialize();
+    if (_currentUrl.isNotEmpty && _player.playing) {
+      await _player.pause();
+    }
+  }
+
+  /// Resume music after TTS playback ends.
+  /// Called from XiaozhiController when TTS stops.
+  static Future<void> resumeAfterTts() async {
+    await initialize();
+    if (_currentUrl.isNotEmpty && !_player.playing) {
+      unawaited(_player.play());
+    }
+  }
+
   static Future<String> call(String name, Map<String, dynamic> arguments) async {
     await initialize();
     switch (name) {

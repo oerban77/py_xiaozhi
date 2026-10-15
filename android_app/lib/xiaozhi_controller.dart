@@ -12,11 +12,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'chat_message.dart';
 import 'attachment_text_reader.dart';
 import 'emotion_service.dart';
 import 'mcp_runtime.dart';
+import 'music_runtime.dart';
 import 'protocol_messages.dart';
 import 'wake_word_detector.dart';
 
@@ -107,6 +109,7 @@ class XiaozhiController extends ChangeNotifier {
   bool _isReconnecting = false;
   int _reconnectAttempt = 0;
   Timer? _reconnectTimer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   /// True once the current connect() attempt got past the handshake. Only a
   /// connection that was actually up is worth reconnecting: a failed first
   /// connect (bad endpoint, handshake timeout) would otherwise spin forever.
@@ -408,6 +411,32 @@ class XiaozhiController extends ChangeNotifier {
       await _preferences?.setString('client_id', clientId);
     }
     notifyListeners();
+
+    // Listen for network connectivity changes to trigger reconnect when network
+    // comes back (e.g., after switching WiFi, mobile data, or airplane mode).
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      // If we have any non-none connectivity and auto-connect is enabled but
+      // we're not currently connected/connecting, try to reconnect.
+      final hasConnectivity = results.any((r) => r != ConnectivityResult.none);
+      if (hasConnectivity) {
+        // Network is available - try to connect if we should be connected
+        // Also check _isReconnecting to avoid race with _scheduleReconnect timer
+        if (_autoConnectEnabled &&
+            !isConnected &&
+            !isConnecting &&
+            !_isReconnecting &&
+            _canAutoConnect) {
+          unawaited(connect());
+        }
+      } else {
+        // Network is lost - cancel any pending reconnect timer since there's
+        // no point trying to reconnect without network. The timer will be
+        // rescheduled when connectivity returns.
+        _cancelReconnect();
+      }
+    });
   }
 
   /// True when every field connect() needs is already saved, so auto-connect can
@@ -879,6 +908,8 @@ class XiaozhiController extends ChangeNotifier {
     _autoConnectEnabled = false;
     _wasConnected = false;
     _cancelReconnect();
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
     if (isRecording) await stopVoice();
     await _stopWakeWordDetector();
     autoSessionActive = false;
@@ -1739,6 +1770,8 @@ class XiaozhiController extends ChangeNotifier {
     await _flushTtsBuffer();
     _beginSilencePeriod();
     _resumeAfterTts();
+    // Resume music after TTS ends (like Python's AudioPlugin._resume_music_after_tts)
+    unawaited(MusicRuntime.resumeAfterTts());
   }
 
   /// Safety net for a tts "stop" that never arrives (the socket dies mid-utterance
@@ -1754,6 +1787,8 @@ class XiaozhiController extends ChangeNotifier {
     _ttsNeedsPrebuffer = true;
     _beginSilencePeriod();
     _resumeAfterTts();
+    // Resume music after TTS ends (like Python's AudioPlugin._resume_music_after_tts)
+    unawaited(MusicRuntime.resumeAfterTts());
   }
 
   /// The state transition both tts-stop paths share. isSpeaking is derived from
@@ -1791,6 +1826,8 @@ class XiaozhiController extends ChangeNotifier {
     /// a new TTS after a previous one would skip prebuffering and could underrun
     /// immediately ("brebet" at the start of answers).
     _ttsNeedsPrebuffer = true;
+    // Pause music so wake word can be heard during TTS (like Python's AudioPlugin._pause_music_for_tts)
+    unawaited(MusicRuntime.pauseForTts());
   }
 
   Future<void> _flushTtsBuffer() async {
@@ -1983,6 +2020,8 @@ class XiaozhiController extends ChangeNotifier {
     _speakingWatchdog?.cancel();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
     unawaited(_socketSubscription?.cancel());
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());
