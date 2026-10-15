@@ -152,6 +152,7 @@ class MusicRuntime {
 
   static Future<void> dispose() async {
     await _playbackStateController.close();
+    await _player.dispose();
   }
 
   static Future<String> call(String name, Map<String, dynamic> arguments) async {
@@ -445,6 +446,4 @@ class MusicRuntime {
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
-
-  static Future<void> dispose() => _player.dispose();
 }

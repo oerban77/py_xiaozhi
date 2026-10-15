@@ -1256,7 +1256,7 @@ class McpRuntime {
 
       final cameraController = CameraController(
         selected,
-        ResolutionPreset.medium,
+        ResolutionPreset.max,
         enableAudio: false,
       );
       try {
