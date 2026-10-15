@@ -1335,6 +1335,14 @@ class XiaozhiController extends ChangeNotifier {
               _pendingAttachmentName = null;
             }
           }
+          // Reset the speaking watchdog on MCP tool-call activity. During long
+          // document reads the LLM makes many tools/call requests without
+          // producing TTS text, so without this reset the 15s watchdog would
+          // fire and tear down the speaking session mid-read.
+          if (method == 'tools/call' && isSpeaking) {
+            _speakingWatchdog?.cancel();
+            _speakingWatchdog = Timer(_speakingTimeout, _handleLostTtsStop);
+          }
           _sendJson({
             'type': 'mcp',
             'session_id': sessionId,

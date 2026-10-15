@@ -90,7 +90,7 @@ class _WaveformPainter extends CustomPainter {
     required this.samples,
     required this.maxHeight,
     required Animation<double> animation,
-  }) : super(repaint: animation), animation = animation;
+  }) : animation = animation, super(repaint: animation);
 
   final List<double> samples;
   final double maxHeight;
