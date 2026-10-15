@@ -265,16 +265,19 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           final h = constraints.maxHeight;
           if (w <= 0 || h <= 0) return const SizedBox.shrink();
 
+          // In portrait the sensor's landscape ratio is inverted.
+          final double sensorAspect = h > w ? 1 / aspect : aspect;
+
           // Cover: scale the sensor ratio to fill the screen, crop overflow.
           double pw, ph;
-          if (w / h > aspect) {
+          if (w / h > sensorAspect) {
             // Screen is wider than the sensor → fit by height.
             ph = h;
-            pw = h * aspect;
+            pw = h * sensorAspect;
           } else {
             // Screen is taller than the sensor → fit by width.
             pw = w;
-            ph = w / aspect;
+            ph = w / sensorAspect;
           }
 
           return Center(
