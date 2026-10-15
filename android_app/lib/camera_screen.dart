@@ -13,7 +13,7 @@ import 'camera_selection.dart';
 /// take a photo, or press the switch button to flip between the front and back
 /// lens. Returns the JPEG bytes of the captured photo, or null when the user
 /// backs out without taking one. The preview keeps its native aspect ratio and
-/// is letterboxed rather than stretched edge-to-edge.
+/// is scaled to cover the screen (edges crop), not stretched edge-to-edge.
 ///
 /// Set [enableCapture] to false for a plain preview, e.g. the settings page,
 /// where only the switch button should do anything and tapping the preview
@@ -249,20 +249,28 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Widget _buildPreview(CameraController camera) {
+    // camera.value.aspectRatio is the sensor-native landscape ratio
+    // (width/height, e.g. ~1.78). In portrait CameraPreview sizes itself to the
+    // inverse of that through its own internal AspectRatio.
     final aspect = camera.value.aspectRatio;
-    if (!aspect.isFinite || aspect <= 0) {
-      return const ColoredBox(color: Colors.black);
-    }
-    // Contain, not cover: the preview keeps its exact sensor aspect ratio and
-    // is letterboxed instead of stretched or cropped, so a 4:3 sensor is not
-    // pulled edge-to-edge on a 16:9-ish portrait screen.
+    if (!aspect.isFinite || aspect <= 0) return const SizedBox.shrink();
+
     return GestureDetector(
       onTap: widget.enableCapture ? _capture : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
-        child: AspectRatio(
-          aspectRatio: aspect,
-          child: CameraPreview(camera),
+        // FittedBox leaves its child unconstrained, and CameraPreview's
+        // internal AspectRatio cannot pick a size without a bounded
+        // constraint, so the preview collapses and nothing is drawn. Pin the
+        // sensor's portrait ratio here with a tight box, then let FittedBox
+        // scale it up to cover the screen the way the WhatsApp camera does.
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: 1 / aspect,
+            height: 1,
+            child: CameraPreview(camera),
+          ),
         ),
       ),
     );
