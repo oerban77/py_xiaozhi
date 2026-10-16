@@ -58,11 +58,19 @@ class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
   void _onLevel(double rawLevel) {
     if (!mounted) return;
     setState(() {
-      // Smooth with exponential moving average so the waveform doesn't jump.
+      // RMS of 16-bit PCM is typically 0.001–0.1 (0.1%–10% of full scale),
+      // so the raw level looks flat on the oscilloscope. Apply a gain factor
+      // and clamp to [0, 1] so the waveform actually moves.
       final double level = rawLevel.clamp(0.0, 1.0);
-      _level = _level * 0.6 + level * 0.4;
+      final double amplified = (level * _kLevelGain).clamp(0.0, 1.0);
+      _level = _level * 0.6 + amplified * 0.4;
     });
   }
+
+  /// Gain applied to the raw RMS level before smoothing. 16-bit PCM RMS is
+  /// typically 0.001–0.1, so a gain of ~10 makes the visualizer responsive
+  /// without clipping at normal speaking volume.
+  static const double _kLevelGain = 10.0;
 
   @override
   Widget build(BuildContext context) {

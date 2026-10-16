@@ -1114,6 +1114,18 @@ class XiaozhiController extends ChangeNotifier {
     _setDeviceState(DeviceState.listening);
     _sendJson(ProtocolMessages.listenStart(sessionId, 'realtime'));
     _sendJson(ProtocolMessages.detectText(sessionId, detectText));
+    // Open the mic so the user's next sentence reaches the server after TTS
+    // ends. Without this, the server is in listening mode but no audio flows:
+    // _suppressMic gates the uplink during TTS and the post-TTS silence period,
+    // and once both clear the recorder is still closed because startVoice() was
+    // never called. The user then has to press the button again, but
+    // toggleConversation() sees autoSessionActive=true and calls
+    // stopConversation() instead -- exactly the "mic tidak direspon setelah TTS"
+    // symptom. startVoice() is a no-op when already recording, so this is safe
+    // to call unconditionally.
+    if (!isRecording) {
+      unawaited(startVoice());
+    }
     return true;
   }
 

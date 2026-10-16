@@ -41,6 +41,12 @@ dependencies:
   web_socket_channel: ^3.0.3
   html: ^0.15.6
   just_audio: ^0.9.46
+  # Coordinates audio focus between just_audio (music) and flutter_sound (TTS).
+  # Without this, after flutter_sound finishes TTS playback, just_audio.play()
+  # silently fails on Android because the OS audio focus is still held by the
+  # TTS session — music appears to keep playing in the player state but no
+  # sound comes out of the speaker.
+  audio_session: ^0.1.21
   xml: ^6.5.0
 
 dev_dependencies:

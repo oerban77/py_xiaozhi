@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -116,6 +117,50 @@ class MusicRuntime {
     final preferences = await SharedPreferences.getInstance();
     _volume = (preferences.getInt(_preferencesKey) ?? 100).clamp(0, 100).toInt();
     await _player.setVolume(_volume / 100);
+    // Configure the audio session so just_audio properly coordinates with
+    // flutter_sound (TTS). Without this, after TTS finishes, just_audio.play()
+    // silently fails on Android because the OS audio focus is still held by
+    // the TTS session — the player reports "playing" but no sound comes out.
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioContextConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
+        avAudioSessionRouteSharingPolicy:
+            AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions:
+            AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.music,
+          flags: AndroidAudioFlags.none,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: false,
+      ).build());
+      // Listen for interruptions (e.g. TTS taking over) so we can resume
+      // cleanly when the interruption ends.
+      session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          // Another session (TTS) is taking over — pause if we were playing.
+          if (_player.playing) {
+            unawaited(_player.pause());
+          }
+        } else {
+          // Interruption ended — resume if we have a track loaded.
+          if (_currentUrl.isNotEmpty && !_player.playing) {
+            unawaited(_player.play());
+          }
+        }
+      });
+      // Listen for ducking events (e.g. notification sound).
+      session.becomingNoisyEventStream.listen((_) {
+        if (_player.playing) unawaited(_player.pause());
+      });
+    } catch (_) {
+      // audio_session is best-effort: if it fails (e.g. on a platform that
+      // doesn't support it), fall back to the old behavior.
+    }
     // Listen to player state changes to notify about playback start/stop
     _player.playerStateStream.listen((state) {
       final playing = state.playing;
@@ -139,14 +184,63 @@ class MusicRuntime {
     if (_currentUrl.isNotEmpty && _player.playing) {
       await _player.pause();
     }
+    // Deactivate the audio session so flutter_sound (TTS) can take over
+    // audio focus cleanly. Without this, both sessions fight for focus and
+    // just_audio may not be able to reclaim it when TTS ends.
+    try {
+      final session = await AudioSession.instance;
+      await session.setActive(false);
+    } catch (_) {}
   }
 
   /// Resume music after TTS playback ends.
   /// Called from XiaozhiController when TTS stops.
   static Future<void> resumeAfterTts() async {
     await initialize();
-    if (_currentUrl.isNotEmpty && !_player.playing) {
+    if (_currentUrl.isEmpty) return;
+    // Reactivate the audio session so just_audio can reclaim focus from
+    // flutter_sound (TTS). Without this, just_audio.play() silently fails
+    // on Android because the OS audio focus is still held by the TTS session.
+    try {
+      final session = await AudioSession.instance;
+      await session.setActive(true);
+    } catch (_) {}
+    if (!_player.playing) {
       unawaited(_player.play());
+      // Watchdog: if the player doesn't actually start within 500ms, the OS
+      // audio focus is still held by flutter_sound. Stop and restart from the
+      // saved position to force a fresh audio focus request.
+      Timer(const Duration(milliseconds: 500), () {
+        if (_currentUrl.isNotEmpty && !_player.playing) {
+          final position = _player.position;
+          unawaited(_restartFromPosition(position));
+        }
+      });
+    }
+  }
+
+  /// Force-restart playback from a saved position. Used when just_audio.play()
+  /// silently fails because the OS audio focus is held by another session.
+  static Future<void> _restartFromPosition(Duration position) async {
+    try {
+      await _player.stop();
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(_currentUrl),
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
+            'Accept': '*/*',
+            'Referer': 'https://www.kuwo.cn/',
+          },
+        ),
+      );
+      if (position > Duration.zero) {
+        await _player.seek(position);
+      }
+      await _player.setVolume(_volume / 100);
+      unawaited(_player.play());
+    } catch (_) {
+      // Best-effort: if restart fails, the next resumeAfterTts() will retry.
     }
   }
 

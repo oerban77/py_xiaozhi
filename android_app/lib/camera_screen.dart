@@ -108,7 +108,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
       final controller = CameraController(
         selected,
-        ResolutionPreset.medium,
+        // Mirrors the resolution used by take_photo in McpRuntime._takePhoto
+        // (ResolutionPreset.max). Without this, a photo taken as a chat
+        // attachment is captured at a lower resolution than one taken via a
+        // voice command, so the vision model sees a smaller image and the
+        // answer is less detailed ("resolusi attachment lebih rendah").
+        ResolutionPreset.max,
         enableAudio: false,
       );
       await controller.initialize();
