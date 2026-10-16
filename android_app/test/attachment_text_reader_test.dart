@@ -298,7 +298,9 @@ void main() {
 
       expect(first, contains('Mulai di sini.'));
       expect(first, contains('Lanjutan entry kelima'));
-      expect(first, contains('Continue with'));
+      // Entry 5 ends before entry 6 (which starts on page 3), so the notice
+      // indicates the entry boundary rather than offering a continuation.
+      expect(first, contains('ends before the next numbered entry'));
     });
   });
 }
