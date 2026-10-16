@@ -5,22 +5,34 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'xiaozhi_controller.dart';
 
-class DebugScreen extends StatelessWidget {
+class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key, required this.controller});
 
   final XiaozhiController controller;
 
   @override
+  State<DebugScreen> createState() => _DebugScreenState();
+}
+
+class _DebugScreenState extends State<DebugScreen> {
+  double _dragExtent = 0;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.paper,
-      body: GestureDetector(
+      body: SizedBox(
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            _dragExtent += details.delta.dx;
+          });
+        },
         onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity > 300) {
-            // Right swipe - go back to main screen
+          // Right swipe - go back to main screen
+          if (_dragExtent > 100) {
             Navigator.of(context).pop();
           }
+          _dragExtent = 0;
         },
         child: SafeArea(
           child: Column(

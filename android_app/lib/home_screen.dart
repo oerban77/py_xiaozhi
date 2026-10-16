@@ -30,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   PlatformFile? _attachment;
   Uint8List? _attachmentBytes;
   bool _sendingAttachment = false;
+  double _dragExtent = 0;
+  
 
   @override
   void initState() {
@@ -216,10 +218,14 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, _) => Scaffold(
           backgroundColor: AppColors.paper,
           body: GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _dragExtent += details.delta.dx;
+              });
+            },
             onHorizontalDragEnd: (details) {
-              final velocity = details.primaryVelocity ?? 0;
-              if (velocity < -300) {
-                // Left swipe - open debug screen
+              // Left swipe - open debug screen
+              if (_dragExtent < -100) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -227,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               }
+              _dragExtent = 0;
             },
             child: SafeArea(
               child: Column(
