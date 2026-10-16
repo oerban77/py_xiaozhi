@@ -1343,7 +1343,8 @@ class XiaozhiController extends ChangeNotifier {
               _pendingPdf = null;
               _pendingImageAttachment = null;
               _pendingImageAsDocument = false;
-              _pendingImageQuestion = '';
+              // DO NOT clear _pendingImageQuestion - preserve the user's question
+              // for the vision model analysis
               _pendingAttachmentName = null;
             }
           }

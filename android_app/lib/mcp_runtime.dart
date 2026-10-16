@@ -1290,9 +1290,10 @@ class McpRuntime {
     String attachedQuestion = '',
   }
   ) async {
-    final requestQuestion = attachedQuestion.trim().isEmpty
-        ? arguments['question'] as String? ?? ''
-        : attachedQuestion;
+    // Use attachedQuestion if provided (from pendingImageQuestion), otherwise fall back to arguments['question']
+    final requestQuestion = attachedQuestion.trim().isNotEmpty
+        ? attachedQuestion
+        : (arguments['question'] as String? ?? '');
     final question = requestQuestion.trim().isEmpty
         ? 'Jelaskan isi gambar ini secara singkat dan jelas dalam bahasa Indonesia.'
         : requestQuestion.trim();
