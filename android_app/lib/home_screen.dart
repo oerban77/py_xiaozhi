@@ -478,16 +478,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         alignment: Alignment.center,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: textMaxWidth),
-                          child: Text(
-                            controller.liveText.isEmpty
-                                ? 'Ada yang bisa aku bantu hari ini?'
-                                : controller.liveText,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFF394B60),
-                              fontSize: 14,
-                              height: 1.5,
-                              selectionColor: Color(0xFF394B60),
+                          child: SelectionArea(
+                            child: Text(
+                              controller.liveText.isEmpty
+                                  ? 'Ada yang bisa aku bantu hari ini?'
+                                  : controller.liveText,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF394B60),
+                                fontSize: 14,
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         ),
