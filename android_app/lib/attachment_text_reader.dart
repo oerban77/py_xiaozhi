@@ -383,6 +383,93 @@ class AttachmentTextReader {
     return '${matches.join('\n\n')}\n\n[${notices.join(' ')}]';
   }
 
+  /// Searches [query] within a specific page range and returns the matching
+  /// lines together with the full page text, so the LLM gets both the hits
+  /// and the surrounding context in a single call.
+  ///
+  /// Mirrors the combined search+read path in _read_pdf
+  /// (src/mcp/tools/documents/service.py:823): when both `query` and
+  /// `page_start` are provided, the Python implementation reads the requested
+  /// pages and filters the text down to lines that contain the query. This
+  /// avoids the "search whole document, then re-read the same pages" round
+  /// trip that wastes tokens on a 100+ page PDF.
+  ///
+  /// Returns the matching lines (capped at [maxResults]) prefixed with their
+  /// page number, followed by a continuation hint. When no lines match, the
+  /// full page text is returned so the LLM can still see what is on those
+  /// pages and decide whether to widen the search.
+  static String searchPdfInPages({
+    required PdfExtraction extraction,
+    required String query,
+    required int pageStart,
+    int pageEnd = 0,
+    int maxResults = pdfSearchMaxResults,
+  }) {
+    final pageCount = extraction.pageCount;
+    if (pageCount == 0) return 'The PDF file has no pages.';
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return 'Search query cannot be empty.';
+    final start = pageStart < 1 ? 1 : pageStart;
+    if (start > pageCount) {
+      return 'PDF page_start $start exceeds the document\'s $pageCount pages.';
+    }
+    final limit = maxResults < 1 ? 1 : maxResults;
+    final needle = trimmed.toLowerCase();
+
+    // Clamp page_end to the document and to pdfPagesPerRead pages from start,
+    // matching slicePdf's window so the LLM never gets more than it asked for.
+    final requestedEnd = pageEnd == 0 ? start + pdfPagesPerRead - 1 : pageEnd;
+    final end = requestedEnd < start
+        ? start
+        : (pageCount < requestedEnd ? pageCount : requestedEnd);
+
+    final matchingLines = <String>[];
+    final pagesWithHits = <int>[];
+    var totalHits = 0;
+    for (var pageNumber = start; pageNumber <= end; pageNumber++) {
+      final pageText = extraction.pages[pageNumber - 1];
+      if (pageText.isEmpty) continue;
+      var pageHits = 0;
+      for (final line in pageText.split('\n')) {
+        if (line.toLowerCase().contains(needle)) {
+          totalHits++;
+          pageHits++;
+          if (matchingLines.length < limit) {
+            matchingLines.add('Page $pageNumber: ${line.trim()}');
+          }
+        }
+      }
+      if (pageHits > 0) pagesWithHits.add(pageNumber);
+    }
+
+    final notices = <String>[];
+    if (matchingLines.isNotEmpty) {
+      notices.add(
+        'Found $totalHits line(s) matching "$trimmed" on pages '
+        '${pagesWithHits.first}-${pagesWithHits.last} '
+        '(showing ${matchingLines.length} of $totalHits).',
+      );
+    } else {
+      notices.add(
+        'No line in pages $start-$end contains "$trimmed".',
+      );
+    }
+    if (end < pageCount) {
+      final nextStart = end + 1;
+      final nextEnd = pageCount < nextStart + pdfPagesPerRead - 1
+          ? pageCount
+          : nextStart + pdfPagesPerRead - 1;
+      notices.add(
+        'Read pages $start-$end of $pageCount. '
+        'Continue with page_start=$nextStart, page_end=$nextEnd, '
+        'query="$trimmed" to keep searching.',
+      );
+    } else {
+      notices.add('Read pages $start-$end of $pageCount.');
+    }
+    return '${matchingLines.join('\n')}\n\n[${notices.join(' ')}]';
+  }
+
   /// Extracts a numbered PDF entry (e.g. "7. Some Title") starting at
   /// [pageStart] (1-based). The entry runs from its heading up to the next
   /// numbered heading or until [pdfPagesPerRead] pages have been read.

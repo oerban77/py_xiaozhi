@@ -232,6 +232,9 @@ class McpRuntime {
         'Title") instead of paging through the whole document. Pass `query` to search, or `entry_number` '
         'to extract a specific numbered section. The query is also auto-parsed for entry numbers like '
         '"tokoh 7", "entry 12", "nomor 3", "no. 5".\n'
+        'Combine `query` with `page_start` (and optionally `page_end`) to search within a known page '
+        'range in a single call — the response returns only the lines that match the query on those '
+        'pages, so you do not have to search the whole document and then re-read the same pages.\n'
         'Parameters:\n'
         '- action: read (required)\n'
         '- page_start: first PDF page, 1-based (default 1)\n'
@@ -410,16 +413,29 @@ class McpRuntime {
                       entryContinue: entryContinue,
                       entryCharOffset: entryCharOffset,
                     )
-                  : query.trim().isNotEmpty
-                      ? AttachmentTextReader.searchPdf(
+                  : query.trim().isNotEmpty && pageStart > 1
+                      ? // Combined search+read: when the LLM already knows
+                        // roughly where to look (page_start > 1), filter the
+                        // requested pages down to lines that match the query
+                        // instead of searching the whole document and then
+                        // re-reading the same pages. Mirrors _read_pdf in
+                        // src/mcp/tools/documents/service.py.
+                      AttachmentTextReader.searchPdfInPages(
                           extraction: pendingPdf,
                           query: query,
-                        )
-                      : AttachmentTextReader.slicePdf(
-                          extraction: pendingPdf,
                           pageStart: pageStart,
                           pageEnd: pageEnd,
-                        );
+                        )
+                      : query.trim().isNotEmpty
+                          ? AttachmentTextReader.searchPdf(
+                              extraction: pendingPdf,
+                              query: query,
+                            )
+                          : AttachmentTextReader.slicePdf(
+                              extraction: pendingPdf,
+                              pageStart: pageStart,
+                              pageEnd: pageEnd,
+                            );
               return _result(id, {
                 'content': [
                   {

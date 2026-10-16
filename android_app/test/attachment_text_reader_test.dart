@@ -240,6 +240,100 @@ void main() {
     });
   });
 
+  group('searchPdfInPages', () {
+    test('filters lines within the requested page range', () {
+      const extraction = PdfExtraction(<String>[
+        'Halaman 1 tentang ekonomi.',
+        'Halaman 2 tentang sejarah Indonesia.',
+        'Halaman 3 tentang sejarah dunia.',
+        'Halaman 4 tentang ekonomi lagi.',
+      ]);
+
+      final result = AttachmentTextReader.searchPdfInPages(
+        extraction: extraction,
+        query: 'sejarah',
+        pageStart: 2,
+        pageEnd: 3,
+      );
+
+      expect(result, contains('Page 2:'));
+      expect(result, contains('Page 3:'));
+      expect(result, contains('sejarah Indonesia'));
+      expect(result, contains('sejarah dunia'));
+      expect(result, isNot(contains('Page 1')));
+      expect(result, isNot(contains('Page 4')));
+      expect(result, contains('Found 2 line'));
+    });
+
+    test('defaults page_end to pdfPagesPerRead pages from page_start', () {
+      const extraction = PdfExtraction(<String>[
+        'Halaman 1 tentang X.',
+        'Halaman 2 tentang X.',
+        'Halaman 3 tentang X.',
+        'Halaman 4 tentang X.',
+        'Halaman 5 tentang X.',
+        'Halaman 6 tentang X.',
+      ]);
+
+      final result = AttachmentTextReader.searchPdfInPages(
+        extraction: extraction,
+        query: 'X',
+        pageStart: 2,
+      );
+
+      // pdfPagesPerRead is 4, so pages 2-5 should be searched, not page 6.
+      expect(result, contains('Page 2:'));
+      expect(result, contains('Page 5:'));
+      expect(result, isNot(contains('Page 6:')));
+    });
+
+    test('reports when no line matches in the requested range', () {
+      const extraction = PdfExtraction(<String>[
+        'Halaman 1 tentang ekonomi.',
+        'Halaman 2 tentang ekonomi.',
+      ]);
+
+      final result = AttachmentTextReader.searchPdfInPages(
+        extraction: extraction,
+        query: 'sejarah',
+        pageStart: 1,
+        pageEnd: 2,
+      );
+
+      expect(result, contains('No line in pages 1-2 contains'));
+    });
+
+    test('rejects page_start beyond the document', () {
+      const extraction = PdfExtraction(<String>['Halaman 1']);
+
+      final result = AttachmentTextReader.searchPdfInPages(
+        extraction: extraction,
+        query: 'apa saja',
+        pageStart: 99,
+      );
+
+      expect(result, contains('exceeds the document'));
+    });
+
+    test('caps the number of returned matching lines', () {
+      const extraction = PdfExtraction(<String>[
+        'baris satu tentang X\nbaris dua tentang X\n'
+            'baris tiga tentang X\nbaris empat tentang X\n'
+            'baris lima tentang X',
+      ]);
+
+      final result = AttachmentTextReader.searchPdfInPages(
+        extraction: extraction,
+        query: 'X',
+        pageStart: 1,
+        maxResults: 2,
+      );
+
+      // 5 lines match but only 2 are returned.
+      expect(result, contains('showing 2 of 5'));
+    });
+  });
+
   group('extractPdfEntry', () {
     test('extracts a numbered entry up to the next heading', () {
       const extraction = PdfExtraction(<String>[
