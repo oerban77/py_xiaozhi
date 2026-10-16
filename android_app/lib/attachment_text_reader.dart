@@ -47,7 +47,7 @@ class AttachmentTextReader {
   /// "007. Some Title". Mirrors _PDF_ENTRY_HEADING_RE in
   /// src/mcp/tools/documents/service.py.
   static final _pdfEntryHeadingRe = RegExp(
-    r'^\s*0*(\d{1,3})\.\s+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ0-9 ,.\'()\-]*',
+    r"^\s*0*(\d{1,3})\.\s+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ0-9 ,.'()\-]*",
     multiLine: true,
   );
 
@@ -441,7 +441,6 @@ class AttachmentTextReader {
     }
 
     final sectionParts = <String>[];
-    var sectionChars = 0;
     var nextEntryFound = false;
     var lastPageRead = entryPage - 1;
     final lastPage = pageCount < entryPage + pdfPagesPerRead - 1
@@ -461,9 +460,7 @@ class AttachmentTextReader {
       }
       final pagePart = pageText.substring(startAt, endAt).trim();
       if (pagePart.isNotEmpty) {
-        final separator = sectionParts.isEmpty ? 0 : 2;
         sectionParts.add(pagePart);
-        sectionChars += pagePart.length + separator;
       }
       lastPageRead = pageNumber;
       if (nextEntryFound) break;

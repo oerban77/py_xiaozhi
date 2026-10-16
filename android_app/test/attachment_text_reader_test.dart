@@ -200,7 +200,7 @@ void main() {
 
   group('searchPdf', () {
     test('finds keyword matches across pages with excerpts', () {
-      final extraction = PdfExtraction(<String>[
+      const extraction = PdfExtraction(<String>[
         'Halaman 1 membahas tentang sejarah Indonesia.',
         'Halaman 2 tentang ekonomi.',
         'Halaman 3 juga membahas sejarah Indonesia secara mendalam.',
@@ -218,7 +218,7 @@ void main() {
     });
 
     test('returns a helpful message when nothing matches', () {
-      final extraction = PdfExtraction(<String>['Halaman 1', 'Halaman 2']);
+      const extraction = PdfExtraction(<String>['Halaman 1', 'Halaman 2']);
 
       final result = AttachmentTextReader.searchPdf(
         extraction: extraction,
@@ -229,7 +229,7 @@ void main() {
     });
 
     test('rejects an empty query', () {
-      final extraction = PdfExtraction(<String>['Halaman 1']);
+      const extraction = PdfExtraction(<String>['Halaman 1']);
 
       final result = AttachmentTextReader.searchPdf(
         extraction: extraction,
@@ -242,7 +242,7 @@ void main() {
 
   group('extractPdfEntry', () {
     test('extracts a numbered entry up to the next heading', () {
-      final extraction = PdfExtraction(<String>[
+      const extraction = PdfExtraction(<String>[
         '1. First Entry\nIsi entry pertama.',
         '2. Second Entry\nIsi entry kedua.',
         '3. Third Entry\nIsi entry ketiga.',
@@ -260,7 +260,7 @@ void main() {
     });
 
     test('reports when the entry is not found in the search window', () {
-      final extraction = PdfExtraction(<String>[
+      const extraction = PdfExtraction(<String>[
         '1. First Entry\nIsi entry pertama.',
         '2. Second Entry\nIsi entry kedua.',
       ]);
@@ -274,7 +274,7 @@ void main() {
     });
 
     test('rejects entry_number below 1', () {
-      final extraction = PdfExtraction(<String>['1. First']);
+      const extraction = PdfExtraction(<String>['1. First']);
 
       final result = AttachmentTextReader.extractPdfEntry(
         extraction: extraction,
@@ -285,7 +285,7 @@ void main() {
     });
 
     test('continues reading an entry across pages', () {
-      final extraction = PdfExtraction(<String>[
+      const extraction = PdfExtraction(<String>[
         '5. Fifth Entry\nMulai di sini.',
         'Lanjutan entry kelima di halaman dua.',
         '6. Sixth Entry\nEntry keenam.',
