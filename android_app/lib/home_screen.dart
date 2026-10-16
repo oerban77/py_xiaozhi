@@ -217,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: AppColors.paper,
           body: GestureDetector(
             onHorizontalDragEnd: (details) {
-              if (details.primaryDelta < -50) {
+              if (details.delta.dx < -50) {
                 // Left swipe - open debug screen
                 Navigator.push(
                   context,

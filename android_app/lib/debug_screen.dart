@@ -16,7 +16,7 @@ class DebugScreen extends StatelessWidget {
       backgroundColor: AppColors.paper,
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
-          if (details.primaryDelta > 50) {
+          if (details.delta.dx > 50) {
             // Right swipe - go back to main screen
             Navigator.of(context).pop();
           }
@@ -24,9 +24,9 @@ class DebugScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               Expanded(child: _buildDebugContent()),
-              _buildFooter(),
+              _buildFooter(context),
             ],
           ),
         ),
@@ -34,7 +34,7 @@ class DebugScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() => Padding(
+  Widget _buildHeader(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 14, 10),
         child: Row(
           children: [
@@ -95,7 +95,7 @@ class DebugScreen extends StatelessWidget {
             _buildDebugSection('Connection Status', [
               'Connected: ${controller.isConnected}',
               'Connecting: ${controller.isConnecting}',
-              'Session ID: ${controller.sessionId ?? 'N/A'}',
+              'Session ID: ${controller.sessionId}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('Device State', [
@@ -117,7 +117,7 @@ class DebugScreen extends StatelessWidget {
             const SizedBox(height: 20),
             _buildDebugSection('System Info', [
               'Platform: ${Platform.operatingSystem}',
-              'Flutter Version: ${Platform.flutterVersion}',
+              'Flutter: ${Platform.version}',
             ]),
           ],
         ),
@@ -129,7 +129,7 @@ class DebugScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Color(0xFFE4EAE7)),
+          border: Border.all(color: const Color(0xFFE4EAE7)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,25 +143,23 @@ class DebugScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ...items
-                .map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 14,
-                      ),
-                    ),
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  item,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 14,
                   ),
-                )
-                .toList(),
+                ),
+              ),
+            ),
           ],
         ),
       );
 
-  Widget _buildFooter() => Container(
+  Widget _buildFooter(BuildContext context) => Container(
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [

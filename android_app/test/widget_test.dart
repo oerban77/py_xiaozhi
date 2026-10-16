@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/chat_message.dart';
-import 'package:py_xiaozhi_android/debug_screen.dart';
 import 'package:py_xiaozhi_android/emotion_display.dart';
 import 'package:py_xiaozhi_android/main.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
