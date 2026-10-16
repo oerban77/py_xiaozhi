@@ -234,6 +234,15 @@ class XiaozhiController extends ChangeNotifier {
   bool _pendingImageAsDocument = false;
   String _pendingImageQuestion = '';
   String? _pendingAttachmentName;
+
+  /// Exposed for the debug screen to inspect pending attachment state.
+  String? get pendingTextAttachment => _pendingTextAttachment;
+  /// Exposed for the debug screen to inspect pending attachment state.
+  PdfExtraction? get pendingPdf => _pendingPdf;
+  /// Exposed for the debug screen to inspect pending attachment state.
+  Uint8List? get pendingImageAttachment => _pendingImageAttachment;
+  /// Exposed for the debug screen to inspect pending attachment state.
+  String get pendingImageQuestion => _pendingImageQuestion;
   int? _assistantMessageIndex;
   /// Opus decode sample rate. The server's encode rate is configurable
   /// (AUDIO_DEVICES.opus_output_sample_rate: 24000 official / 16000 third-party);
@@ -270,6 +279,10 @@ class XiaozhiController extends ChangeNotifier {
   final StreamController<double> _audioLevelController =
       StreamController<double>.broadcast();
   Stream<double> get audioLevelStream => _audioLevelController.stream;
+  /// Current audio level (0.0–1.0), reflecting the mic level while listening
+  /// or the TTS level while speaking. Exposed for the debug screen.
+  double get audioLevel =>
+      _deviceState == DeviceState.listening ? _micLevel : _ttsLevel;
   double _micLevel = 0.0;
   double _ttsLevel = 0.0;
   /// Derived from [deviceState], exactly like StateManager.is_speaking() reads

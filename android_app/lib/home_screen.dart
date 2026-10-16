@@ -9,6 +9,7 @@ import 'audio_level_visualizer.dart';
 import 'app_theme.dart';
 import 'attachment_text_reader.dart';
 import 'camera_screen.dart';
+import 'debug_screen.dart';
 import 'emotion_display.dart';
 import 'settings_screen.dart';
 import 'xiaozhi_controller.dart';
@@ -214,19 +215,32 @@ class _HomeScreenState extends State<HomeScreen> {
         animation: widget.controller,
         builder: (context, _) => Scaffold(
           backgroundColor: AppColors.paper,
-          body: SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildStatusBar(),
-                Expanded(child: _buildConversation()),
-                // Live audio waveform (oscilloscope-style) shown while the mic
-                // is active (listening) or the assistant is speaking (TTS).
-                // Mirrors the animated emoji reactions in the desktop GUI.
-                if (widget.controller.deviceState != DeviceState.idle)
-                  _buildAudioVisualizer(),
-                _buildComposer(),
-              ],
+          body: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryDelta < -50) {
+                // Left swipe - open debug screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DebugScreen(controller: widget.controller),
+                  ),
+                );
+              }
+            },
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  _buildStatusBar(),
+                  Expanded(child: _buildConversation()),
+                  // Live audio waveform (oscilloscope-style) shown while the mic
+                  // is active (listening) or the assistant is speaking (TTS).
+                  // Mirrors the animated emoji reactions in the desktop GUI.
+                  if (widget.controller.deviceState != DeviceState.idle)
+                    _buildAudioVisualizer(),
+                  _buildComposer(),
+                ],
+              ),
             ),
           ),
         ),
