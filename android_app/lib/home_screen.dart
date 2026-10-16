@@ -487,6 +487,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Color(0xFF394B60),
                               fontSize: 14,
                               height: 1.5,
+                              // Enable text selection
+                              selectionColor: Color(0xFF394B60),
                             ),
                           ),
                         ),

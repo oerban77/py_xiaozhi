@@ -22,7 +22,7 @@ class _DebugScreenState extends State<DebugScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       body:GestureDetector(
-        behavior: HitTestBehavior.opaque,
+        // Allow text selection by using HitTestBehavior.deferToChild
         onHorizontalDragUpdate: (details) {
           setState(() {
             _dragExtent += details.delta.dx;
