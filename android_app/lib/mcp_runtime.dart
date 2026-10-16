@@ -228,12 +228,23 @@ class McpRuntime {
         'returned in chunks of at most 24,000 characters. The returned text ends with a continuation '
         'notice; call this tool again with the parameters from that notice to read the rest. The attached '
         'document stays available for follow-up reads, so never ask the user to upload it again.\n'
+        'For PDFs you can also search by keyword or jump straight to a numbered entry (e.g. "7. Some '
+        'Title") instead of paging through the whole document. Pass `query` to search, or `entry_number` '
+        'to extract a specific numbered section. The query is also auto-parsed for entry numbers like '
+        '"tokoh 7", "entry 12", "nomor 3", "no. 5".\n'
         'Parameters:\n'
         '- action: read (required)\n'
         '- page_start: first PDF page, 1-based (default 1)\n'
         '- page_end: last PDF page, inclusive (default: up to 4 pages)\n'
         '- chunk_index: 1-based 24,000-character chunk for non-PDF documents '
-        '(default 1); follow the continuation hint',
+        '(default 1); follow the continuation hint\n'
+        '- query: optional PDF keyword search; returns up to 10 matches with page numbers and excerpts. '
+        'Use this to find which pages mention a topic before reading them in full.\n'
+        '- entry_number: optional numbered PDF entry to extract (e.g. 7 for "7. Some Title"). The entry '
+        'runs from its heading up to the next numbered heading or until 4 pages have been read.\n'
+        '- entry_continue: set true to resume reading a previously extracted entry from page_start at '
+        'entry_char_offset characters into the section.\n'
+        '- entry_char_offset: character offset into the entry section to start from (default 0).',
     'inputSchema': {
       'type': 'object',
       'properties': {
@@ -242,6 +253,10 @@ class McpRuntime {
         'page_start': {'type': 'integer', 'minimum': 1, 'default': 1},
         'page_end': {'type': 'integer', 'minimum': 0, 'default': 0},
         'chunk_index': {'type': 'integer', 'minimum': 1, 'default': 1},
+        'query': {'type': 'string', 'default': ''},
+        'entry_number': {'type': 'integer', 'minimum': 1, 'default': 0},
+        'entry_continue': {'type': 'boolean', 'default': false},
+        'entry_char_offset': {'type': 'integer', 'minimum': 0, 'default': 0},
       },
       'required': ['action'],
     },
@@ -363,6 +378,15 @@ class McpRuntime {
               }
               final pageStart = int.tryParse('${arguments['page_start'] ?? 1}') ?? 1;
               final pageEnd = int.tryParse('${arguments['page_end'] ?? 0}') ?? 0;
+              final query = arguments['query'] is String
+                  ? arguments['query'] as String
+                  : '';
+              final entryNumber =
+                  int.tryParse('${arguments['entry_number'] ?? 0}') ?? 0;
+              final entryContinue =
+                  arguments['entry_continue'] == true;
+              final entryCharOffset =
+                  int.tryParse('${arguments['entry_char_offset'] ?? 0}') ?? 0;
               // Mirrors the question_hint in
               // src/mcp/tools/documents/service.document_manage: surface the file
               // name and the user's chat question alongside the content so the
@@ -372,16 +396,35 @@ class McpRuntime {
                   ? ''
                   : '[Attached file: $pendingAttachmentName | '
                       'User question: $pendingTextQuestion]\n\n';
+              // Mirrors _read_pdf: an entry_number (or a query that names one,
+              // e.g. "tokoh 7") jumps straight to that numbered section instead
+              // of paging through the whole document.
+              final requestedEntry = entryNumber != 0
+                  ? entryNumber
+                  : AttachmentTextReader.parseEntryNumberQuery(query);
+              final body = requestedEntry != null
+                  ? AttachmentTextReader.extractPdfEntry(
+                      extraction: pendingPdf,
+                      entryNumber: requestedEntry,
+                      pageStart: pageStart,
+                      entryContinue: entryContinue,
+                      entryCharOffset: entryCharOffset,
+                    )
+                  : query.trim().isNotEmpty
+                      ? AttachmentTextReader.searchPdf(
+                          extraction: pendingPdf,
+                          query: query,
+                        )
+                      : AttachmentTextReader.slicePdf(
+                          extraction: pendingPdf,
+                          pageStart: pageStart,
+                          pageEnd: pageEnd,
+                        );
               return _result(id, {
                 'content': [
                   {
                     'type': 'text',
-                    'text': '$questionHint'
-                        '${AttachmentTextReader.slicePdf(
-                          extraction: pendingPdf,
-                          pageStart: pageStart,
-                          pageEnd: pageEnd,
-                        )}',
+                    'text': '$questionHint$body',
                   },
                 ],
                 'isError': false,

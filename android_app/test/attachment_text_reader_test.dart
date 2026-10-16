@@ -175,4 +175,130 @@ void main() {
     expect(second, contains('Read chunk 2; end of document.'));
     expect(second, isNot(contains('Continue with')));
   });
+
+  group('parseEntryNumberQuery', () {
+    test('parses "tokoh 7" from Indonesian', () {
+      expect(AttachmentTextReader.parseEntryNumberQuery('baca tokoh 7'), 7);
+    });
+
+    test('parses "entry 12" and "nomor 3"', () {
+      expect(AttachmentTextReader.parseEntryNumberQuery('show entry 12'), 12);
+      expect(AttachmentTextReader.parseEntryNumberQuery('nomor 3'), 3);
+    });
+
+    test('parses "no. 5" and "no 5"', () {
+      expect(AttachmentTextReader.parseEntryNumberQuery('no. 5'), 5);
+      expect(AttachmentTextReader.parseEntryNumberQuery('no 5'), 5);
+    });
+
+    test('returns null when no entry number is mentioned', () {
+      expect(AttachmentTextReader.parseEntryNumberQuery('hello world'), isNull);
+      expect(AttachmentTextReader.parseEntryNumberQuery(''), isNull);
+      expect(AttachmentTextReader.parseEntryNumberQuery(null), isNull);
+    });
+  });
+
+  group('searchPdf', () {
+    test('finds keyword matches across pages with excerpts', () {
+      final extraction = PdfExtraction(<String>[
+        'Halaman 1 membahas tentang sejarah Indonesia.',
+        'Halaman 2 tentang ekonomi.',
+        'Halaman 3 juga membahas sejarah Indonesia secara mendalam.',
+      ]);
+
+      final result = AttachmentTextReader.searchPdf(
+        extraction: extraction,
+        query: 'sejarah',
+      );
+
+      expect(result, contains('Page 1'));
+      expect(result, contains('Page 3'));
+      expect(result, contains('sejarah'));
+      expect(result, contains('Found 2 match'));
+    });
+
+    test('returns a helpful message when nothing matches', () {
+      final extraction = PdfExtraction(<String>['Halaman 1', 'Halaman 2']);
+
+      final result = AttachmentTextReader.searchPdf(
+        extraction: extraction,
+        query: 'tidak-ada',
+      );
+
+      expect(result, contains('No matches'));
+    });
+
+    test('rejects an empty query', () {
+      final extraction = PdfExtraction(<String>['Halaman 1']);
+
+      final result = AttachmentTextReader.searchPdf(
+        extraction: extraction,
+        query: '   ',
+      );
+
+      expect(result, contains('cannot be empty'));
+    });
+  });
+
+  group('extractPdfEntry', () {
+    test('extracts a numbered entry up to the next heading', () {
+      final extraction = PdfExtraction(<String>[
+        '1. First Entry\nIsi entry pertama.',
+        '2. Second Entry\nIsi entry kedua.',
+        '3. Third Entry\nIsi entry ketiga.',
+      ]);
+
+      final result = AttachmentTextReader.extractPdfEntry(
+        extraction: extraction,
+        entryNumber: 2,
+      );
+
+      expect(result, contains('Second Entry'));
+      expect(result, contains('Isi entry kedua.'));
+      expect(result, isNot(contains('Third Entry')));
+      expect(result, contains('Verbatim source text for entry 2'));
+    });
+
+    test('reports when the entry is not found in the search window', () {
+      final extraction = PdfExtraction(<String>[
+        '1. First Entry\nIsi entry pertama.',
+        '2. Second Entry\nIsi entry kedua.',
+      ]);
+
+      final result = AttachmentTextReader.extractPdfEntry(
+        extraction: extraction,
+        entryNumber: 99,
+      );
+
+      expect(result, contains('was not found'));
+    });
+
+    test('rejects entry_number below 1', () {
+      final extraction = PdfExtraction(<String>['1. First']);
+
+      final result = AttachmentTextReader.extractPdfEntry(
+        extraction: extraction,
+        entryNumber: 0,
+      );
+
+      expect(result, contains('must be a positive integer'));
+    });
+
+    test('continues reading an entry across pages', () {
+      final extraction = PdfExtraction(<String>[
+        '5. Fifth Entry\nMulai di sini.',
+        'Lanjutan entry kelima di halaman dua.',
+        '6. Sixth Entry\nEntry keenam.',
+      ]);
+
+      final first = AttachmentTextReader.extractPdfEntry(
+        extraction: extraction,
+        entryNumber: 5,
+      );
+
+      expect(first, contains('Mulai di sini.'));
+      expect(first, contains('Lanjutan entry kelima'));
+      expect(first, contains('Continue with'));
+    });
+  });
 }
