@@ -16,7 +16,8 @@ class DebugScreen extends StatelessWidget {
       backgroundColor: AppColors.paper,
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
-          if (details.delta.dx > 50) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity > 300) {
             // Right swipe - go back to main screen
             Navigator.of(context).pop();
           }
