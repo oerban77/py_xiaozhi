@@ -21,7 +21,8 @@ class _DebugScreenState extends State<DebugScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.paper,
-      body: SizedBox(
+      body:GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onHorizontalDragUpdate: (details) {
           setState(() {
             _dragExtent += details.delta.dx;
@@ -106,32 +107,32 @@ class _DebugScreenState extends State<DebugScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDebugSection('Connection Status', [
-              'Connected: ${controller.isConnected}',
-              'Connecting: ${controller.isConnecting}',
-              'Session ID: ${controller.sessionId}',
+              'Connected: ${widget.controller.isConnected}',
+              'Connecting: ${widget.controller.isConnecting}',
+              'Session ID: ${widget.controller.sessionId}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('Device State', [
-              'Device State: ${controller.deviceState.name}',
-              'Emotion: ${controller.emotion}',
-              'Live Text: ${controller.liveText.isEmpty ? '(empty)' : controller.liveText}',
+              'Device State: ${widget.controller.deviceState.name}',
+              'Emotion: ${widget.controller.emotion}',
+              'Live Text: ${widget.controller.liveText.isEmpty ? '(empty)' : widget.controller.liveText}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('Audio Level', [
-              'Audio Level: ${controller.audioLevel}',
+              'Audio Level: ${widget.controller.audioLevel}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('Pending Attachments', [
-              'Text Attachment: ${controller.pendingTextAttachment != null ? 'YES' : 'NO'}',
-              'PDF Attachment: ${controller.pendingPdf != null ? 'YES' : 'NO'}',
-              'Image Attachment: ${controller.pendingImageAttachment != null ? 'YES' : 'NO'}',
-              'Image Question: ${controller.pendingImageQuestion}',
+              'Text Attachment: ${widget.controller.pendingTextAttachment != null ? 'YES' : 'NO'}',
+              'PDF Attachment: ${widget.controller.pendingPdf != null ? 'YES' : 'NO'}',
+              'Image Attachment: ${widget.controller.pendingImageAttachment != null ? 'YES' : 'NO'}',
+              'Image Question: ${widget.controller.pendingImageQuestion}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('System Info', [
               'Platform: ${Platform.operatingSystem}',
               'Flutter: ${Platform.version}',
-            ]),
+]),
           ],
         ),
       );
