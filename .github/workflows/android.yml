@@ -569,10 +569,31 @@ jobs:
         # itself succeeds, but the deprecated ApkVariantOutput copy that the Flutter
         # Gradle plugin relies on never runs, so the APK is never moved to the path the
         # Flutter tool checks. The syncFlutterApks task injected above restores that
-        # copy; `|| true` keeps a known-good build from being discarded when an older
-        # Flutter/AGP combination still reports the false negative. The next step
-        # verifies the APK exists and fails loudly if it really is missing.
-        run: flutter build apk --release || true
+        # copy.
+        #
+        # Separately, the build is flaky on this runner: runs #179-#182 all died
+        # at the same point (right after the CMake install, before any
+        # assembleRelease task output) with a flutter_tools file-watcher
+        # exception ("Already watching path") followed by a cancelled Gradle
+        # task (exit 143), while the identical workflow passed as build-178.
+        # Retry the build up to 3 times: a transient watcher failure on one
+        # attempt must not discard an otherwise good build. The next step
+        # verifies the APK exists and fails loudly if no attempt produced one,
+        # so a genuinely broken build still fails there instead of here.
+        run: |
+          attempt=1
+          until [ "$attempt" -gt 3 ]; do
+            echo "Build attempt $attempt/3"
+            if flutter build apk --release; then
+              break
+            fi
+            echo "Build attempt $attempt failed, retrying..."
+            attempt=$((attempt + 1))
+          done
+          # Do not fail this step on the tool's exit code: the Locate step
+          # below is the authority on whether an APK was actually produced
+          # (this preserves the old `|| true` behaviour for the AGP copy quirk).
+          true
 
       - name: Locate and verify the APK
         working-directory: android_app
