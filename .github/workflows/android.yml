@@ -21,7 +21,13 @@ jobs:
     # Successful builds take ~22 min; without a cap a stuck job (like run
     # #179, whose build step kept ticking with a dead log past 50 min)
     # would hang until GitHub's 360 min default. Fail fast instead.
-    timeout-minutes: 60
+    # Raised from 60: run #184 (ubuntu-22.04) proved the watcher failure
+    # is gone, but a healthy build on 22.04 needs more than 60 min (NDK
+    # download + full native compilation for 4 ABIs), and the 60 min cap
+    # cancelled it mid-build ("exceeded the maximum execution time of
+    # 1h0m0s"). 180 still bounds a genuinely stuck job well below
+    # GitHub's 360 min default.
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
