@@ -10,7 +10,7 @@ import 'app_theme.dart';
 import 'attachment_text_reader.dart';
 import 'camera_screen.dart';
 import 'debug_screen.dart';
-import 'emotion_display.dart';
+import 'live2d_avatar.dart';
 import 'settings_screen.dart';
 import 'xiaozhi_controller.dart';
 
@@ -445,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: LayoutBuilder(
                   builder: (context, emotionConstraints) {
                     final emotionSize = math.min(
-                      240.0,
+                      340.0,
                       math.min(
                         emotionConstraints.maxWidth * 0.78,
                         emotionConstraints.maxHeight * 0.9,
@@ -453,7 +453,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                     return Align(
                       alignment: const Alignment(0, -0.08),
-                      child: EmotionDisplay(emotion: emotion, size: emotionSize),
+                      child: Live2DAvatar(
+                        emotion: emotion,
+                        isSpeaking:
+                            controller.deviceState == DeviceState.speaking,
+                        audioLevelStream: controller.audioLevelStream,
+                        size: emotionSize,
+                      ),
                     );
                   },
                 ),

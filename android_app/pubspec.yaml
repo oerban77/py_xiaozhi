@@ -48,6 +48,13 @@ dependencies:
   # sound comes out of the speaker.
   audio_session: ^0.1.21
   xml: ^6.5.0
+  # Live2D avatar (see lib/live2d_avatar.dart): Flutter Live2D viewer
+  # (WebGL/WebView under the hood, Cubism 2 & 4/5). Pinned to the v1.0.1
+  # release commit so a later upstream change cannot break the build.
+  live2d:
+    git:
+      url: https://github.com/Nebulino/live2d.dart.git
+      ref: 17e763919a02988ac98c4e4aa3d7e21dcb84fa59
 
 dev_dependencies:
   flutter_test:
