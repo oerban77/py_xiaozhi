@@ -118,6 +118,11 @@ class _XiaozhiAppState extends State<XiaozhiApp> with WidgetsBindingObserver {
             surface: Colors.white,
             onSurface: AppColors.ink,
           ),
+          // TV/set-top-box remote navigation: arrow keys move the focus
+          // and the focused control must be clearly visible on a dark
+          // screen, so the focus overlay is teal instead of the default
+          // faint black.
+          focusColor: const Color(0xFF26C6B0).withValues(alpha: 0.30),
           appBarTheme: const AppBarTheme(
             backgroundColor: AppColors.paper,
             foregroundColor: AppColors.ink,

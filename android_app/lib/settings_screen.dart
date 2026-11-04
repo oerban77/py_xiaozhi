@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'app_theme.dart';
 import 'camera_screen.dart';
+import 'live2d_characters.dart';
 import 'mcp_runtime.dart';
 import 'reminder_runtime.dart';
 import 'smart_home_scanner.dart';
@@ -55,6 +56,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _wakeWordMaxActivePaths;
   late double _wakeWordKeywordsScore;
   late double _wakeWordKeywordsThreshold;
+  // Avatar character: preset display name, or 'Kustom' for a typed URL.
+  late String _characterPreset;
+  late final TextEditingController _characterCustomController;
   late int _wakeWordNumTrailingBlanks;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
@@ -118,6 +122,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _wakeWordKeywordsScore = widget.controller.wakeWordOptions.keywordsScore;
     _wakeWordKeywordsThreshold = widget.controller.wakeWordOptions.keywordsThreshold;
     _wakeWordNumTrailingBlanks = widget.controller.wakeWordOptions.numTrailingBlanks;
+    final characterPreset =
+        Live2dCharacters.presetForUrl(widget.controller.characterModelUrl);
+    _characterPreset = characterPreset?.name ?? 'Kustom';
+    _characterCustomController = TextEditingController(
+      text: characterPreset == null ? widget.controller.characterModelUrl : '',
+    );
     unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
@@ -140,6 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _smartHomePasswordController.dispose();
     _smartHomeDevicesController.dispose();
     _wakeWordController.dispose();
+    _characterCustomController.dispose();
     unawaited(_reminderPreviewPlayer.dispose());
     unawaited(FlutterMusicPicker.stopRingtone());
     super.dispose();
@@ -337,6 +348,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
+    final characterUrl = _characterPreset == 'Kustom'
+        ? _characterCustomController.text.trim()
+        : (Live2dCharacters.presetForName(_characterPreset)?.url ??
+            Live2dCharacters.defaultModelUrl);
+    if (_characterPreset == 'Kustom' &&
+        (!characterUrl.startsWith('https://') || !characterUrl.endsWith('.model3.json'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URL karakter kustom harus https:// dan berakhiran .model3.json.')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     await widget.controller.saveSettings(
       newEndpoint: _urlController.text,
@@ -364,6 +386,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newWakeWordKeywordsScore: _wakeWordKeywordsScore,
       newWakeWordKeywordsThreshold: _wakeWordKeywordsThreshold,
       newWakeWordNumTrailingBlanks: _wakeWordNumTrailingBlanks,
+      newCharacterModelUrl: characterUrl,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -735,6 +758,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       enabled: _wakeWordEnabled,
                       onChanged: (value) => setState(() => _wakeWordNumTrailingBlanks = value),
                     ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Karakter',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Gambar karakter animasi di layar utama. Pilih salah satu '
+                      'model resmi Live2D, atau isi URL model3.json sendiri. '
+                      'Karakter baru langsung tampil setelah disimpan.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    ...Live2dCharacters.presets.map(
+                      (preset) => RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(preset.name),
+                        subtitle: preset.name == 'Haru'
+                            ? const Text('Default')
+                            : null,
+                        value: preset.name,
+                        groupValue: _characterPreset,
+                        onChanged: (value) =>
+                            setState(() => _characterPreset = value ?? 'Haru'),
+                      ),
+                    ),
+                    RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Kustom (URL model3.json)'),
+                      value: 'Kustom',
+                      groupValue: _characterPreset,
+                      onChanged: (value) =>
+                          setState(() => _characterPreset = value ?? 'Kustom'),
+                    ),
+                    if (_characterPreset == 'Kustom') ...[
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: _characterCustomController,
+                        keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(
+                          labelText: 'URL model3.json',
+                          prefixIcon: Icon(Icons.link),
+                          helperText:
+                              'Contoh: https://cdn.jsdelivr.net/.../Nama.model3.json',
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 28),
                     const Text(
                       'Audio',

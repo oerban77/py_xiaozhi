@@ -40,6 +40,8 @@ class Live2DAvatar extends StatefulWidget {
     this.isListening = false,
     required this.audioLevelStream,
     this.size = 240.0,
+    this.height,
+    this.modelUrl = primaryModelUrl,
   });
 
   /// Normalized emotion name from the server (same values as
@@ -62,13 +64,23 @@ class Live2DAvatar extends StatefulWidget {
 
   final double size;
 
-  /// Default model: Haru, a standard Live2D sample character.
+  /// Stage height. When null the stage is square (size x size). The home
+  /// screen passes a taller height so the full-body model renders bigger
+  /// on narrow phones: the model scales to the taller box instead of
+  /// being capped by the screen width.
+  final double? height;
+
+  /// Default model: Haru, a standard Live2D sample character. Also the
+  /// fallback: when a chosen character fails to load, the avatar retries
+  /// with Haru once instead of the old demo-cat host, which proved
+  /// unreachable, before giving up to the emoji avatar.
   static const String primaryModelUrl =
       'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
 
-  /// Fallback model: the l2d-widget demo character.
-  static const String fallbackModelUrl =
-      'https://model.hacxy.cn/cat-black/model.json';
+  /// `.model3.json` URL of the character to display. The home screen
+  /// passes the character saved in Settings (Karakter); changing it
+  /// reloads the viewer, see didUpdateWidget.
+  final String modelUrl;
 
   @override
   State<Live2DAvatar> createState() => _Live2DAvatarState();
@@ -129,7 +141,22 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   @override
   void didUpdateWidget(Live2DAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.emotion != widget.emotion) {
+    if (oldWidget.modelUrl != widget.modelUrl) {
+      // Character changed in Settings: reload the viewer with the new
+      // model and a fresh fallback attempt. A parent rebuild is already
+      // scheduled (the controller notified), so assigning _failed here
+      // without setState is safe: build() runs right after this with the
+      // new modelUrl.
+      _failed = false;
+      _triedFallback = false;
+      unawaited(_controller.loadModel(widget.modelUrl));
+    }
+    if (oldWidget.emotion != widget.emotion ||
+        oldWidget.isSpeaking != widget.isSpeaking ||
+        oldWidget.isListening != widget.isListening) {
+      // Emotion changes apply a new face, and so do state changes: when
+      // no server emotion is active the face comes from the device
+      // state, so speaking/listening/idle transitions must re-apply it.
       _applyEmotion();
     }
     if (oldWidget.isSpeaking != widget.isSpeaking && !widget.isSpeaking) {
@@ -227,17 +254,43 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
       _sendParam(DefaultParameterID.paramEyeBallX, 0.35 * math.sin(phase * 0.9));
       _sendParam(DefaultParameterID.paramEyeBallY, 0.15 * math.cos(phase * 0.7));
       _sendParam(DefaultParameterID.paramAngleX, 1.5 * math.sin(phase * 0.5));
+    } else {
+      // Idle: gentle sway and breathing so the character never stands
+      // frozen between lines: slow head and body drift plus a faint
+      // gaze wander. Small amplitudes on purpose; the model's own idle
+      // motions (the pose changes between screenshots) already do the
+      // bigger gestures.
+      _sendParam(DefaultParameterID.paramAngleX, 1.2 * math.sin(phase * 0.5));
+      _sendParam(
+        DefaultParameterID.paramBodyAngleX,
+        0.8 * math.sin(phase * 0.5 + 1.0),
+      );
+      _sendParam(DefaultParameterID.paramEyeBallX, 0.12 * math.sin(phase * 0.4));
+      _sendParam(DefaultParameterID.paramEyeBallY, 0.08 * math.cos(phase * 0.33));
     }
   }
 
-  /// Maps a server emotion to standard Cubism face parameters.
+  /// Maps the current expression to standard Cubism face parameters.
   /// Only MouthForm, eye opening and cheek (blush) are used: they exist on
   /// practically every Cubism model, whereas expression ids are
   /// model-specific (Haru's are f01/f02/..., a cat model's are different),
   /// so mapping by expression id would only work for one model.
+  /// The server emoticon is authoritative: the `llm` message's `emotion`
+  /// field (same names as EmotionService.bundled, normalised by the
+  /// controller) always wins, including an explicit 'neutral'. The
+  /// device-state face is only a fallback for when the server has sent
+  /// nothing yet (empty emotion, e.g. before the first response), so the
+  /// character still smiles gently while talking and looks attentive
+  /// while listening instead of sitting on a flat face.
   void _applyEmotion() {
     if (_failed || _isFlutterTest) return;
-    final face = Live2DEmotionFace.forEmotion(widget.emotion);
+    final emotion = widget.emotion.trim();
+    final face = emotion.isEmpty
+        ? Live2DEmotionFace.forDeviceState(
+            isSpeaking: widget.isSpeaking,
+            isListening: widget.isListening,
+          )
+        : Live2DEmotionFace.forEmotion(widget.emotion);
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthForm, face.mouthForm),
     );
@@ -256,9 +309,11 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
 
   void _onModelError() {
     if (!mounted) return;
-    if (!_triedFallback) {
+    if (!_triedFallback && widget.modelUrl != Live2DAvatar.primaryModelUrl) {
+      // A chosen character failed: retry once with Haru before giving up.
+      // When Haru itself fails there is nothing left to try.
       _triedFallback = true;
-      unawaited(_controller.loadModel(Live2DAvatar.fallbackModelUrl));
+      unawaited(_controller.loadModel(Live2DAvatar.primaryModelUrl));
       return;
     }
     setState(() => _failed = true);
@@ -282,10 +337,10 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     // a transparent background.
     return SizedBox(
       width: widget.size,
-      height: widget.size,
+      height: widget.height ?? widget.size,
       child: Live2DViewer(
             controller: _controller,
-            initialModelUrl: Live2DAvatar.primaryModelUrl,
+            initialModelUrl: widget.modelUrl,
             fit: Live2DFit.contain,
             scale: 1.0,
             autoInteract: true,

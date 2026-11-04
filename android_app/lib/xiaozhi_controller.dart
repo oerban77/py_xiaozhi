@@ -18,6 +18,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'chat_message.dart';
 import 'attachment_text_reader.dart';
 import 'emotion_service.dart';
+import 'live2d_characters.dart';
 import 'mcp_runtime.dart';
 import 'music_runtime.dart';
 import 'protocol_messages.dart';
@@ -124,6 +125,10 @@ class XiaozhiController extends ChangeNotifier {
   /// the spotter is briefly paused for a cooldown or a TTS window.
   bool wakeWordListening = false;
   String wakeWordError = '';
+  /// `.model3.json` URL of the avatar character, chosen in Settings
+  /// (Karakter) and persisted as 'character_model_url'. The home screen
+  /// passes it to the avatar, which reloads when it changes.
+  String characterModelUrl = Live2dCharacters.defaultModelUrl;
   /// Suppress wake word detection for 2 seconds after the app resumes from
   /// background. This prevents false triggers from button clicks, volume
   /// adjustments, or other noise when switching back to the app.
@@ -217,6 +222,25 @@ class XiaozhiController extends ChangeNotifier {
   /// streaming TTS text the chat panel shows under the emotion animation while
   /// the assistant is speaking.
   String liveText = '';
+  /// Movie-style subtitle: the TTS segment currently being spoken. Unlike
+  /// [liveText] (the whole accumulated answer), this holds one segment at
+  /// a time and only appears once its audio starts playing, so the text
+  /// on screen stays in sync with the voice instead of running ahead of
+  /// it. Shown by the home screen while [subtitleVisible] is true.
+  String subtitleText = '';
+  /// Whether the subtitle line is currently shown. Set when a segment's
+  /// audio starts playing, cleared a few seconds after speech ends (see
+  /// [_scheduleSubtitleHide]) or when the user interrupts / starts talking.
+  bool subtitleVisible = false;
+  /// Latest TTS text segment received but not yet spoken: promoted to
+  /// [subtitleText] by [_promoteSubtitle] when its audio is first fed to
+  /// the player, so the line appears with the voice, not with the network
+  /// message that arrived up to a buffer earlier.
+  String? _pendingSubtitle;
+  /// Hides the subtitle this long after speech ends, so the last line
+  /// stays readable briefly and then the stage is clean again.
+  static const Duration _subtitleHideDelay = Duration(seconds: 8);
+  Timer? _subtitleHideTimer;
   String sessionId = '';
   String _assistantText = '';
   String? _pendingTextAttachment;
@@ -378,6 +402,17 @@ class XiaozhiController extends ChangeNotifier {
   /// false wake word triggers right after TTS).
   static const Duration _silencePeriodHold = Duration(milliseconds: 1500);
   bool _suppressMic = false;
+
+  /// Consecutive milliseconds of user-speech-like mic audio during TTS,
+  /// for the speech barge-in detector below.
+  double _speechLoudMs = 0;
+
+  /// RMS of the most recently played TTS burst, for the echo guard: the
+  /// mic hears the speaker, so mic energy alone cannot tell user speech
+  /// from the assistant's own voice. Only mic audio clearly louder than
+  /// what was just played counts as an interruption.
+  double _lastTtsOutputRms = 0;
+  DateTime? _lastTtsOutputAt;
   Timer? _silencePollTimer;
   DateTime? _lastTtsFrameAt;
   /// Wall-clock cap for the whole speaking window. The server's tts "stop" can be
@@ -421,6 +456,10 @@ class XiaozhiController extends ChangeNotifier {
       keywordsThreshold: _preferences?.getDouble('wake_word_keywords_threshold') ?? 0.35,
       numTrailingBlanks: _preferences?.getInt('wake_word_num_trailing_blanks') ?? 1,
     );
+    final storedCharacter = _preferences?.getString('character_model_url');
+    characterModelUrl = storedCharacter != null && storedCharacter.trim().isNotEmpty
+        ? storedCharacter.trim()
+        : Live2dCharacters.defaultModelUrl;
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
@@ -551,6 +590,7 @@ class XiaozhiController extends ChangeNotifier {
     required double newWakeWordKeywordsScore,
     required double newWakeWordKeywordsThreshold,
     required int newWakeWordNumTrailingBlanks,
+    String? newCharacterModelUrl,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
@@ -593,6 +633,10 @@ class XiaozhiController extends ChangeNotifier {
     await _preferences?.setStringList('mcp_disabled_modules', disabledMcpModules);
     await _preferences?.setBool('auto_connect', autoConnect);
     await setOutputSampleRate(newOutputSampleRate);
+    if (newCharacterModelUrl != null && newCharacterModelUrl.trim().isNotEmpty) {
+      characterModelUrl = newCharacterModelUrl.trim();
+      await _preferences?.setString('character_model_url', characterModelUrl);
+    }
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.
     await setWakeWordOptions(
@@ -665,6 +709,9 @@ class XiaozhiController extends ChangeNotifier {
       _sendJson(ProtocolMessages.listenStop(sessionId));
     }
     _setDeviceState(DeviceState.idle);
+    // Back to standby: the wake word must work again after goodbye,
+    // even if the session ended while the detector's flags were down.
+    await _ensureWakeWordArmed();
   }
 
   /// The main button: start or end a conversation, mirroring
@@ -773,6 +820,34 @@ class XiaozhiController extends ChangeNotifier {
     await wakeWordDetector.stop();
     wakeWordListening = false;
     if (_wakeWordMicActive) await _closeMicStream();
+  }
+
+  /// Re-arms wake word listening after a session ends. Without this, a
+  /// session that ended while the detector's flags were down leaves the
+  /// app deaf: connected and idle, but no longer accepting the wake word
+  /// after goodbye. The detector itself is reloaded only when it is not
+  /// running at all; when it is running but the flags were reset, only
+  /// the mic stream and flags are restored, so the ONNX model is not
+  /// reloaded on every session end.
+  Future<void> _ensureWakeWordArmed() async {
+    if (!isConnected || !wakeWordOptions.enabled) return;
+    if (!wakeWordDetector.isRunning) {
+      await _startWakeWordDetector();
+      return;
+    }
+    if (wakeWordListening) return;
+    wakeWordDetector.onDetected = _handleWakeWordDetected;
+    try {
+      if (!isRecording && !_wakeWordMicActive) await _openMicStream();
+      _wakeWordMicActive = !isRecording;
+      wakeWordListening = true;
+      wakeWordError = '';
+      if (!isRecording) _setDeviceState(DeviceState.idle);
+    } catch (error) {
+      wakeWordListening = false;
+      wakeWordError = error.toString();
+      _reportError('Wake word gagal di-rearm: $wakeWordError');
+    }
   }
 
   /// Suppress wake word detection for 2 seconds after the app resumes from
@@ -997,6 +1072,11 @@ class XiaozhiController extends ChangeNotifier {
     // Back to the dimmed placeholder, like the disconnected desktop GUI.
     emotion = '';
     liveText = '';
+    _subtitleHideTimer?.cancel();
+    _subtitleHideTimer = null;
+    _pendingSubtitle = null;
+    subtitleText = '';
+    subtitleVisible = false;
     notifyListeners();
   }
 
@@ -1145,6 +1225,11 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> startVoice() async {
     if (!isConnected || isRecording) return;
+    // The user is about to speak: the assistant's old subtitle must go.
+    _subtitleHideTimer?.cancel();
+    _subtitleHideTimer = null;
+    _pendingSubtitle = null;
+    subtitleVisible = false;
     // The user explicitly asked to speak, so any residual post-TTS silence period
     // is irrelevant: without this the recorder opens but _handleMicData still sees
     // _suppressMic true and sends nothing to the server, which is exactly the
@@ -1394,6 +1479,9 @@ class XiaozhiController extends ChangeNotifier {
       final state = data['state'];
       if (state == 'start') {
         _discardTtsAudioUntilStart = false;
+        _pendingSubtitle = null;
+        _subtitleHideTimer?.cancel();
+        _subtitleHideTimer = null;
         _assistantText = '';
         _assistantMessageIndex = null;
         // Mirrors ConversationSession._handle_tts_start: the device is speaking
@@ -1419,6 +1507,10 @@ class XiaozhiController extends ChangeNotifier {
       if (text is String && text.isNotEmpty) {
         _appendAssistantText(text);
         liveText = _assistantText;
+        // Staged, not shown yet: _promoteSubtitle displays it when its
+        // audio reaches the player, which is what keeps the subtitle in
+        // sync with the voice.
+        _pendingSubtitle = text;
         // Reset the watchdog on TTS text: for long documents (PDF, articles)
         // the server may pause audio synthesis while processing the next
         // chunk. Without this reset, a gap > 15s between audio frames would
@@ -1472,6 +1564,7 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> _interruptTtsForTextInput() async {
     if (!isSpeaking && !_suppressMic) return;
+    _hideSubtitle();
     _sendJson(ProtocolMessages.abort(sessionId));
     _silencePollTimer?.cancel();
     _speakingWatchdog?.cancel();
@@ -1723,6 +1816,56 @@ class XiaozhiController extends ChangeNotifier {
     });
   }
 
+  /// Gemini/ChatGPT-style barge-in on user SPEECH (not just the wake
+  /// word) while the assistant is speaking. A trigger needs sustained
+  /// speech-level energy, not a click or a noise burst, and it must
+  /// clear the echo guard: the mic level has to exceed twice the TTS
+  /// level that was just played. On trigger it reuses [interrupt], so
+  /// the session goes back to listening and the server hears the rest
+  /// of the utterance and answers directly, with no extra tap or wake
+  /// word needed.
+  ///
+  /// Honest limit, no AEC on Android: the guard compares levels, it does
+  /// not cancel echo. Quiet speech over loud TTS can still be missed,
+  /// and the wake word stays the reliable interrupt; this is an
+  /// additional path, not a replacement.
+  void _checkSpeechBargeIn(Uint8List data, DateTime? suppressedUntil) {
+    if (!isSpeaking || !isConnected) {
+      _speechLoudMs = 0;
+      return;
+    }
+    if (suppressedUntil != null && DateTime.now().isBefore(suppressedUntil)) {
+      _speechLoudMs = 0;
+      return;
+    }
+    if (data.lengthInBytes < 2) return;
+    final sampleCount = data.lengthInBytes ~/ 2;
+    final samples = Int16List.view(
+      data.buffer,
+      data.offsetInBytes,
+      sampleCount,
+    );
+    final micRms = _rmsLevel(samples);
+    final lastTtsAt = _lastTtsOutputAt;
+    final ttsRms = (lastTtsAt != null &&
+            DateTime.now().difference(lastTtsAt) < const Duration(milliseconds: 500))
+        ? _lastTtsOutputRms
+        : 0.0;
+    // Normal speech is ~0.03-0.3 RMS; the floor sits below that but far
+    // above the detector's 0.001 near-silence gate, and the echo guard
+    // demands the mic clearly beat the speaker output just played.
+    final speechLike = micRms > 0.02 && micRms > 2.0 * ttsRms;
+    if (speechLike) {
+      _speechLoudMs += sampleCount / 16.0;
+      if (_speechLoudMs >= 400) {
+        _speechLoudMs = 0;
+        unawaited(interrupt());
+      }
+    } else {
+      _speechLoudMs = 0;
+    }
+  }
+
   void _handleMicData(Uint8List data) {
     // The wake word detector taps the same 16 kHz PCM16 stream the uplink uses,
     // so no second recorder is opened. It must see the audio even while the uplink
@@ -1738,6 +1881,10 @@ class XiaozhiController extends ChangeNotifier {
         (suppressedUntil == null || DateTime.now().isAfter(suppressedUntil))) {
       wakeWordDetector.feed(data);
     }
+    // Speech barge-in runs on the same stream: the mic stays open
+    // through TTS (only the uplink is suppressed), so user speech
+    // during an answer can be caught here as well as by the keyword.
+    _checkSpeechBargeIn(data, suppressedUntil);
     if (!isRecording) return;
     _pendingMicBytes.addAll(data);
     const frameBytes = 320 * 2;
@@ -1845,6 +1992,11 @@ class XiaozhiController extends ChangeNotifier {
           // _ttsFeeding true, so every later frame would be skipped and the
           // utterance would be reduced to what the tts-stop flush managed to push.
           await _player.feedInt16FromStream([merged]).timeout(_ttsFeedTimeout);
+          // What was just played, for the speech barge-in echo guard.
+          _lastTtsOutputRms = _rmsLevel(merged);
+          _lastTtsOutputAt = DateTime.now();
+          // Its audio is playing now: show the staged segment with it.
+          _promoteSubtitle();
         } catch (_) {
           // The stream was closed or the feed stalled. Drop this burst and let the
           // next network frame retry instead of deadlocking the whole utterance.
@@ -1889,6 +2041,42 @@ class XiaozhiController extends ChangeNotifier {
     return merged;
   }
 
+  /// Shows the latest received TTS segment, if any, now that its audio
+  /// is actually playing. Called after every player feed, so a segment
+  /// appears with its voice rather than with the network message.
+  void _promoteSubtitle() {
+    final pending = _pendingSubtitle;
+    if (pending == null || pending.isEmpty) return;
+    _pendingSubtitle = null;
+    subtitleText = pending;
+    subtitleVisible = true;
+    _subtitleHideTimer?.cancel();
+    _subtitleHideTimer = null;
+    notifyListeners();
+  }
+
+  /// Fades the subtitle out [_subtitleHideDelay] after speech ends.
+  /// Re-scheduled on every stop, so a new utterance starting within the
+  /// window keeps its own line (its first promotion cancels this timer).
+  void _scheduleSubtitleHide() {
+    _subtitleHideTimer?.cancel();
+    _subtitleHideTimer = Timer(_subtitleHideDelay, () {
+      _subtitleHideTimer = null;
+      subtitleVisible = false;
+      notifyListeners();
+    });
+  }
+
+  /// Hides the subtitle immediately: the user interrupted or started
+  /// talking, so the assistant's old line must not linger.
+  void _hideSubtitle() {
+    _subtitleHideTimer?.cancel();
+    _subtitleHideTimer = null;
+    _pendingSubtitle = null;
+    subtitleVisible = false;
+    notifyListeners();
+  }
+
   /// Called when the server signals the end of a TTS utterance. The last frames may
   /// still be sitting in the jitter buffer or the OS playback buffer, so flush what
   /// we have and hold the mic off until playback has actually drained.
@@ -1905,6 +2093,7 @@ class XiaozhiController extends ChangeNotifier {
     _resumeAfterTts();
     // Resume music after TTS ends (like Python's AudioPlugin._resume_music_after_tts)
     unawaited(MusicRuntime.resumeAfterTts());
+    _scheduleSubtitleHide();
   }
 
   /// Safety net for a tts "stop" that never arrives (the socket dies mid-utterance
@@ -1922,6 +2111,7 @@ class XiaozhiController extends ChangeNotifier {
     _resumeAfterTts();
     // Resume music after TTS ends (like Python's AudioPlugin._resume_music_after_tts)
     unawaited(MusicRuntime.resumeAfterTts());
+    _scheduleSubtitleHide();
   }
 
   /// The state transition both tts-stop paths share. isSpeaking is derived from
@@ -1935,6 +2125,9 @@ class XiaozhiController extends ChangeNotifier {
       _setDeviceState(DeviceState.listening);
     } else {
       _setDeviceState(DeviceState.idle);
+      // One-shot answer finished: back to standby, so the wake word must
+      // be armed again for the next hands-free start.
+      unawaited(_ensureWakeWordArmed());
     }
   }
 
@@ -1969,6 +2162,9 @@ class XiaozhiController extends ChangeNotifier {
     _ttsBuffer.clear();
     try {
       await _player.feedInt16FromStream([remaining]).timeout(_ttsFeedTimeout);
+      _lastTtsOutputRms = _rmsLevel(remaining);
+      _lastTtsOutputAt = DateTime.now();
+      _promoteSubtitle();
       // The drain clock must start from the moment the final PCM actually reaches
       // the player, not from the last network frame, otherwise the hold can expire
       // while buffered audio is still playing out of the speaker.

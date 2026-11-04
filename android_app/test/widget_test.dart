@@ -23,13 +23,16 @@ void main() {
 
     expect(find.text('Xiaozhi'), findsOneWidget);
     expect(find.byType(EmotionDisplay), findsOneWidget);
-    expect(find.text('Ada yang bisa aku bantu hari ini?'), findsOneWidget);
+    // Subtitles hide when idle: no greeting placeholder is shown until
+    // the assistant actually speaks.
+    expect(find.text('Ada yang bisa aku bantu hari ini?'), findsNothing);
   });
 
   testWidgets('keeps the server emotion visible while TTS text is displayed', (tester) async {
     final controller = XiaozhiController()
       ..emotion = 'happy'
-      ..liveText = 'Jawaban sedang dibacakan.'
+      ..subtitleText = 'Jawaban sedang dibacakan.'
+      ..subtitleVisible = true
       ..messages.add(ChatMessage(text: 'Jawaban sedang dibacakan.', isUser: false));
 
     await tester.pumpWidget(XiaozhiApp(
@@ -48,7 +51,9 @@ void main() {
   });
 
   testWidgets('keeps the live text area compact for long responses', (tester) async {
-    final controller = XiaozhiController()..liveText = List.filled(40, 'Teks panjang').join('\n');
+    final controller = XiaozhiController()
+      ..subtitleText = List.filled(40, 'Teks panjang').join('\n')
+      ..subtitleVisible = true;
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
       skipPermissionGate: true,
@@ -56,7 +61,7 @@ void main() {
     ));
 
     expect(tester.getSize(find.byKey(const ValueKey('live-text-area'))).height, lessThanOrEqualTo(160));
-    expect(find.text(controller.liveText), findsOneWidget);
+    expect(find.text(controller.subtitleText), findsOneWidget);
   });
 
   testWidgets('left swipe on main screen navigates to debug screen', (tester) async {

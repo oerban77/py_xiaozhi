@@ -38,6 +38,13 @@ class _HomeScreenState extends State<HomeScreen> {
   /// bring it back, swipe up (or wait for the timeout) to hide it again.
   bool _chromeVisible = true;
   Timer? _chromeTimer;
+  /// Idle wandering: the avatar's current stroll offset, as a fraction
+  /// of its own size (AnimatedSlide units). Only used while idle;
+  /// speaking and listening recenter it (see _buildAvatarStage), so the
+  /// character faces the user while talking or listening.
+  Offset _wanderOffset = Offset.zero;
+  Timer? _wanderTimer;
+  final math.Random _random = math.Random();
   double _verticalDragExtent = 0;
   
 
@@ -46,6 +53,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     widget.controller.addListener(_scrollToLatest);
     WidgetsBinding.instance.addPostFrameCallback((_) => _armChromeTimer());
+    if (!_isFlutterTest) {
+      _wanderTimer =
+          Timer.periodic(const Duration(seconds: 7), (_) => _pickWanderTarget());
+    }
     // Prevent force close on Android 16 when typing in chat box:
     // ensure focus node is properly managed and keyboard is dismissed
     // before the widget is disposed.
@@ -56,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     widget.controller.removeListener(_scrollToLatest);
     _chromeTimer?.cancel();
+    _wanderTimer?.cancel();
     _textFocusNode.removeListener(_onFocusChange);
     _textFocusNode.dispose();
     _textController.dispose();
@@ -269,7 +281,13 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, _) => Scaffold(
           backgroundColor: const Color(0xFF060A18),
           extendBody: true,
-          body: GestureDetector(
+          body: FocusTraversalGroup(
+            // Android TV / set-top-box remote: arrow keys move the focus
+            // to the nearest control in that direction, and OK activates
+            // it. Without this, arrow keys would only walk the widget
+            // order, which is unusable on a 2D TV layout.
+            policy: DirectionalFocusTraversalPolicy(),
+            child: GestureDetector(
             onHorizontalDragUpdate: (details) {
               setState(() {
                 _dragExtent += details.delta.dx;
@@ -304,23 +322,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                // Soft teal glow behind the avatar.
-                Align(
-                  alignment: const Alignment(0, -0.1),
-                  child: Container(
-                    width: 420,
-                    height: 420,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(0xFF26C6B0).withValues(alpha: 0.25),
-                          const Color(0xFF26C6B0).withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                // Landscape (TV / set-top-box / rotated phone): the
+                // animation goes left and the live text goes right, so
+                // the character stays big instead of being squeezed by
+                // a bottom column. Portrait keeps the fullscreen stage
+                // with overlay chrome below.
+                if (MediaQuery.orientationOf(context) == Orientation.landscape)
+                  _buildLandscapeLayout()
+                else ...[
                 // Avatar stage, full screen. Tap toggles the chrome;
                 // vertical swipe hides (up) / shows (down) it again.
                 // The outer detector keeps the horizontal swipe navigation.
@@ -385,8 +394,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                ],
               ],
             ),
+          ),
           ),
         ),
       );
@@ -588,73 +599,217 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Avatar stage, enlarged and transparent: the model fills most of the
-  /// screen (up from the old 340 cap) so the mouth is clearly visible,
-  /// floating over the dark stage instead of a panel.
+  /// Avatar stage, fullscreen: the model fills the whole screen so it
+  /// is as big and clear as possible, and the bottom UI (waveform,
+  /// subtitle, composer) floats over its lower part like overlays on a
+  /// video. When idle the chrome and subtitles auto-hide, so the
+  /// character is then fully unobstructed. The model floats over the
+  /// dark stage instead of a panel, so the mouth stays clearly visible.
   Widget _buildAvatarStage() {
     final controller = widget.controller;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final emotion = controller.emotion.isEmpty ? 'neutral' : controller.emotion;
-        final size = math.min(
-          640.0,
-          math.min(
-            constraints.maxWidth * 0.94,
-            constraints.maxHeight * 0.72,
+        // Raw server emotion, including empty: the avatar treats empty as
+        // "server sent nothing yet" (state face fallback) and any other
+        // value, including 'neutral', as the authoritative server emoticon.
+        final emotion = controller.emotion;
+        return Stack(
+          children: [
+            // Soft teal glow behind the avatar, centred on the stage
+            // (the whole screen in portrait, the left pane in landscape).
+            Align(
+              alignment: Alignment.center,
+              child: Container(
+                width: 420,
+                height: 420,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF26C6B0).withValues(alpha: 0.25),
+                      const Color(0xFF26C6B0).withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            AnimatedSlide(
+          // While idle the avatar strolls around the stage (see
+          // _pickWanderTarget); in any other state it eases back to the
+          // middle so it faces the user.
+          offset: controller.deviceState == DeviceState.idle
+              ? _wanderOffset
+              : Offset.zero,
+          duration: const Duration(milliseconds: 2500),
+          curve: Curves.easeInOut,
+          child: AnimatedScale(
+            // Listening steps a little closer to the user; speaking
+            // and idle stay at normal size.
+            scale: controller.deviceState == DeviceState.listening
+                ? 1.04
+                : 1.0,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            child: Live2DAvatar(
+              emotion: emotion,
+              isSpeaking: controller.deviceState == DeviceState.speaking,
+              isListening: controller.deviceState == DeviceState.listening,
+              audioLevelStream: controller.audioLevelStream,
+              size: constraints.maxWidth,
+              height: constraints.maxHeight,
+              modelUrl: controller.characterModelUrl,
+            ),
           ),
-        );
-        return Align(
-          alignment: const Alignment(0, -0.12),
-          child: Live2DAvatar(
-            emotion: emotion,
-            isSpeaking: controller.deviceState == DeviceState.speaking,
-            isListening: controller.deviceState == DeviceState.listening,
-            audioLevelStream: controller.audioLevelStream,
-            size: size,
           ),
+          ],
         );
       },
     );
   }
 
-  /// Live transcript area. Compact by design (widget tests assert this):
-  /// at most 160 high. This is content, not chrome, so it stays visible
-  /// even when the header and composer are hidden.
+  /// Landscape layout (TV / set-top-box / rotated phone): the
+  /// animation pane on the left, full height so the character stays
+  /// big, and the live text plus controls on the right. The right pane
+  /// is layout, not chrome, so it never auto-hides: on a TV there is no
+  /// tap or swipe to bring it back, and the remote navigates it with
+  /// arrow keys + OK. The Scaffold already shrinks the body above the
+  /// virtual keyboard (resizeToAvoidBottomInset), so when the chat box
+  /// takes focus the composer rises above the keyboard instead of
+  /// hiding behind it, in both orientations.
+  Widget _buildLandscapeLayout() {
+    final controller = widget.controller;
+    return Row(
+      children: [
+        // Left: animation, full height.
+        Expanded(
+          flex: 11,
+          child: _buildAvatarStage(),
+        ),
+        // Right: live text + controls.
+        Expanded(
+          flex: 9,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.25),
+              border: Border(
+                left: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.10),
+                ),
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: MediaQuery.viewPaddingOf(context).top,
+                bottom: MediaQuery.viewPaddingOf(context).bottom,
+              ),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  _buildStatusBar(),
+                  if (controller.deviceState != DeviceState.idle)
+                    _buildAudioVisualizer(),
+                  Expanded(child: _buildLandscapeTextArea()),
+                  _buildComposer(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Live text pane for landscape: the full accumulated live text
+  /// (assistant answers and user transcripts), scrollable, always
+  /// visible. Unlike the portrait subtitle it never fades: the pane is
+  /// the text's home in this layout, and on a TV there is no gesture
+  /// to bring a hidden pane back.
+  Widget _buildLandscapeTextArea() {
+    final controller = widget.controller;
+    final text = controller.liveText.isEmpty
+        ? 'Ada yang bisa aku bantu hari ini?'
+        : controller.liveText;
+    return SingleChildScrollView(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: SelectionArea(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            height: 1.5,
+            shadows: [
+              Shadow(
+                color: Color(0xE6000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+              Shadow(
+                color: Color(0x99000000),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Movie-style subtitle for the assistant's speech. The controller only
+  /// promotes a TTS segment to [XiaozhiController.subtitleText] once its
+  /// audio starts playing, so the line on screen stays in sync with the
+  /// voice instead of running ahead of it; a few seconds after speech
+  /// ends the controller hides it again. While hidden the box still
+  /// occupies its slot (faded out, not removed) so the avatar stage never
+  /// jumps when subtitles appear or go. Compact by design (widget tests
+  /// assert this): at most 160 high.
   Widget _buildLiveTextArea() {
     final controller = widget.controller;
     final textMaxWidth =
         math.min(MediaQuery.sizeOf(context).width * 0.88, 560.0);
     final textAreaHeight =
         math.min(160.0, MediaQuery.sizeOf(context).height * 0.22);
-    return SizedBox(
-      key: const ValueKey('live-text-area'),
-      height: textAreaHeight,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: textAreaHeight - 28),
-            child: Align(
-              alignment: Alignment.center,
+    return AnimatedOpacity(
+      opacity: controller.subtitleVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: IgnorePointer(
+        ignoring: !controller.subtitleVisible,
+        child: SizedBox(
+          key: const ValueKey('live-text-area'),
+          height: textAreaHeight,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: textMaxWidth),
-                child: SelectionArea(
-                  child: Text(
-                    controller.liveText.isEmpty
-                        ? 'Ada yang bisa aku bantu hari ini?'
-                        : controller.liveText,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFEAF3F1),
-                      fontSize: 14,
-                      height: 1.5,
+                constraints: BoxConstraints(minHeight: textAreaHeight - 28),
+                child: Align(
+                  alignment: Alignment.center,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: textMaxWidth),
+                    child: SelectionArea(
+                      child: Text(
+                        controller.subtitleText,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          height: 1.5,
+                          shadows: [
+                            Shadow(
+                              color: Color(0xE6000000),
+                              blurRadius: 4,
+                              offset: Offset(0, 1),
+                            ),
+                            Shadow(
+                              color: Color(0x99000000),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -797,6 +952,11 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: FilledButton.icon(
+                    // TV/set-top-box: on open, the remote's OK lands
+                    // here first, so the user can start talking without
+                    // hunting for the button. Harmless on phones: touch
+                    // users never see the focus highlight.
+                    autofocus: true,
                     onPressed: !widget.controller.isConnected
                         ? null
                         : widget.controller.toggleConversation,
