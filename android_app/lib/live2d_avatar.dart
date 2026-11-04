@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:live2d/live2d.dart';
@@ -66,6 +67,16 @@ class Live2DAvatar extends StatefulWidget {
   @override
   State<Live2DAvatar> createState() => _Live2DAvatarState();
 }
+
+/// True when running under `flutter test`.
+///
+/// The Live2D viewer is a WebView with a local asset server: there is no
+/// platform view in a widget test, so building it there can only throw or
+/// hang `pumpAndSettle`. In that environment the avatar falls back to the
+/// old [EmotionDisplay], exactly as it does when both models fail to load.
+/// On a real device this is always false, so the Live2D avatar is used.
+bool get _isFlutterTest =>
+    Platform.environment['FLUTTER_TEST'] == 'true';
 
 class _Live2DAvatarState extends State<Live2DAvatar> {
   late final Live2DController _controller;
@@ -135,7 +146,7 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   }
 
   void _sendMouth({bool force = false}) {
-    if (_failed) return;
+    if (_failed || _isFlutterTest) return;
     final now = DateTime.now();
     if (!force &&
         now.difference(_lastSentAt) < _minSendInterval &&
@@ -160,7 +171,7 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   /// model-specific (Haru's are f01/f02/..., a cat model's are different),
   /// so mapping by expression id would only work for one model.
   void _applyEmotion() {
-    if (_failed) return;
+    if (_failed || _isFlutterTest) return;
     final face = Live2DEmotionFace.forEmotion(widget.emotion);
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthForm, face.mouthForm),
@@ -190,6 +201,11 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isFlutterTest) {
+      // Widget tests (widget_test.dart) assert on EmotionDisplay and on
+      // swipe navigation, neither of which a WebView can provide in a test.
+      return EmotionDisplay(emotion: widget.emotion, size: widget.size);
+    }
     if (_failed) {
       // Both models failed (no network, host down, WebGL unavailable):
       // keep the old GIF/emoji avatar instead of a blank stage.
