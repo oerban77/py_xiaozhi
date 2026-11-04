@@ -50,8 +50,8 @@ class Live2DAvatar extends StatefulWidget {
   final bool isSpeaking;
 
   /// Live audio level stream (TTS RMS while speaking, mic RMS while
-  /// listening). Raw RMS is typically 0.001–0.1, so it is amplified the
-  /// same way [AudioLevelVisualizer] does (x10, clamped to [0, 1]).
+  /// listening). True RMS is typically 0.03-0.3, so it is amplified the
+  /// same way [AudioLevelVisualizer] does (x3, clamped to [0, 1]).
   final Stream<double> audioLevelStream;
 
   final double size;
@@ -131,8 +131,11 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
 
   void _onLevel(double rawLevel) {
     if (!mounted) return;
-    // Same gain as AudioLevelVisualizer: raw 16-bit PCM RMS is ~0.001–0.1.
-    final amplified = (rawLevel.clamp(0.0, 1.0) * 10.0).clamp(0.0, 1.0);
+    // Same gain as AudioLevelVisualizer: true 16-bit PCM RMS is ~0.03-0.3
+    // for normal speech, so x3 maps it to a visible 0.1-0.9 mouth range
+    // without saturating wide open (x10 was calibrated for the old,
+    // squared RMS value and would now pin the mouth open).
+    final amplified = (rawLevel.clamp(0.0, 1.0) * 3.0).clamp(0.0, 1.0);
     final target = widget.isSpeaking ? amplified : 0.0;
     // Fast attack so the mouth opens on the first syllable, slow release
     // so it does not snap shut in the gaps between words.

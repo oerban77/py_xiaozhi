@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -1869,7 +1870,11 @@ class XiaozhiController extends ChangeNotifier {
       sumSq += s * s;
     }
     final mean = sumSq / samples.length;
-    final rms = mean > 0 ? (mean / (32768 * 32768)) : 0.0;
+    // NOTE: the previous version returned mean / 32768^2 WITHOUT the sqrt,
+    // i.e. the SQUARE of the true RMS. Normal speech (true RMS ~0.03-0.3)
+    // then came out as 0.001-0.09, so the avatar mouth and the waveform
+    // barely moved. Take the sqrt to get the real RMS.
+    final rms = mean > 0 ? sqrt(mean) / 32768.0 : 0.0;
     return rms > 1.0 ? 1.0 : rms;
   }
 
