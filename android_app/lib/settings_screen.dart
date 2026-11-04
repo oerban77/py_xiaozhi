@@ -1060,12 +1060,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.radar_rounded, size: 18),
-                        label: Text(_scanningSmartHome ? 'Memindai...' : 'Scan perangkat Tasmota'),
+                        label: Text(_scanningSmartHome ? 'Memindai...' : 'Scan perangkat MQTT'),
                       ),
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Scan menyimpan perangkat yang ditemukan untuk kontrol otomatis. JSON hanya diperlukan jika discovery broker tidak tersedia; setiap entri manual memerlukan topic.',
+                      'Scan menyimpan perangkat yang ditemukan untuk kontrol otomatis. Discovery mencakup Tasmota, Home Assistant, Zigbee2MQTT, Shelly, dan topik MQTT generik. JSON hanya diperlukan jika discovery broker tidak tersedia; entri manual bisa memakai topic (Tasmota) atau state_topic/command_topic (generik). Perangkat generik tanpa command_topic tampil sebagai read-only (RO).',
                       style: TextStyle(color: Color(0xFF71817C), fontSize: 12, height: 1.4),
                     ),
                   ],

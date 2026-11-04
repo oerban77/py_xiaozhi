@@ -166,7 +166,7 @@ class McpRuntime {
     },
     {
       'name': 'device_status',
-      'description': 'Show configured Tasmota smart-home devices and their status.',
+      'description': 'Show all smart-home devices (lights, switches, sensors, ...) and their status. Devices marked RO are read-only (discovered state topic, no known command topic).',
       'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
     },
     {
@@ -204,10 +204,22 @@ class McpRuntime {
     },
     {
       'name': 'discover_devices',
-      'description': 'Scan the configured MQTT broker for Tasmota devices. '
+      'description': 'Scan the configured MQTT broker for smart-home devices (Tasmota, Home Assistant discovery, Zigbee2MQTT, Shelly, generic MQTT). '
           'After scanning, discovered devices are immediately available to device_status, '
-          'device_control, lights_all, and room_control; no Devices JSON entry is required.',
+          'device_control, lights_all, room_control, and device_details; no Devices JSON entry is required. '
+          'Discovery never publishes to an unknown topic.',
       'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
+    },
+    {
+      'name': 'device_details',
+      'description': 'Show the full protocol, state topic and command topic for one smart-home device, to check why it is controllable or read-only before controlling it.',
+      'inputSchema': {
+        'type': 'object',
+        'properties': {
+          'deviceIndex': {'type': 'integer', 'minimum': 1, 'maximum': 128},
+        },
+        'required': ['deviceIndex'],
+      },
     },
     ...MusicRuntime.tools,
     ...ReminderRuntime.tools,
@@ -556,7 +568,7 @@ class McpRuntime {
     if (name == 'self.indonesia_holiday_query') return 'indonesia_holiday';
     if (name == 'get_news') return 'news';
     if (name == 'web_search' || name == 'read_article') return 'websearch';
-    if ({'device_status', 'device_control', 'lights_all', 'room_control', 'discover_devices'}
+    if ({'device_status', 'device_control', 'lights_all', 'room_control', 'discover_devices', 'device_details'}
         .contains(name)) {
       return 'smarthome';
     }
@@ -960,10 +972,21 @@ class McpRuntime {
           .startClean();
 
     StreamSubscription<List<MqttReceivedMessage<MqttMessage>>>? updates;
+    // Tasmota buffers (kept, as before).
     final states = <String, String>{};
     final online = <String, String>{};
     final discovered = <String, Map<String, Object?>>{};
     final queriedLwtTopics = <String>{};
+    // Generic-MQTT discovery buffers.
+    final haConfigs = <String, Map<String, Object?>>{};
+    final z2mEntries = <String, Map<String, Object?>>{};
+    final shellyRelays = <String, String>{};
+    final shellyModels = <String, String>{};
+    final shellyGen2States = <String, String>{};
+    final genericTopics = <String, String>{};
+    // State for devices already known at listener time (exact topic match).
+    final knownStates = <String, Map<String, Object?>>{};
+    final knownOnline = <String, bool?>{};
     try {
       await client.connect().timeout(const Duration(seconds: 12));
       if (client.connectionStatus?.state != MqttConnectionState.connected) {
@@ -977,6 +1000,38 @@ class McpRuntime {
             packet.payload.message,
           ).trim();
           final topic = message.topic;
+          // 1. Known device, exact state / availability topic.
+          var handled = false;
+          for (final device in devices) {
+            final id = '${device['id'] ?? ''}';
+            final stateTopic = '${device['stateTopic'] ?? ''}';
+            if (stateTopic.isNotEmpty && topic == stateTopic) {
+              knownStates[id] = _smartHomeParseState(
+                payload,
+                stateKey: device['stateKey'] as String?,
+                payloadOn: '${device['payloadOn'] ?? 'ON'}',
+                payloadOff: '${device['payloadOff'] ?? 'OFF'}',
+              );
+              handled = true;
+              break;
+            }
+            final availabilityTopic = '${device['availabilityTopic'] ?? ''}';
+            if (availabilityTopic.isNotEmpty && topic == availabilityTopic) {
+              if (payload == '${device['availabilityOn'] ?? ''}') {
+                knownOnline[id] = true;
+              } else if (payload == '${device['availabilityOff'] ?? ''}') {
+                knownOnline[id] = false;
+              } else if ({'online', 'true', '1'}.contains(payload.toLowerCase())) {
+                knownOnline[id] = true;
+              } else if ({'offline', 'false', '0'}.contains(payload.toLowerCase())) {
+                knownOnline[id] = false;
+              }
+              handled = true;
+              break;
+            }
+          }
+          if (handled) continue;
+          // 2. Tasmota patterns (also feed discovery buffers).
           if (topic.startsWith('stat/')) {
             final parts = topic.split('/');
             if (parts.length == 3) states['${parts[1]}/${parts[2]}'] = payload;
@@ -998,23 +1053,91 @@ class McpRuntime {
               final decoded = jsonDecode(payload);
               if (decoded is Map) {
                 for (final device in _devicesFromTasmotaConfig(decoded)) {
-                  discovered['${device['topic']}/${device['powerCmd']}'] = device;
+                  discovered['${device['id']}'] = device;
                 }
               }
             } catch (_) {}
+          } else if (topic.startsWith('homeassistant/') && topic.endsWith('/config')) {
+            try {
+              final decoded = jsonDecode(payload);
+              if (decoded is Map) {
+                haConfigs[topic] = Map<String, Object?>.from(decoded);
+              }
+            } catch (_) {}
+          } else if (topic == 'zigbee2mqtt/bridge/devices') {
+            try {
+              final decoded = jsonDecode(payload);
+              if (decoded is List) {
+                for (final entry in decoded.whereType<Map>()) {
+                  final friendly = '${entry['friendly_name'] ?? ''}'.trim();
+                  if (friendly.isNotEmpty) {
+                    z2mEntries[friendly] = Map<String, Object?>.from(entry);
+                  }
+                }
+              }
+            } catch (_) {}
+          } else if (topic.startsWith('zigbee2mqtt/')) {
+            // State/availability for a known device were handled above;
+            // discovery itself only needs bridge/devices (handled earlier).
+            if (name == 'discover_devices' &&
+                topic.substring('zigbee2mqtt/'.length).contains('/') &&
+                genericTopics.length < 1000) {
+              genericTopics[topic] = payload;
+            }
+          } else if (topic.startsWith('shellies/')) {
+            final parts = topic.split('/');
+            if (parts.length == 4 && parts[2] == 'relay') {
+              shellyRelays['${parts[1]}/${parts[3]}'] = payload;
+            } else if (parts.length == 3 && parts[2] == 'announce') {
+              try {
+                final decoded = jsonDecode(payload);
+                if (decoded is Map && decoded['model'] != null) {
+                  shellyModels[parts[1]] = '${decoded['model']}';
+                }
+              } catch (_) {}
+            }
+          } else if (RegExp(r'^(.+)/status/(switch|light):(\d+)$').hasMatch(topic) &&
+              topic.split('/').first.startsWith('shelly')) {
+            shellyGen2States[topic] = payload;
+          } else if (name == 'discover_devices' &&
+              !topic.startsWith(r'$SYS/') &&
+              genericTopics.length < 1000) {
+            genericTopics[topic] = payload;
           }
         }
       });
 
+      List<Map<String, Object?>> buildFound() => _buildSmartHomeDiscovery(
+            tasmotaDiscovered: discovered.values.toList(),
+            online: online,
+            states: states,
+            haConfigs: haConfigs,
+            z2mEntries: z2mEntries,
+            shellyRelays: shellyRelays,
+            shellyModels: shellyModels,
+            shellyGen2States: shellyGen2States,
+            genericTopics: genericTopics,
+          );
+
       if (devices.isEmpty && name != 'discover_devices') {
         client.subscribe('tasmota/discovery/#', MqttQos.atMostOnce);
         client.subscribe('tele/+/LWT', MqttQos.atMostOnce);
+        client.subscribe('homeassistant/#', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/bridge/devices', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/+/availability', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/+', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/announce', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/online', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/relay/+', MqttQos.atMostOnce);
         await Future<void>.delayed(const Duration(seconds: 4));
-        _discoveredSmartHomeDevices = _mergeSmartHomeDevices(
-          _discoveredSmartHomeDevices,
-          discovered.values.toList(),
-        );
-        devices = _mergeSmartHomeDevices(configuredDevices, _discoveredSmartHomeDevices);
+        final found = buildFound();
+        if (found.isNotEmpty) {
+          _discoveredSmartHomeDevices = _mergeSmartHomeDevices(
+            _discoveredSmartHomeDevices,
+            found,
+          );
+          devices = _mergeSmartHomeDevices(configuredDevices, _discoveredSmartHomeDevices);
+        }
       }
 
       if (name == 'discover_devices') {
@@ -1023,15 +1146,21 @@ class McpRuntime {
         for (final command in ['POWER', 'POWER1', 'POWER2', 'POWER3', 'POWER4']) {
           client.subscribe('stat/+/$command', MqttQos.atMostOnce);
         }
+        client.subscribe('homeassistant/#', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/bridge/devices', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/+/availability', MqttQos.atMostOnce);
+        client.subscribe('zigbee2mqtt/+', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/announce', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/online', MqttQos.atMostOnce);
+        client.subscribe('shellies/+/relay/+', MqttQos.atMostOnce);
+        // Generic scan: read-only, capped at 1000 topics (see listener).
+        // Never publishes to a topic it merely observed.
+        client.subscribe('#', MqttQos.atMostOnce);
         await Future<void>.delayed(const Duration(seconds: 5));
-        final found = completeSmartHomeDiscovery(
-          discovered: discovered.values.toList(),
-          online: online,
-          states: states,
-        );
+        final found = buildFound();
         if (found.isEmpty) {
           return devices.isEmpty
-              ? 'No Tasmota device found. Check that the broker host, port, credentials, and TLS settings are correct and that Tasmota devices are online on this broker.'
+              ? 'No device found. Check that the broker host, port, credentials, and TLS settings are correct and that devices are online on this broker (Tasmota, Home Assistant discovery, Zigbee2MQTT, Shelly, or a generic MQTT topic).'
               : 'No new devices discovered. ${devices.length} configured device(s) remain available.';
         }
         _discoveredSmartHomeDevices = _mergeSmartHomeDevices(
@@ -1044,34 +1173,66 @@ class McpRuntime {
         );
         return 'Discovered ${found.length} device(s):\n${jsonEncode(found)}\n'
             '${availableDevices.length} device(s) are now available for device_status, '
-            'device_control, lights_all, and room_control. No JSON copy is needed.';
+            'device_control, lights_all, room_control, and device_details. No JSON copy is needed.';
       }
 
       if (devices.isEmpty) {
         throw StateError(
-          'No Tasmota devices were discovered on this broker. Check that the devices are online and announce Tasmota MQTT discovery, or enter device topics manually in Smart Home settings.',
+          'No devices were discovered on this broker. Check that devices are online and announce MQTT discovery, or enter device topics manually in Smart Home settings.',
         );
       }
       for (final device in devices) {
-        client.subscribe(
-          'stat/${device['topic']}/${device['powerCmd']}',
-          MqttQos.atMostOnce,
-        );
-        client.subscribe('tele/${device['topic']}/LWT', MqttQos.atMostOnce);
-        _publishMqtt(client, 'cmnd/${device['topic']}/${device['powerCmd']}', '');
+        final stateTopic = '${device['stateTopic'] ?? ''}';
+        if (stateTopic.isNotEmpty) {
+          client.subscribe(stateTopic, MqttQos.atMostOnce);
+        }
+        final availabilityTopic = '${device['availabilityTopic'] ?? ''}';
+        if (availabilityTopic.isNotEmpty) {
+          client.subscribe(availabilityTopic, MqttQos.atMostOnce);
+        }
+        final pollTopic = '${device['pollTopic'] ?? ''}';
+        if (pollTopic.isNotEmpty) {
+          _publishMqtt(client, pollTopic, '');
+        }
       }
       await Future<void>.delayed(const Duration(milliseconds: 350));
 
       if (name == 'device_status') {
-        final lines = <String>['Smart Home — ${devices.length} configured device(s)'];
+        final lines = <String>['Smart Home — ${devices.length} device(s)'];
         for (var index = 0; index < devices.length; index++) {
           final device = devices[index];
-          final key = '${device['topic']}/${device['powerCmd']}';
-          final state = states[key] ?? 'unknown';
-          final onlineState = online[device['topic']] ?? 'unknown';
+          final id = '${device['id'] ?? ''}';
+          final known = knownStates[id];
+          String stateText;
+          if (known != null) {
+            final state = known['state'] as bool?;
+            stateText = state == true
+                ? 'ON'
+                : state == false
+                    ? 'OFF'
+                    : (known['raw'] as String? ?? '').isNotEmpty
+                        ? (known['raw'] as String).length > 20
+                            ? (known['raw'] as String).substring(0, 20)
+                            : (known['raw'] as String)
+                        : 'unknown';
+          } else {
+            final legacyKey = '${device['topic']}/${device['powerCmd']}';
+            stateText = states[legacyKey] ?? 'unknown';
+          }
+          String onlineText;
+          if (knownOnline.containsKey(id)) {
+            onlineText = knownOnline[id] == true
+                ? 'Online'
+                : knownOnline[id] == false
+                    ? 'Offline'
+                    : 'unknown';
+          } else {
+            onlineText = online['${device['topic']}'] ?? 'unknown';
+          }
+          final ro = device['controllable'] == true ? '' : ' RO';
           lines.add(
             '${index + 1}. ${device['name']} [${device['type']}] '
-            '$state · $onlineState · ${device['room']}',
+            '$stateText · $onlineText · ${device['room']} (${device['protocol']})$ro',
           );
         }
         return lines.join('\n');
@@ -1083,17 +1244,67 @@ class McpRuntime {
           throw RangeError('Invalid device index: ${index + 1}');
         }
         final device = devices[index];
-        final action = _smartHomeAction(
-          arguments['action'] as String? ?? 'TOGGLE',
-          currentState: states['${device['topic']}/${device['powerCmd']}'],
-        );
+        final id = '${device['id'] ?? ''}';
+        final known = knownStates[id];
+        String? currentState;
+        if (known != null && known['state'] is bool) {
+          currentState = (known['state'] as bool) ? 'ON' : 'OFF';
+        } else {
+          currentState = states['${device['topic']}/${device['powerCmd']}'];
+        }
+        final rawAction = arguments['action'] as String? ?? 'TOGGLE';
+        if (rawAction.trim().toUpperCase() == 'TOGGLE' && currentState == null) {
+          throw ArgumentError('Cannot TOGGLE: current state is unknown, use ON or OFF.');
+        }
+        final action = _smartHomeAction(rawAction, currentState: currentState);
         _publishDevice(client, device, action);
         return '${device['name']} -> $action';
       }
 
+      if (name == 'device_details') {
+        final index = _requiredInt(arguments, 'deviceIndex') - 1;
+        if (index < 0 || index >= devices.length) {
+          throw RangeError('Invalid device index: ${index + 1}');
+        }
+        final device = devices[index];
+        final id = '${device['id'] ?? ''}';
+        final known = knownStates[id];
+        final stateText = known == null
+            ? 'unknown'
+            : known['state'] is bool
+                ? (known['state'] as bool ? 'ON' : 'OFF')
+                : '${known['raw'] ?? ''}';
+        final onlineText = knownOnline.containsKey(id)
+            ? (knownOnline[id] == true
+                ? 'Online'
+                : knownOnline[id] == false
+                    ? 'Offline'
+                    : 'unknown')
+            : online['${device['topic']}'] ?? 'unknown';
+        return [
+          'Device ${index + 1}: ${device['name']}',
+          '  protocol: ${device['protocol']}',
+          '  type: ${device['type']}  room: ${device['room']}',
+          '  state_topic: ${device['stateTopic'] ?? ''}',
+          '  command_topic: ${device['commandTopic'] ?? ''}',
+          '  payload_on/off: ${device['payloadOn']} / ${device['payloadOff']}',
+          '  state_key: ${device['stateKey'] ?? '-'}',
+          '  availability_topic: ${device['availabilityTopic'] ?? ''}',
+          '  controllable: ${device['controllable']}',
+          '  state: $stateText  online: $onlineText',
+          '  source: ${device['source']}',
+        ].join('\n');
+      }
+
       if (name == 'lights_all') {
-        final action = _smartHomeAction(_requiredString(arguments, 'action'));
-        final lights = devices.where((device) => device['type'] == 'light').toList();
+        final action = _requiredString(arguments, 'action').trim().toUpperCase();
+        if (action != 'ON' && action != 'OFF') {
+          throw ArgumentError('Action must be ON or OFF.');
+        }
+        final lights = devices
+            .where((device) => device['type'] == 'light' && device['controllable'] == true)
+            .toList();
+        if (lights.isEmpty) return 'No controllable lights found';
         for (final device in lights) {
           _publishDevice(client, device, action);
         }
@@ -1102,15 +1313,23 @@ class McpRuntime {
 
       if (name == 'room_control') {
         final room = _requiredString(arguments, 'room');
-        final action = _smartHomeAction(arguments['action'] as String? ?? 'ON');
+        final action = (arguments['action'] as String? ?? 'ON').trim().toUpperCase();
+        if (action != 'ON' && action != 'OFF') {
+          throw ArgumentError('Action must be ON or OFF.');
+        }
         final roomDevices = devices
             .where((device) => '${device['room']}'.toLowerCase() == room.toLowerCase())
             .toList();
         if (roomDevices.isEmpty) throw ArgumentError('Room not found: $room');
-        for (final device in roomDevices) {
+        final controllable =
+            roomDevices.where((device) => device['controllable'] == true).toList();
+        if (controllable.isEmpty) {
+          return "Room '$room' has ${roomDevices.length} device(s) but none are controllable";
+        }
+        for (final device in controllable) {
           _publishDevice(client, device, action);
         }
-        return '${roomDevices.length} devices in $room -> $action';
+        return '${controllable.length} devices in $room -> $action';
       }
       throw ArgumentError('Unknown Smart Home tool: $name');
     } finally {
@@ -1118,21 +1337,436 @@ class McpRuntime {
       client.disconnect();
     }
   }
+  // ── Smart Home: generic MQTT device model ──────────────────────────
+  // Mirrors the Python patch (src/mcp/tools/smarthome/service.py).
+  // A device is one map with, besides the legacy 'topic'/'powerCmd'
+  // (kept for Tasmota), the fields below. 'controllable' is false for
+  // every device whose command topic is unknown — control then throws
+  // instead of publishing to a guessed topic.
+
+  static String _smartHomeString(Object? value, [String fallback = '']) {
+    if (value == null) return fallback;
+    return '$value';
+  }
+
+  static Object? _smartHomeJsonValue(String payload, String key) {
+    try {
+      final decoded = jsonDecode(payload);
+      var current = decoded;
+      for (final part in key.split('.')) {
+        if (current is Map && current.containsKey(part)) {
+          current = current[part];
+        } else {
+          return null;
+        }
+      }
+      return current;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool? _smartHomeBoolFromValue(
+    Object? value, {
+    String payloadOn = 'ON',
+    String payloadOff = 'OFF',
+  }) {
+    if (value is bool) return value;
+    if (value is num) {
+      if (value == 1) return true;
+      if (value == 0) return false;
+      return null;
+    }
+    final text = _smartHomeString(value).trim();
+    if (text.isEmpty) return null;
+    if (text == payloadOn || {'on', 'true', '1', 'yes'}.contains(text.toLowerCase())) {
+      return true;
+    }
+    if (text == payloadOff || {'off', 'false', '0', 'no'}.contains(text.toLowerCase())) {
+      return false;
+    }
+    return null;
+  }
+
+  static Map<String, Object?> _smartHomeParseState(
+    String payload, {
+    String? stateKey,
+    String payloadOn = 'ON',
+    String payloadOff = 'OFF',
+  }) {
+    final raw = payload.trim();
+    if (stateKey != null && stateKey.isNotEmpty) {
+      final value = _smartHomeJsonValue(raw, stateKey);
+      if (value != null) {
+        return {'state': _smartHomeBoolFromValue(value, payloadOn: payloadOn, payloadOff: payloadOff), 'raw': raw};
+      }
+    }
+    if (raw.startsWith('{')) {
+      final value = _smartHomeJsonValue(raw, 'state');
+      if (value != null) {
+        return {'state': _smartHomeBoolFromValue(value, payloadOn: payloadOn, payloadOff: payloadOff), 'raw': raw};
+      }
+      return {'state': null, 'raw': raw};
+    }
+    return {'state': _smartHomeBoolFromValue(raw, payloadOn: payloadOn, payloadOff: payloadOff), 'raw': raw};
+  }
+
+  static String _smartHomeDeviceId({
+    required String protocol,
+    required String stateTopic,
+    required String commandTopic,
+    required String topic,
+    required String powerCmd,
+  }) {
+    if (protocol == 'tasmota' && topic.isNotEmpty) {
+      return 'tasmota:$topic:${powerCmd.isNotEmpty ? powerCmd : 'POWER'}';
+    }
+    if (stateTopic.isNotEmpty) return '$protocol:$stateTopic';
+    return '$protocol:$topic:$powerCmd';
+  }
+
+  static Map<String, Object?> _smartHomeDevice({
+    required String protocol,
+    required String name,
+    String stateTopic = '',
+    String commandTopic = '',
+    String topic = '',
+    String powerCmd = 'POWER',
+    String room = 'unknown',
+    String type = 'switch',
+    String payloadOn = 'ON',
+    String payloadOff = 'OFF',
+    String? stateKey,
+    String availabilityTopic = '',
+    String availabilityOn = 'Online',
+    String availabilityOff = 'Offline',
+    String pollTopic = '',
+    bool? controllable,
+    String source = 'discovered',
+  }) {
+    final id = _smartHomeDeviceId(
+      protocol: protocol,
+      stateTopic: stateTopic,
+      commandTopic: commandTopic,
+      topic: topic,
+      powerCmd: powerCmd,
+    );
+    return {
+      'id': id,
+      'protocol': protocol,
+      'topic': topic,
+      'powerCmd': powerCmd,
+      'name': name.isNotEmpty ? name : (stateTopic.isNotEmpty ? stateTopic : topic),
+      'room': room.isNotEmpty ? room : 'unknown',
+      'type': type,
+      'stateTopic': stateTopic,
+      'commandTopic': commandTopic,
+      'payloadOn': payloadOn,
+      'payloadOff': payloadOff,
+      'stateKey': stateKey,
+      'availabilityTopic': availabilityTopic,
+      'availabilityOn': availabilityOn,
+      'availabilityOff': availabilityOff,
+      'pollTopic': pollTopic,
+      'controllable': controllable ?? commandTopic.isNotEmpty,
+      'source': source,
+    };
+  }
+
+  static Map<String, Object?> _tasmotaSmartHomeDevice(
+    String topic,
+    String powerCmd,
+    String name, {
+    String room = 'unknown',
+    String type = 'light',
+    String source = 'discovered',
+  }) =>
+      _smartHomeDevice(
+        protocol: 'tasmota',
+        name: name,
+        topic: topic,
+        powerCmd: powerCmd,
+        stateTopic: 'stat/$topic/$powerCmd',
+        commandTopic: 'cmnd/$topic/$powerCmd',
+        availabilityTopic: 'tele/$topic/LWT',
+        availabilityOn: 'Online',
+        availabilityOff: 'Offline',
+        pollTopic: 'cmnd/$topic/$powerCmd',
+        room: room,
+        type: type,
+        source: source,
+      );
+
+  static Map<String, Object?>? _haSmartHomeDevice(String configTopic, Map config) {
+    final parts = configTopic.split('/');
+    if (parts.length < 3 || parts[0] != 'homeassistant') return null;
+    final component = parts[1];
+    final stateTopic = _smartHomeString(config['state_topic']).trim();
+    if (stateTopic.isEmpty) return null;
+    var commandTopic = _smartHomeString(config['command_topic']).trim();
+    var name = _smartHomeString(config['name']).trim();
+    final deviceInfo = config['device'] is Map ? config['device'] as Map : <String, Object?>{};
+    if (name.isEmpty) {
+      name = _smartHomeString(deviceInfo['name']).trim();
+      if (name.isEmpty) name = stateTopic;
+    }
+    String type;
+    if (component == 'light' || component == 'switch') {
+      type = component;
+    } else if (component == 'binary_sensor' || component == 'sensor') {
+      type = 'sensor';
+    } else {
+      // cover / fan / lock / climate: command payloads are not ON/OFF
+      // (open/close, ...), so v1 shows them read-only.
+      type = component;
+      commandTopic = '';
+    }
+    String? stateKey;
+    final template = _smartHomeString(config['value_template']);
+    final match = RegExp(r'value_json\.([A-Za-z0-9_.-]+)').firstMatch(template);
+    if (match != null) stateKey = match.group(1);
+    return _smartHomeDevice(
+      protocol: 'homeassistant',
+      name: name,
+      stateTopic: stateTopic,
+      commandTopic: commandTopic,
+      payloadOn: _smartHomeString(config['payload_on'], 'ON'),
+      payloadOff: _smartHomeString(config['payload_off'], 'OFF'),
+      stateKey: stateKey,
+      availabilityTopic: _smartHomeString(config['availability_topic']).trim(),
+      availabilityOn: _smartHomeString(config['payload_available'], 'online'),
+      availabilityOff: _smartHomeString(config['payload_not_available'], 'offline'),
+      room: 'unknown',
+      type: type,
+      controllable: commandTopic.isNotEmpty && (component == 'light' || component == 'switch'),
+    );
+  }
+
+  static Map<String, Object?>? _z2mSmartHomeDevice(Map entry) {
+    final name = _smartHomeString(entry['friendly_name']).trim();
+    if (name.isEmpty) return null;
+    final stateTopic = 'zigbee2mqtt/$name';
+    final definition = entry['definition'] is Map ? entry['definition'] as Map : <String, Object?>{};
+    final exposes = definition['exposes'] is List ? definition['exposes'] as List : <Object?>[];
+    String? kind;
+    for (final expose in exposes.whereType<Map>()) {
+      if (expose['type'] == 'light' || expose['type'] == 'switch') {
+        final features = expose['features'] is List ? expose['features'] as List : <Object?>[];
+        if (features.whereType<Map>().any((f) => f['property'] == 'state')) {
+          kind = '${expose['type']}';
+          break;
+        }
+      }
+    }
+    if (kind != null) {
+      return _smartHomeDevice(
+        protocol: 'zigbee2mqtt',
+        name: name,
+        stateTopic: stateTopic,
+        commandTopic: '$stateTopic/set',
+        stateKey: 'state',
+        availabilityTopic: '$stateTopic/availability',
+        availabilityOn: 'online',
+        availabilityOff: 'offline',
+        type: kind,
+      );
+    }
+    return _smartHomeDevice(
+      protocol: 'zigbee2mqtt',
+      name: name,
+      stateTopic: stateTopic,
+      availabilityTopic: '$stateTopic/availability',
+      availabilityOn: 'online',
+      availabilityOff: 'offline',
+      type: 'sensor',
+      controllable: false,
+    );
+  }
+
+  static Map<String, Object?> _shellyGen1SmartHomeDevice(String deviceId, int relay, String model) {
+    final base = 'shellies/$deviceId';
+    return _smartHomeDevice(
+      protocol: 'shelly',
+      name: '${model.isNotEmpty ? model : deviceId} relay $relay',
+      stateTopic: '$base/relay/$relay',
+      commandTopic: '$base/relay/$relay/command',
+      payloadOn: 'on',
+      payloadOff: 'off',
+      availabilityTopic: '$base/online',
+      availabilityOn: 'true',
+      availabilityOff: 'false',
+      type: 'switch',
+    );
+  }
+
+  static Map<String, Object?> _shellyGen2SmartHomeDevice(String prefix, String kind, int index) =>
+      _smartHomeDevice(
+        protocol: 'shelly',
+        name: '$prefix $kind $index',
+        stateTopic: '$prefix/status/$kind:$index',
+        commandTopic: '$prefix/rpc',
+        stateKey: 'output',
+        type: kind == 'light' ? 'light' : 'switch',
+      );
+
+  static const _smartHomeSkipTopicSuffixes = <String>[
+    '/config',
+    '/announce',
+    '/set',
+    '/command',
+    '/cmnd',
+    '/rpc',
+    '/availability',
+    '/online',
+    '/LWT',
+    '/info',
+  ];
+
+  static Map<String, Object?>? _genericSmartHomeDevice(String topic, String payload) {
+    if (topic.startsWith(r'$SYS/') ||
+        topic.startsWith('homeassistant/') ||
+        topic.startsWith('tasmota/discovery/') ||
+        topic.startsWith('zigbee2mqtt/bridge') ||
+        topic.startsWith('shellies/')) {
+      return null;
+    }
+    if (_smartHomeSkipTopicSuffixes.any((suffix) => topic.endsWith(suffix))) return null;
+    final parts = topic.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.length < 2) return null;
+    final parsed = _smartHomeParseState(payload);
+    final state = parsed['state'] as bool?;
+    String name;
+    String type;
+    if (state != null) {
+      type = {'light', 'lamp', 'lampu'}.any((word) => topic.toLowerCase().contains(word))
+          ? 'light'
+          : 'switch';
+      name = parts.length >= 2 ? parts[parts.length - 2].replaceAll('_', ' ').replaceAll('-', ' ') : topic;
+    } else {
+      type = 'sensor';
+      if (parts.length >= 3 && parts[0].toLowerCase() == 'xiaomi') {
+        name = parts[1].replaceAll('_', ' ').replaceAll('-', ' ');
+      } else if ({'status', 'state'}.contains(parts.last.toLowerCase()) && parts.length >= 2) {
+        name = parts[parts.length - 2].replaceAll('_', ' ').replaceAll('-', ' ');
+      } else {
+        name = parts.map((p) => p.replaceAll('_', ' ').replaceAll('-', ' ')).join(' ');
+      }
+    }
+    return _smartHomeDevice(
+      protocol: 'generic',
+      name: name,
+      stateTopic: topic,
+      type: type,
+      controllable: false,
+    );
+  }
+
+  static Map<String, String> _smartHomeControlMessage(
+    Map<String, Object?> device,
+    String action,
+  ) {
+    if (device['controllable'] != true) {
+      throw ArgumentError(
+        "Device '${device['name']}' is read-only "
+        "(protocol=${device['protocol']}, state_topic=${device['stateTopic']}); "
+        'configure a command_topic to make it controllable.',
+      );
+    }
+    if (action != 'ON' && action != 'OFF') {
+      throw ArgumentError('Action must be ON or OFF');
+    }
+    final protocol = '${device['protocol']}';
+    final commandTopic = '${device['commandTopic']}';
+    if (protocol == 'zigbee2mqtt') {
+      return {
+        'topic': commandTopic,
+        'payload': jsonEncode({
+          'state': action == 'ON' ? '${device['payloadOn']}' : '${device['payloadOff']}',
+        }),
+      };
+    }
+    if (protocol == 'shelly' && commandTopic.endsWith('/rpc')) {
+      final match = RegExp(r'/status/(switch|light):(\d+)$').firstMatch('${device['stateTopic']}');
+      final kind = match?.group(1) ?? 'switch';
+      final index = match != null ? int.tryParse(match.group(2)!) ?? 0 : 0;
+      return {
+        'topic': commandTopic,
+        'payload': jsonEncode({
+          'id': 0,
+          'src': 'xiaozhi',
+          'method': kind == 'light' ? 'Light.Set' : 'Switch.Set',
+          'params': {'id': index, 'on': action == 'ON'},
+        }),
+      };
+    }
+    return {
+      'topic': commandTopic,
+      'payload': action == 'ON' ? '${device['payloadOn']}' : '${device['payloadOff']}',
+    };
+  }
+
+  static Map<String, Object?> _normalizeSmartHomeConfigDevice(Map item) {
+    final protocol = _smartHomeString(item['protocol']).trim().toLowerCase();
+    final stateTopic = _smartHomeString(item['state_topic'] ?? item['stateTopic']).trim();
+    final commandTopic = _smartHomeString(item['command_topic'] ?? item['commandTopic']).trim();
+    final topic = _smartHomeString(item['topic']).trim();
+    final powerCmd = _smartHomeString(item['power_cmd'] ?? item['powerCmd'], 'POWER');
+    final name = _smartHomeString(item['name']).trim();
+    final room = _smartHomeString(item['room'], 'unknown');
+    final type = _smartHomeString(item['type'], 'switch');
+    if ((protocol == 'tasmota' && topic.isNotEmpty) ||
+        (topic.isNotEmpty && stateTopic.isEmpty && protocol.isEmpty)) {
+      final device = _tasmotaSmartHomeDevice(
+        topic,
+        powerCmd,
+        name.isNotEmpty ? name : topic,
+        room: room,
+        type: _smartHomeString(item['type'], 'light'),
+        source: 'configured',
+      );
+      return device;
+    }
+    final effectiveProtocol = protocol.isNotEmpty ? protocol : 'generic';
+    bool? controllable;
+    if (item['controllable'] is bool) controllable = item['controllable'] as bool;
+    return _smartHomeDevice(
+      protocol: effectiveProtocol,
+      name: name.isNotEmpty ? name : (stateTopic.isNotEmpty ? stateTopic : topic),
+      stateTopic: stateTopic,
+      commandTopic: commandTopic,
+      topic: topic,
+      powerCmd: powerCmd,
+      room: room,
+      type: type,
+      payloadOn: _smartHomeString(item['payload_on'] ?? item['payloadOn'], 'ON'),
+      payloadOff: _smartHomeString(item['payload_off'] ?? item['payloadOff'], 'OFF'),
+      stateKey: _smartHomeString(item['state_key'] ?? item['stateKey']).isNotEmpty
+          ? _smartHomeString(item['state_key'] ?? item['stateKey'])
+          : null,
+      availabilityTopic: _smartHomeString(item['availability_topic'] ?? item['availabilityTopic']).trim(),
+      availabilityOn: _smartHomeString(item['availability_on'] ?? item['availabilityOn'], 'Online'),
+      availabilityOff: _smartHomeString(item['availability_off'] ?? item['availabilityOff'], 'Offline'),
+      pollTopic: _smartHomeString(item['poll_topic'] ?? item['pollTopic']).trim(),
+      controllable: controllable,
+      source: 'configured',
+    );
+  }
+
+  @visibleForTesting
+  static List<Map<String, Object?>> parseSmartHomeDevicesForTest(String raw) =>
+      _parseSmartHomeDevices(raw);
 
   static List<Map<String, Object?>> _parseSmartHomeDevices(String raw) {
     final decoded = jsonDecode(raw);
     if (decoded is! List) throw const FormatException('Devices must be a JSON array');
     final devices = <Map<String, Object?>>[];
     for (final item in decoded.whereType<Map>()) {
-      final topic = '${item['topic'] ?? ''}'.trim();
-      if (topic.isEmpty) continue;
-      devices.add({
-        'topic': topic,
-        'powerCmd': '${item['power_cmd'] ?? item['powerCmd'] ?? 'POWER'}',
-        'name': '${item['name'] ?? topic}',
-        'room': '${item['room'] ?? 'unknown'}',
-        'type': '${item['type'] ?? 'light'}',
-      });
+      final map = Map<String, Object?>.from(item);
+      final hasTopic = _smartHomeString(map['topic']).trim().isNotEmpty;
+      final hasStateTopic =
+          _smartHomeString(map['state_topic'] ?? map['stateTopic']).trim().isNotEmpty;
+      if (!hasTopic && !hasStateTopic) continue;
+      devices.add(_normalizeSmartHomeConfigDevice(map));
     }
     return devices;
   }
@@ -1141,11 +1775,36 @@ class McpRuntime {
     List<Map<String, Object?>> configured,
     List<Map<String, Object?>> discovered,
   ) {
-    final merged = <String, Map<String, Object?>>{};
-    for (final device in [...discovered, ...configured]) {
-      merged['${device['topic']}/${device['powerCmd']}'] = device;
+    final byId = <String, Map<String, Object?>>{};
+    for (final device in discovered) {
+      byId['${device['id'] ?? '${device['topic']}/${device['powerCmd']}'}'] = device;
     }
-    return merged.values.toList();
+    for (final device in configured) {
+      final id = '${device['id'] ?? '${device['topic']}/${device['powerCmd']}'}';
+      final existing = byId[id];
+      if (existing == null) {
+        byId[id] = device;
+      } else {
+        final merged = Map<String, Object?>.from(existing);
+        for (final key in ['name', 'room', 'type']) {
+          if ('${device[key] ?? ''}'.isNotEmpty) merged[key] = device[key];
+        }
+        merged['source'] = 'configured';
+        byId[id] = merged;
+      }
+    }
+    // Configured devices keep their order first (stable device numbers);
+    // newly discovered devices follow.
+    final order = <String>[];
+    for (final device in configured) {
+      order.add('${device['id'] ?? '${device['topic']}/${device['powerCmd']}'}');
+    }
+    final configuredIds = order.toSet();
+    for (final device in discovered) {
+      final id = '${device['id'] ?? '${device['topic']}/${device['powerCmd']}'}';
+      if (!configuredIds.contains(id)) order.add(id);
+    }
+    return order.map((id) => byId[id]!).toList();
   }
 
   @visibleForTesting
@@ -1154,10 +1813,17 @@ class McpRuntime {
     required Map<String, String> online,
     required Map<String, String> states,
   }) {
-    final foundById = <String, Map<String, Object?>>{
-      for (final device in discovered)
-        '${device['topic']}/${device['powerCmd']}': device,
-    };
+    final foundById = <String, Map<String, Object?>>{};
+    for (final device in discovered) {
+      final normalized = _tasmotaSmartHomeDevice(
+        '${device['topic']}',
+        '${device['powerCmd'] ?? 'POWER'}',
+        '${device['name'] ?? device['topic']}',
+        room: '${device['room'] ?? 'unknown'}',
+        type: '${device['type'] ?? 'light'}',
+      );
+      foundById['${normalized['id']}'] = normalized;
+    }
     final configuredTopics = discovered.map((device) => '${device['topic']}').toSet();
     for (final entry in online.entries) {
       final topic = entry.key;
@@ -1171,26 +1837,112 @@ class McpRuntime {
       if (relayNumbers.isNotEmpty) {
         final relayCount = relayNumbers.reduce((a, b) => a > b ? a : b);
         for (var relay = 1; relay <= relayCount; relay++) {
-          foundById['$topic/POWER$relay'] = {
-            'topic': topic,
-            'powerCmd': 'POWER$relay',
-            'name': '$topic Relay $relay',
-            'room': 'unknown',
-            'type': 'switch',
-          };
+          final device = _tasmotaSmartHomeDevice(topic, 'POWER$relay', '$topic Relay $relay', type: 'switch');
+          foundById['${device['id']}'] = device;
         }
       } else {
-        foundById['$topic/POWER'] = {
-          'topic': topic,
-          'powerCmd': 'POWER',
-          'name': topic,
-          'room': 'unknown',
-          'type': 'light',
-        };
+        final device = _tasmotaSmartHomeDevice(topic, 'POWER', topic, type: 'light');
+        foundById['${device['id']}'] = device;
       }
     }
     return foundById.values.toList();
   }
+
+  @visibleForTesting
+  static List<Map<String, Object?>> buildSmartHomeDiscovery({
+    required List<Map<String, Object?>> tasmotaDiscovered,
+    required Map<String, String> online,
+    required Map<String, String> states,
+    required Map<String, Map<String, Object?>> haConfigs,
+    required Map<String, Map<String, Object?>> z2mEntries,
+    required Map<String, String> shellyRelays,
+    required Map<String, String> shellyModels,
+    required Map<String, String> shellyGen2States,
+    required Map<String, String> genericTopics,
+  }) {
+    final devices = <Map<String, Object?>>[];
+    devices.addAll(completeSmartHomeDiscovery(
+      discovered: tasmotaDiscovered,
+      online: online,
+      states: states,
+    ));
+    final haTopics = haConfigs.keys.toList()..sort();
+    for (final configTopic in haTopics) {
+      final device = _haSmartHomeDevice(configTopic, haConfigs[configTopic]!);
+      if (device != null) devices.add(device);
+    }
+    final z2mNames = z2mEntries.keys.toList()..sort();
+    for (final name in z2mNames) {
+      final device = _z2mSmartHomeDevice(z2mEntries[name]!);
+      if (device != null) devices.add(device);
+    }
+    final relayKeys = shellyRelays.keys.toList()..sort();
+    for (final key in relayKeys) {
+      final parts = key.split('/');
+      if (parts.length != 2) continue;
+      final relay = int.tryParse(parts[1]);
+      if (relay == null) continue;
+      devices.add(_shellyGen1SmartHomeDevice(parts[0], relay, shellyModels[parts[0]] ?? ''));
+    }
+    final gen2Topics = shellyGen2States.keys.toList()..sort();
+    for (final stateTopic in gen2Topics) {
+      final match = RegExp(r'^(.+)/status/(switch|light):(\d+)$').firstMatch(stateTopic);
+      if (match != null) {
+        devices.add(_shellyGen2SmartHomeDevice(
+          match.group(1)!,
+          match.group(2)!,
+          int.parse(match.group(3)!),
+        ));
+      }
+    }
+    final covered = <String>{};
+    for (final device in devices) {
+      for (final key in ['stateTopic', 'commandTopic', 'availabilityTopic']) {
+        final value = '${device[key] ?? ''}';
+        if (value.isNotEmpty) covered.add(value);
+      }
+    }
+    final genericKeys = genericTopics.keys.toList()..sort();
+    for (final topic in genericKeys) {
+      if (covered.contains(topic)) continue;
+      final device = _genericSmartHomeDevice(topic, genericTopics[topic]!);
+      if (device != null) {
+        devices.add(device);
+        covered.add(topic);
+      }
+    }
+    final seen = <String>{};
+    final unique = <Map<String, Object?>>[];
+    for (final device in devices) {
+      final id = '${device['id']}';
+      if (seen.add(id)) unique.add(device);
+    }
+    return unique;
+  }
+
+  // Kept for callers that build a discovery list from Tasmota configs only.
+  static List<Map<String, Object?>> _buildSmartHomeDiscovery({
+    required List<Map<String, Object?>> tasmotaDiscovered,
+    required Map<String, String> online,
+    required Map<String, String> states,
+    required Map<String, Map<String, Object?>> haConfigs,
+    required Map<String, Map<String, Object?>> z2mEntries,
+    required Map<String, String> shellyRelays,
+    required Map<String, String> shellyModels,
+    required Map<String, String> shellyGen2States,
+    required Map<String, String> genericTopics,
+  }) =>
+      buildSmartHomeDiscovery(
+        tasmotaDiscovered: tasmotaDiscovered,
+        online: online,
+        states: states,
+        haConfigs: haConfigs,
+        z2mEntries: z2mEntries,
+        shellyRelays: shellyRelays,
+        shellyModels: shellyModels,
+        shellyGen2States: shellyGen2States,
+        genericTopics: genericTopics,
+      );
 
   static List<Map<String, Object?>> _devicesFromTasmotaConfig(Map config) {
     final topic = '${config['t'] ?? ''}'.trim();
@@ -1205,24 +1957,22 @@ class McpRuntime {
     }
     if (active.length <= 1) {
       return [
-        {
-          'topic': topic,
-          'powerCmd': 'POWER',
-          'name': '${names.isNotEmpty ? names[0] : topic}',
-          'room': 'unknown',
-          'type': 'light',
-        },
+        _tasmotaSmartHomeDevice(
+          topic,
+          'POWER',
+          names.isNotEmpty ? '${names[0]}' : topic,
+          type: 'light',
+        ),
       ];
     }
     return [
       for (final index in active)
-        {
-          'topic': topic,
-          'powerCmd': 'POWER${index + 1}',
-          'name': '${index < names.length ? names[index] : '$topic Relay ${index + 1}'}',
-          'room': 'unknown',
-          'type': 'switch',
-        },
+        _tasmotaSmartHomeDevice(
+          topic,
+          'POWER${index + 1}',
+          index < names.length ? '${names[index]}' : '$topic Relay ${index + 1}',
+          type: 'switch',
+        ),
     ];
   }
 
@@ -1247,13 +1997,10 @@ class McpRuntime {
     MqttServerClient client,
     Map<String, Object?> device,
     String action,
-  ) =>
-      _publishMqtt(
-        client,
-        'cmnd/${device['topic']}/${device['powerCmd']}',
-        action,
-      );
-
+  ) {
+    final message = _smartHomeControlMessage(device, action);
+    _publishMqtt(client, message['topic']!, message['payload']!);
+  }
   static void _publishMqtt(MqttServerClient client, String topic, String payload) {
     final builder = MqttClientPayloadBuilder()..addString(payload);
     final packet = builder.payload;

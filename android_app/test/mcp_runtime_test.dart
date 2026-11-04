@@ -515,4 +515,80 @@ void main() {
     expect(names, contains('manage_document'));
     expect(names, isNot(contains('take_photo')));
   });
+
+
+  test('generic MQTT discovery covers HA, Zigbee2MQTT, Shelly and generic topics', () {
+    final devices = McpRuntime.buildSmartHomeDiscovery(
+      tasmotaDiscovered: [
+        {
+          'topic': 'sonoff-tengah',
+          'powerCmd': 'POWER',
+          'name': 'Tengah',
+          'room': 'unknown',
+          'type': 'light',
+        },
+      ],
+      online: {'sonoff-tengah': 'Online'},
+      states: {},
+      haConfigs: {
+        'homeassistant/light/dapur/lampu/config': {
+          'name': 'Lampu Dapur',
+          'state_topic': 'ha/dapur/state',
+          'command_topic': 'ha/dapur/set',
+        },
+      },
+      z2mEntries: {
+        'z-lamp': {
+          'friendly_name': 'z-lamp',
+          'definition': {
+            'exposes': [
+              {
+                'type': 'light',
+                'features': [
+                  {'property': 'state'},
+                ],
+              },
+            ],
+          },
+        },
+      },
+      shellyRelays: {'shelly1-abc/0': 'on'},
+      shellyModels: {'shelly1-abc': 'Shelly1'},
+      shellyGen2States: {'shellyplus1pm-abc/status/switch:0': '{"output": true}'},
+      genericTopics: {
+        'vacuum/status': 'Mengisi daya',
+        'vacuum/battery': '100',
+        'xiaomi/cam360_2k/status': 'Online - 192.168.0.10',
+      },
+    );
+    final protocols = devices.map((d) => d['protocol']).toSet();
+    expect(
+      protocols,
+      containsAll(['tasmota', 'homeassistant', 'zigbee2mqtt', 'shelly', 'generic']),
+    );
+    final vacuum = devices.firstWhere((d) => d['stateTopic'] == 'vacuum/status');
+    expect(vacuum['type'], 'sensor');
+    expect(vacuum['controllable'], isFalse);
+    expect(vacuum['commandTopic'], '');
+    final ha = devices.firstWhere((d) => d['protocol'] == 'homeassistant');
+    expect(ha['controllable'], isTrue);
+    expect(ha['commandTopic'], 'ha/dapur/set');
+    final z2m = devices.firstWhere((d) => d['protocol'] == 'zigbee2mqtt');
+    expect(z2m['commandTopic'], 'zigbee2mqtt/z-lamp/set');
+    final gen2 = devices.firstWhere(
+      (d) => d['stateTopic'] == 'shellyplus1pm-abc/status/switch:0',
+    );
+    expect(gen2['commandTopic'], 'shellyplus1pm-abc/rpc');
+  });
+
+  test('configured generic devices keep their command topic in discovery merge', () {
+    final configured = McpRuntime.parseSmartHomeDevicesForTest(
+      '[{"state_topic": "vacuum/status", "command_topic": "vacuum/command/clean", "name": "Vacuum Clean", "type": "switch", "payload_on": "START", "payload_off": "STOP"}]',
+    );
+    expect(configured, hasLength(1));
+    expect(configured.first['protocol'], 'generic');
+    expect(configured.first['controllable'], isTrue);
+    expect(configured.first['payloadOn'], 'START');
+    expect(configured.first['payloadOff'], 'STOP');
+  });
 }
