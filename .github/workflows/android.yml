@@ -12,6 +12,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Successful builds take ~22 min; without a cap a stuck job (like run
+    # #179, whose build step kept ticking with a dead log past 50 min)
+    # would hang until GitHub's 360 min default. Fail fast instead.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
