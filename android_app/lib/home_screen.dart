@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -31,12 +32,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Uint8List? _attachmentBytes;
   bool _sendingAttachment = false;
   double _dragExtent = 0;
+
+  /// App chrome (header, status bar, composer) visibility. Hidden chrome
+  /// leaves the avatar stage full screen; tap the stage or swipe down to
+  /// bring it back, swipe up (or wait for the timeout) to hide it again.
+  bool _chromeVisible = true;
+  Timer? _chromeTimer;
+  double _verticalDragExtent = 0;
   
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_scrollToLatest);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _armChromeTimer());
     // Prevent force close on Android 16 when typing in chat box:
     // ensure focus node is properly managed and keyboard is dismissed
     // before the widget is disposed.
@@ -46,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     widget.controller.removeListener(_scrollToLatest);
+    _chromeTimer?.cancel();
     _textFocusNode.removeListener(_onFocusChange);
     _textFocusNode.dispose();
     _textController.dispose();
@@ -60,8 +70,49 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_textFocusNode.hasFocus) {
       // Keyboard is dismissing or has dismissed; no action needed here
       // but the listener prevents the framework from crashing on focus loss.
+      _armChromeTimer();
+    } else {
+      // Never auto-hide while the user is typing.
+      _chromeTimer?.cancel();
     }
   }
+
+  bool get _isFlutterTest =>
+      Platform.environment['FLUTTER_TEST'] == 'true';
+
+  /// Arms the auto-hide timeout: chrome hides after 5 seconds without
+  /// interaction. Disabled in widget tests so the chrome never vanishes
+  /// mid-test, and never while the text field has focus.
+  void _armChromeTimer() {
+    _chromeTimer?.cancel();
+    if (_isFlutterTest || !_chromeVisible || _textFocusNode.hasFocus) return;
+    _chromeTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted || _textFocusNode.hasFocus) return;
+      setState(() => _chromeVisible = false);
+    });
+  }
+
+  void _showChrome() {
+    if (_chromeVisible) {
+      _armChromeTimer();
+      return;
+    }
+    setState(() => _chromeVisible = true);
+    _armChromeTimer();
+  }
+
+  void _toggleChrome() {
+    setState(() => _chromeVisible = !_chromeVisible);
+    if (_chromeVisible) _armChromeTimer();
+  }
+
+  /// Chrome wrapper: fades out and stops receiving touches when hidden,
+  /// so the stage underneath stays fully interactive.
+  Widget _chromeFade({required Widget child}) => AnimatedOpacity(
+        opacity: _chromeVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: IgnorePointer(ignoring: !_chromeVisible, child: child),
+      );
 
   void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -216,7 +267,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: widget.controller,
         builder: (context, _) => Scaffold(
-          backgroundColor: AppColors.paper,
+          backgroundColor: const Color(0xFF060A18),
+          extendBody: true,
           body: GestureDetector(
             onHorizontalDragUpdate: (details) {
               setState(() {
@@ -235,35 +287,131 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               _dragExtent = 0;
             },
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  _buildStatusBar(),
-                  Expanded(child: _buildConversation()),
-                  // Live audio waveform (oscilloscope-style) shown while the mic
-                  // is active (listening) or the assistant is speaking (TTS).
-                  // Mirrors the animated emoji reactions in the desktop GUI.
-                  if (widget.controller.deviceState != DeviceState.idle)
-                    _buildAudioVisualizer(),
-                  _buildComposer(),
-                ],
-              ),
+            child: Stack(
+              children: [
+                // Futuristic stage background, edge to edge (no SafeArea:
+                // system bars are immersive-sticky and overlay the stage).
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF060A18),
+                        Color(0xFF0B2233),
+                        Color(0xFF0E3A3A),
+                      ],
+                    ),
+                  ),
+                ),
+                // Soft teal glow behind the avatar.
+                Align(
+                  alignment: const Alignment(0, -0.1),
+                  child: Container(
+                    width: 420,
+                    height: 420,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          const Color(0xFF26C6B0).withValues(alpha: 0.25),
+                          const Color(0xFF26C6B0).withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Avatar stage, full screen. Tap toggles the chrome;
+                // vertical swipe hides (up) / shows (down) it again.
+                // The outer detector keeps the horizontal swipe navigation.
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _toggleChrome,
+                  onVerticalDragUpdate: (details) {
+                    _verticalDragExtent += details.delta.dy;
+                  },
+                  onVerticalDragEnd: (_) {
+                    if (_verticalDragExtent < -60) {
+                      setState(() => _chromeVisible = false);
+                      _chromeTimer?.cancel();
+                    } else if (_verticalDragExtent > 60) {
+                      _showChrome();
+                    }
+                    _verticalDragExtent = 0;
+                  },
+                  child: _buildAvatarStage(),
+                ),
+                // Top chrome: title bar + connection status.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.viewPaddingOf(context).top,
+                    ),
+                    child: _chromeFade(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildHeader(),
+                          _buildStatusBar(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Bottom chrome: live text stays visible (it is content,
+                // not chrome); the waveform and composer fade with chrome.
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewPaddingOf(context).bottom,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Live audio waveform (oscilloscope-style) shown
+                        // while the mic is active (listening) or the
+                        // assistant is speaking (TTS).
+                        if (widget.controller.deviceState != DeviceState.idle)
+                          _buildAudioVisualizer(),
+                        _buildLiveTextArea(),
+                        _chromeFade(child: _buildComposer()),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       );
 
   Widget _buildHeader() => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 14, 10),
+        padding: const EdgeInsets.fromLTRB(20, 12, 14, 10),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.green,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1DB9A6), Color(0xFF176B5C)],
+                ),
                 borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1DB9A6).withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
               child: const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 25),
             ),
@@ -275,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     'Xiaozhi',
                     style: TextStyle(
-                      color: AppColors.ink,
+                      color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -284,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     'VOICE ASSISTANT',
                     style: TextStyle(
-                      color: Color(0xFF71817C),
+                      color: Color(0xFF8FE3D0),
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.1,
@@ -297,8 +445,8 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Preview kamera',
               onPressed: _openCamera,
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.ink,
+                backgroundColor: Colors.white.withValues(alpha: 0.10),
+                foregroundColor: Colors.white,
                 fixedSize: const Size(44, 44),
               ),
               icon: const Icon(Icons.camera_alt_outlined),
@@ -308,8 +456,8 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Pengaturan koneksi dan kamera',
               onPressed: _openSettings,
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.ink,
+                backgroundColor: Colors.white.withValues(alpha: 0.10),
+                foregroundColor: Colors.white,
                 fixedSize: const Size(44, 44),
               ),
               icon: const Icon(Icons.tune_rounded),
@@ -323,10 +471,19 @@ class _HomeScreenState extends State<HomeScreen> {
     // An error is transient and always more urgent than the state label, so it
     // takes the line until the next state change clears it.
     final status = controller.hasError ? controller.error : controller.status;
+    final statusColor = controller.hasError
+        ? const Color(0xFFFF9A8A)
+        : controller.deviceState == DeviceState.listening
+            ? const Color(0xFFFFB4A6)
+            : const Color(0xFF9AD0FF);
     return Container(
-      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      color: const Color(0xFFE8F2FF),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -338,9 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: controller.deviceState == DeviceState.listening
-                    ? const Color(0xFFCC634F)
-                    : const Color(0xFF2583E8),
+                color: statusColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -405,7 +560,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (connecting) {
       return const SizedBox.square(
         dimension: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white70,
+        ),
       );
     }
     if (!connected) {
@@ -415,7 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
         visualDensity: VisualDensity.compact,
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         iconSize: 18,
-        color: AppColors.green,
+        color: const Color(0xFF8FE3D0),
         icon: const Icon(Icons.link_rounded),
       );
     }
@@ -425,88 +583,86 @@ class _HomeScreenState extends State<HomeScreen> {
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      color: Colors.white70,
       icon: const Icon(Icons.link_off_rounded, size: 18),
     );
   }
 
-  Widget _buildConversation() {
+  /// Avatar stage, enlarged and transparent: the model fills most of the
+  /// screen (up from the old 340 cap) so the mouth is clearly visible,
+  /// floating over the dark stage instead of a panel.
+  Widget _buildAvatarStage() {
     final controller = widget.controller;
     return LayoutBuilder(
       builder: (context, constraints) {
         final emotion = controller.emotion.isEmpty ? 'neutral' : controller.emotion;
-        final textMaxWidth = math.min(constraints.maxWidth * 0.88, 560.0);
-        final textAreaHeight = math.min(160.0, constraints.maxHeight * 0.3);
+        final size = math.min(
+          640.0,
+          math.min(
+            constraints.maxWidth * 0.94,
+            constraints.maxHeight * 0.72,
+          ),
+        );
+        return Align(
+          alignment: const Alignment(0, -0.12),
+          child: Live2DAvatar(
+            emotion: emotion,
+            isSpeaking: controller.deviceState == DeviceState.speaking,
+            isListening: controller.deviceState == DeviceState.listening,
+            audioLevelStream: controller.audioLevelStream,
+            size: size,
+          ),
+        );
+      },
+    );
+  }
 
-        return Column(
-          children: [
-            Expanded(
-              child: Container(
-                color: AppColors.paper,
-                child: LayoutBuilder(
-                  builder: (context, emotionConstraints) {
-                    final emotionSize = math.min(
-                      340.0,
-                      math.min(
-                        emotionConstraints.maxWidth * 0.78,
-                        emotionConstraints.maxHeight * 0.9,
-                      ),
-                    );
-                    return Align(
-                      alignment: const Alignment(0, -0.08),
-                      child: Live2DAvatar(
-                        emotion: emotion,
-                        isSpeaking:
-                            controller.deviceState == DeviceState.speaking,
-                        audioLevelStream: controller.audioLevelStream,
-                        size: emotionSize,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            SizedBox(
-              key: const ValueKey('live-text-area'),
-              height: textAreaHeight,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.paper,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: LayoutBuilder(
-                  builder: (context, textConstraints) => SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: textConstraints.maxHeight),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: textMaxWidth),
-                          child: SelectionArea(
-                            child: Text(
-                              controller.liveText.isEmpty
-                                  ? 'Ada yang bisa aku bantu hari ini?'
-                                  : controller.liveText,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFF394B60),
-                                fontSize: 14,
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+  /// Live transcript area. Compact by design (widget tests assert this):
+  /// at most 160 high. This is content, not chrome, so it stays visible
+  /// even when the header and composer are hidden.
+  Widget _buildLiveTextArea() {
+    final controller = widget.controller;
+    final textMaxWidth =
+        math.min(MediaQuery.sizeOf(context).width * 0.88, 560.0);
+    final textAreaHeight =
+        math.min(160.0, MediaQuery.sizeOf(context).height * 0.22);
+    return SizedBox(
+      key: const ValueKey('live-text-area'),
+      height: textAreaHeight,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: textAreaHeight - 28),
+            child: Align(
+              alignment: Alignment.center,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: textMaxWidth),
+                child: SelectionArea(
+                  child: Text(
+                    controller.liveText.isEmpty
+                        ? 'Ada yang bisa aku bantu hari ini?'
+                        : controller.liveText,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFEAF3F1),
+                      fontSize: 14,
+                      height: 1.5,
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ),
     );
   }
 
@@ -517,9 +673,11 @@ class _HomeScreenState extends State<HomeScreen> {
         behavior: HitTestBehavior.opaque,
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE4EAE7))),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            border: Border(
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -534,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               .contains((_attachment!.extension ?? '').toLowerCase())
                           ? Icons.image_outlined
                           : Icons.description_outlined,
-                      color: AppColors.green,
+                      color: const Color(0xFF8FE3D0),
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -543,7 +701,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _attachment!.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.ink, fontSize: 13),
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
                       ),
                     ),
                     IconButton(
@@ -562,6 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: widget.controller.isConnected && !_sendingAttachment
                       ? _pickAttachment
                       : null,
+                  color: Colors.white70,
                   icon: const Icon(Icons.attach_file_rounded),
                 ),
                 Expanded(
@@ -574,10 +733,37 @@ class _HomeScreenState extends State<HomeScreen> {
                     buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
                     onSubmitted: (_) => _sendText(),
                     onTapOutside: (_) => _textFocusNode.unfocus(),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
                       hintText: 'Tulis pesan...',
-                      prefixIcon: Icon(Icons.chat_bubble_outline_rounded, size: 19),
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      prefixIcon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 19,
+                        color: Colors.white54,
+                      ),
                       isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFF12202E),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF1DB9A6),
+                          width: 1.5,
+                        ),
+                      ),
                     ),
                   ),
                 ),

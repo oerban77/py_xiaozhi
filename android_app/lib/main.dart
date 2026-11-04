@@ -13,6 +13,17 @@ import 'xiaozhi_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([]);
+  // Full-screen stage: system bars (status + navigation) hide
+  // automatically (immersive sticky) and reappear on an edge swipe,
+  // then hide again after a timeout. Transparent bars so they overlay
+  // the stage instead of pushing the content when they show.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   final controller = XiaozhiController();
   await controller.initialize();

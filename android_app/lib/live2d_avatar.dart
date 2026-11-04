@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:live2d/live2d.dart';
@@ -36,6 +37,7 @@ class Live2DAvatar extends StatefulWidget {
     super.key,
     required this.emotion,
     required this.isSpeaking,
+    this.isListening = false,
     required this.audioLevelStream,
     this.size = 240.0,
   });
@@ -48,6 +50,10 @@ class Live2DAvatar extends StatefulWidget {
   /// The mouth is driven only in this state; while listening the avatar
   /// keeps its mouth closed and only blinks / idles.
   final bool isSpeaking;
+
+  /// True while the mic is open ([XiaozhiController.deviceState] ==
+  /// listening). Drives the attentive gaze drift in [_driveMotion].
+  final bool isListening;
 
   /// Live audio level stream (TTS RMS while speaking, mic RMS while
   /// listening). True RMS is typically 0.03-0.3, so it is amplified the
@@ -82,6 +88,9 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   late final Live2DController _controller;
   StreamSubscription<double>? _levelSubscription;
 
+  /// Slow timer driving the state-based motion in [_driveMotion].
+  Timer? _motionTimer;
+
   /// Smoothed mouth value in [0, 1] actually sent to the model.
   double _mouth = 0.0;
 
@@ -106,6 +115,15 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     _controller.onModelLoaded = (_) => _applyEmotion();
     _controller.onError = (_) => _onModelError();
     _levelSubscription = widget.audioLevelStream.listen(_onLevel);
+    // Lifelike motion: a slow timer drives small head/gaze parameters
+    // from the conversation state (see _driveMotion). Skipped in tests
+    // and once the model has failed, like every other parameter send.
+    if (!_isFlutterTest) {
+      _motionTimer = Timer.periodic(
+        const Duration(milliseconds: 120),
+        (_) => _driveMotion(),
+      );
+    }
   }
 
   @override
@@ -120,10 +138,22 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
       _mouth = 0.0;
       _sendMouth(force: true);
     }
+    if ((oldWidget.isListening != widget.isListening ||
+            oldWidget.isSpeaking != widget.isSpeaking) &&
+        !widget.isSpeaking &&
+        !widget.isListening) {
+      // Back to idle: return head and gaze to centre instead of leaving
+      // the last listening drift frozen on the face.
+      _sendParam(DefaultParameterID.paramAngleX, 0.0);
+      _sendParam(DefaultParameterID.paramBodyAngleX, 0.0);
+      _sendParam(DefaultParameterID.paramEyeBallX, 0.0);
+      _sendParam(DefaultParameterID.paramEyeBallY, 0.0);
+    }
   }
 
   @override
   void dispose() {
+    _motionTimer?.cancel();
     _levelSubscription?.cancel();
     _controller.dispose();
     super.dispose();
@@ -166,6 +196,38 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     );
     _lastSentMouth = _mouth;
     _lastSentAt = now;
+  }
+
+  void _sendParam(String id, double value) {
+    if (_failed || _isFlutterTest) return;
+    unawaited(_controller.setParameter(id, value));
+  }
+
+  /// Small state-driven motion so the character feels alive instead of a
+  /// static picture with a moving mouth:
+  /// - speaking: gentle head bob and a slight lean that follows the mouth,
+  ///   gaze forward at the user;
+  /// - listening: slow gaze drift side to side with a slight head tilt,
+  ///   as if paying attention;
+  /// - idle: nothing is sent here; the model's own idle motion (breathing,
+  ///   blinking) runs, and the transition back to centre is handled in
+  ///   didUpdateWidget.
+  void _driveMotion() {
+    if (!mounted || _failed || _isFlutterTest) return;
+    final phase = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    if (widget.isSpeaking) {
+      _sendParam(
+        DefaultParameterID.paramAngleX,
+        2.0 * math.sin(phase * 4.0) * (0.3 + _mouth),
+      );
+      _sendParam(DefaultParameterID.paramBodyAngleX, _mouth * 4.0);
+      _sendParam(DefaultParameterID.paramEyeBallX, 0.1 * math.sin(phase * 1.3));
+      _sendParam(DefaultParameterID.paramEyeBallY, 0.0);
+    } else if (widget.isListening) {
+      _sendParam(DefaultParameterID.paramEyeBallX, 0.35 * math.sin(phase * 0.9));
+      _sendParam(DefaultParameterID.paramEyeBallY, 0.15 * math.cos(phase * 0.7));
+      _sendParam(DefaultParameterID.paramAngleX, 1.5 * math.sin(phase * 0.5));
+    }
   }
 
   /// Maps a server emotion to standard Cubism face parameters.
@@ -214,30 +276,14 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
       // keep the old GIF/emoji avatar instead of a blank stage.
       return EmotionDisplay(emotion: widget.emotion, size: widget.size);
     }
+    // Transparent stage: no disc or panel behind the model, so it
+    // floats directly over the screen background and the mouth stays
+    // visible against the dark stage. Live2DViewer already renders with
+    // a transparent background.
     return SizedBox(
       width: widget.size,
       height: widget.size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Soft stage disc behind the character, so the avatar reads as
-          // a figure on the paper background instead of floating pixels.
-          Container(
-            width: widget.size * 0.92,
-            height: widget.size * 0.92,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.55),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-          ),
-          Live2DViewer(
+      child: Live2DViewer(
             controller: _controller,
             initialModelUrl: Live2DAvatar.primaryModelUrl,
             fit: Live2DFit.contain,
@@ -252,8 +298,6 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
               size: widget.size,
             ),
           ),
-        ],
-      ),
     );
   }
 }
