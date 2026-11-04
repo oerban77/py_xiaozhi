@@ -771,40 +771,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(color: Color(0xFF71817C), height: 1.45),
                     ),
                     const SizedBox(height: 14),
-                    ...Live2dCharacters.presets.map(
-                      (preset) => RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(preset.name),
-                        subtitle: preset.name == 'Haru'
-                            ? const Text('Default')
-                            : null,
-                        value: preset.name,
-                        groupValue: _characterPreset,
-                        onChanged: (value) =>
-                            setState(() => _characterPreset = value ?? 'Haru'),
-                      ),
-                    ),
-                    RadioListTile<String>(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Kustom (URL model3.json)'),
-                      value: 'Kustom',
+                    RadioGroup<String>(
                       groupValue: _characterPreset,
-                      onChanged: (value) =>
-                          setState(() => _characterPreset = value ?? 'Kustom'),
-                    ),
-                    if (_characterPreset == 'Kustom') ...[
-                      const SizedBox(height: 4),
-                      TextField(
-                        controller: _characterCustomController,
-                        keyboardType: TextInputType.url,
-                        decoration: const InputDecoration(
-                          labelText: 'URL model3.json',
-                          prefixIcon: Icon(Icons.link),
-                          helperText:
-                              'Contoh: https://cdn.jsdelivr.net/.../Nama.model3.json',
-                        ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _characterPreset = value);
+                      },
+                      child: Column(
+                        children: [
+                          ...Live2dCharacters.presets.map(
+                            (preset) => RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(preset.name),
+                              subtitle: preset.name == 'Haru'
+                                  ? const Text('Default')
+                                  : null,
+                              value: preset.name,
+                            ),
+                          ),
+                          RadioListTile<String>(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Kustom (URL model3.json)'),
+                            value: 'Kustom',
+                          ),
+                          if (_characterPreset == 'Kustom') ...[
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _characterCustomController,
+                              keyboardType: TextInputType.url,
+                              decoration: const InputDecoration(
+                                labelText: 'URL model3.json',
+                                prefixIcon: Icon(Icons.link),
+                                helperText:
+                                    'Contoh: https://cdn.jsdelivr.net/.../Nama.model3.json',
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                     const SizedBox(height: 28),
                     const Text(
                       'Audio',

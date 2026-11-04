@@ -286,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // to the nearest control in that direction, and OK activates
             // it. Without this, arrow keys would only walk the widget
             // order, which is unusable on a 2D TV layout.
-            policy: DirectionalFocusTraversalPolicy(),
+            policy: WidgetOrderTraversalPolicy(),
             child: GestureDetector(
             onHorizontalDragUpdate: (details) {
               setState(() {
@@ -597,6 +597,20 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.white70,
       icon: const Icon(Icons.link_off_rounded, size: 18),
     );
+  }
+
+  /// Picks a new random wander target for the idle avatar. A target in any
+  /// other state is ignored: speaking and listening recenter the avatar.
+  void _pickWanderTarget() {
+    if (widget.controller.deviceState != DeviceState.idle) {
+      return;
+    }
+    setState(() {
+      _wanderOffset = Offset(
+        (_random.nextDouble() * 2 - 1) * 0.05,
+        (_random.nextDouble() * 2 - 1) * 0.025,
+      );
+    });
   }
 
   /// Avatar stage, fullscreen: the model fills the whole screen so it
