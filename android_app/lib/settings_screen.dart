@@ -789,7 +789,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               value: preset.name,
                             ),
                           ),
-                          RadioListTile<String>(
+                          const RadioListTile<String>(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Kustom (URL model3.json)'),
                             value: 'Kustom',
