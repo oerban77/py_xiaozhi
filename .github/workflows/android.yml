@@ -16,6 +16,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk before cleanup:"
+          df -h
+          # GitHub ubuntu runners ship many GB of toolchains this build
+          # never uses. Removing them is the standard fix for
+          # "No space left on device" during a Flutter/Gradle build:
+          # Gradle + pub cache + NDK + build outputs need several GB,
+          # and the runner's own diag log is what dies first when the
+          # disk fills (see run for commit 4517f13). Java, the Android
+          # SDK platforms/build-tools, and Flutter are NOT touched here.
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/lib/powershell
+          sudo rm -rf /opt/microsoft
+          # System images / emulator are not used by a headless APK build;
+          # the SDK platforms and build-tools installed below stay.
+          SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sudo rm -rf "$SDK_DIR/system-images" || true
+          sudo rm -rf "$SDK_DIR/emulator" || true
+          echo "Disk after cleanup:"
+          df -h
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -540,7 +568,7 @@ jobs:
         # copy; `|| true` keeps a known-good build from being discarded when an older
         # Flutter/AGP combination still reports the false negative. The next step
         # verifies the APK exists and fails loudly if it really is missing.
-        run: flutter build apk --release -v || true
+        run: flutter build apk --release || true
 
       - name: Locate and verify the APK
         working-directory: android_app
