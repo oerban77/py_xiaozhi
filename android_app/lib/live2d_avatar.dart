@@ -91,9 +91,9 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   @override
   void initState() {
     super.initState();
-    _controller = Live2DController()
-      ..onModelLoaded = (_) => _applyEmotion()
-      ..onError = (_) => _onModelError();
+    _controller = Live2DController();
+    _controller.onModelLoaded = (_) => _applyEmotion();
+    _controller.onError = (_) => _onModelError();
     _levelSubscription = widget.audioLevelStream.listen(_onLevel);
   }
 
