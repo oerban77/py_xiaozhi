@@ -586,6 +586,15 @@ jobs:
           # the "Create Android project structure" step above, so this
           # setting cannot live in the repo and must be written here.
           printf '%s\n' 'org.gradle.vfs.watch=false' >> android/gradle.properties
+          # Run #185 died with "The hosted runner lost communication with
+          # the server" — GitHub's message names CPU/memory starvation as
+          # a cause. This build compiles large native libraries (sherpa_onnx
+          # for 4 ABIs) and Gradle/CMake parallelise across all cores by
+          # default, which can spike RAM/CPU hard enough to take the runner
+          # agent itself down (its partial logs were never uploaded, hence
+          # the missing build log on #185). Capping parallel workers trades
+          # some speed for a runner that stays alive to finish the build.
+          printf '%s\n' 'org.gradle.workers.max=2' >> android/gradle.properties
 
       - name: Build release APK
         working-directory: android_app
