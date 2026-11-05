@@ -5,6 +5,17 @@ import 'package:py_xiaozhi_android/emotion_display.dart';
 import 'package:py_xiaozhi_android/main.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
 
+/// Widget tests run on an 800x600 surface by default, which is
+/// landscape — but these tests cover the portrait phone UI (subtitle
+/// area, greeting rules, compact live-text area). Pin a portrait
+/// phone surface so HomeScreen builds its portrait branch.
+void setPortraitSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1080, 2400);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
 void main() {
   test('separates consecutive TTS text segments with a newline', () {
     expect(
@@ -14,6 +25,7 @@ void main() {
   });
 
   testWidgets('shows the Xiaozhi conversation screen', (tester) async {
+    setPortraitSurface(tester);
     final controller = XiaozhiController();
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
@@ -29,6 +41,7 @@ void main() {
   });
 
   testWidgets('keeps the server emotion visible while TTS text is displayed', (tester) async {
+    setPortraitSurface(tester);
     final controller = XiaozhiController()
       ..emotion = 'happy'
       ..subtitleText = 'Jawaban sedang dibacakan.'
@@ -51,6 +64,7 @@ void main() {
   });
 
   testWidgets('keeps the live text area compact for long responses', (tester) async {
+    setPortraitSurface(tester);
     final controller = XiaozhiController()
       ..subtitleText = List.filled(40, 'Teks panjang').join('\n')
       ..subtitleVisible = true;
@@ -65,6 +79,7 @@ void main() {
   });
 
   testWidgets('left swipe on main screen navigates to debug screen', (tester) async {
+    setPortraitSurface(tester);
     final controller = XiaozhiController();
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
@@ -84,6 +99,7 @@ void main() {
   });
 
   testWidgets('right swipe on debug screen navigates back to main screen', (tester) async {
+    setPortraitSurface(tester);
     final controller = XiaozhiController();
     await tester.pumpWidget(XiaozhiApp(
       controller: controller,
