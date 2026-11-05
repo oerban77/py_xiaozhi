@@ -54,7 +54,8 @@ class Live2DAvatar extends StatefulWidget {
   final bool isSpeaking;
 
   /// True while the mic is open ([XiaozhiController.deviceState] ==
-  /// listening). Drives the attentive gaze drift in [_driveMotion].
+  /// listening). The avatar keeps its mouth closed in this state; gaze
+  /// and head motion come from the model's own idle motion.
   final bool isListening;
 
   /// Live audio level stream (TTS RMS while speaking, mic RMS while
@@ -100,26 +101,26 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   late final Live2DController _controller;
   StreamSubscription<double>? _levelSubscription;
 
-  /// Slow timer driving the state-based motion in [_driveMotion].
-  Timer? _motionTimer;
+  /// Regular ticker driving the mouth toward [_mouthTarget] (see _tickMouth):
+  /// the original live2d updates the mouth in the render loop, not on
+  /// irregular audio events, so the mouth moves on a steady clock.
+  Timer? _mouthTimer;
+  DateTime _lastMouthTick = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Latest mouth target in [0, 1] from the audio level stream; the ticker
+  /// smooths [_mouth] toward this, so bursty level events never reach the
+  /// model directly.
+  double _mouthTarget = 0.0;
 
   /// Smoothed mouth value in [0, 1] actually sent to the model.
   double _mouth = 0.0;
 
-  DateTime _lastSentAt = DateTime.fromMillisecondsSinceEpoch(0);
-
-  /// Slow-smoothed mouth used only for head bob/lean amplitude, so the head
-  /// does not jerk with every syllable while the mouth itself tracks fast.
-  double _motionMouth = 0.0;
+  /// Last mouth value sent to the model; the ticker only sends when the
+  /// value moved enough to be visible.
+  double _lastSentMouth = -1.0;
 
   bool _triedFallback = false;
   bool _failed = false;
-
-  /// Mouth updates are throttled to at most one WebView call per 50 ms,
-  /// strictly: a big jump inside the window is held to the next tick
-  /// instead of being sent immediately, so the JS bridge gets a regular
-  /// 20 Hz stream rather than bursts that make the mouth tremble.
-  static const Duration _minSendInterval = Duration(milliseconds: 50);
 
   @override
   void initState() {
@@ -128,13 +129,14 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     _controller.onModelLoaded = (_) => _applyEmotion();
     _controller.onError = (_) => _onModelError();
     _levelSubscription = widget.audioLevelStream.listen(_onLevel);
-    // Lifelike motion: a slow timer drives small head/gaze parameters
-    // from the conversation state (see _driveMotion). Skipped in tests
-    // and once the model has failed, like every other parameter send.
+    // Mouth clock: a steady 30 Hz tick advances the mouth toward the
+    // latest audio level (see _tickMouth). Skipped in tests, like every
+    // other parameter send.
     if (!_isFlutterTest) {
-      _motionTimer = Timer.periodic(
-        const Duration(milliseconds: 120),
-        (_) => _driveMotion(),
+      _lastMouthTick = DateTime.now();
+      _mouthTimer = Timer.periodic(
+        const Duration(milliseconds: 33),
+        (_) => _tickMouth(),
       );
     }
   }
@@ -162,27 +164,16 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     }
     if (oldWidget.isSpeaking != widget.isSpeaking && !widget.isSpeaking) {
       // Speech just ended: close the mouth promptly instead of waiting
-      // for the release smoothing to decay.
+      // for the ticker's release smoothing to decay.
+      _mouthTarget = 0.0;
       _mouth = 0.0;
-      _motionMouth = 0.0;
-      _sendMouth(force: true);
-    }
-    if ((oldWidget.isListening != widget.isListening ||
-            oldWidget.isSpeaking != widget.isSpeaking) &&
-        !widget.isSpeaking &&
-        !widget.isListening) {
-      // Back to idle: return head and gaze to centre instead of leaving
-      // the last listening drift frozen on the face.
-      _sendParam(DefaultParameterID.paramAngleX, 0.0);
-      _sendParam(DefaultParameterID.paramBodyAngleX, 0.0);
-      _sendParam(DefaultParameterID.paramEyeBallX, 0.0);
-      _sendParam(DefaultParameterID.paramEyeBallY, 0.0);
+      _sendMouth();
     }
   }
 
   @override
   void dispose() {
-    _motionTimer?.cancel();
+    _mouthTimer?.cancel();
     _levelSubscription?.cancel();
     _controller.dispose();
     super.dispose();
@@ -194,25 +185,36 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     // for normal speech, so x3 maps it to a visible 0.1-0.9 mouth range
     // without saturating wide open (x10 was calibrated for the old,
     // squared RMS value and would now pin the mouth open).
+    // Only the target is stored here: the mouth ticker (_tickMouth)
+    // advances the model value toward it on a steady clock, the way the
+    // original live2d drives the mouth from its render loop. Smoothing
+    // per audio event made the mouth jump whenever network jitter
+    // bunched the level events.
     final amplified = (rawLevel.clamp(0.0, 1.0) * 3.0).clamp(0.0, 1.0);
-    final target = widget.isSpeaking ? amplified : 0.0;
-    // Fast attack so the mouth opens on the first syllable, slow release
-    // so it does not snap shut in the gaps between words.
-    if (target > _mouth) {
-      _mouth = _mouth * 0.3 + target * 0.7;
-    } else {
-      _mouth = _mouth * 0.85 + target * 0.15;
-    }
+    _mouthTarget = widget.isSpeaking ? amplified : 0.0;
+  }
+
+  /// Advances the mouth toward [_mouthTarget] on the ticker clock and sends
+  /// it when it moved visibly. Time-based smoothing (attack ~45 ms, release
+  /// ~180 ms) replaces the old per-event smoothing: with a steady tick the
+  /// mouth opens on the first syllable, holds through short gaps, and
+  /// closes smoothly, instead of jumping with every audio burst.
+  void _tickMouth() {
+    if (!mounted || _failed || _isFlutterTest) return;
+    final now = DateTime.now();
+    final dt = now.difference(_lastMouthTick).inMilliseconds / 1000.0;
+    _lastMouthTick = now;
+    if (dt <= 0) return;
+    final tau = _mouthTarget > _mouth ? 0.045 : 0.18;
+    final k = 1.0 - math.exp(-dt / tau);
+    _mouth += (_mouthTarget - _mouth) * k;
     if (_mouth < 0.02) _mouth = 0.0;
+    if ((_mouth - _lastSentMouth).abs() < 0.01) return;
     _sendMouth();
   }
 
-  void _sendMouth({bool force = false}) {
+  void _sendMouth() {
     if (_failed || _isFlutterTest) return;
-    final now = DateTime.now();
-    if (!force && now.difference(_lastSentAt) < _minSendInterval) {
-      return;
-    }
     // Mouth shape follows the emotion (see _applyEmotion); here only the
     // opening amount is driven, so a smile stays a smile while talking.
     // setParameter with an id the model does not have is ignored by the
@@ -221,57 +223,15 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthOpenY, _mouth),
     );
-    _lastSentAt = now;
+    _lastSentMouth = _mouth;
   }
 
-  void _sendParam(String id, double value) {
-    if (_failed || _isFlutterTest) return;
-    unawaited(_controller.setParameter(id, value));
-  }
-
-  /// Small state-driven motion so the character feels alive instead of a
-  /// static picture with a moving mouth:
-  /// - speaking: gentle head bob and a slight lean that follows the mouth,
-  ///   gaze forward at the user;
-  /// - listening: slow gaze drift side to side with a slight head tilt,
-  ///   as if paying attention;
-  /// - idle: nothing is sent here; the model's own idle motion (breathing,
-  ///   blinking) runs, and the transition back to centre is handled in
-  ///   didUpdateWidget.
-  void _driveMotion() {
-    if (!mounted || _failed || _isFlutterTest) return;
-    final phase = DateTime.now().millisecondsSinceEpoch / 1000.0;
-    if (widget.isSpeaking) {
-      // Head motion follows a slow-smoothed mouth, not the syllable-fast
-      // _mouth: the raw value jumps every level event and made the head
-      // jerk (the "bergetar" shake) even while the mouth itself was right.
-      _motionMouth = _motionMouth * 0.85 + _mouth * 0.15;
-      _sendParam(
-        DefaultParameterID.paramAngleX,
-        2.0 * math.sin(phase * 4.0) * (0.3 + _motionMouth),
-      );
-      _sendParam(DefaultParameterID.paramBodyAngleX, _motionMouth * 4.0);
-      _sendParam(DefaultParameterID.paramEyeBallX, 0.1 * math.sin(phase * 1.3));
-      _sendParam(DefaultParameterID.paramEyeBallY, 0.0);
-    } else if (widget.isListening) {
-      _sendParam(DefaultParameterID.paramEyeBallX, 0.35 * math.sin(phase * 0.9));
-      _sendParam(DefaultParameterID.paramEyeBallY, 0.15 * math.cos(phase * 0.7));
-      _sendParam(DefaultParameterID.paramAngleX, 1.5 * math.sin(phase * 0.5));
-    } else {
-      // Idle: gentle sway and breathing so the character never stands
-      // frozen between lines: slow head and body drift plus a faint
-      // gaze wander. Small amplitudes on purpose; the model's own idle
-      // motions (the pose changes between screenshots) already do the
-      // bigger gestures.
-      _sendParam(DefaultParameterID.paramAngleX, 1.2 * math.sin(phase * 0.5));
-      _sendParam(
-        DefaultParameterID.paramBodyAngleX,
-        0.8 * math.sin(phase * 0.5 + 1.0),
-      );
-      _sendParam(DefaultParameterID.paramEyeBallX, 0.12 * math.sin(phase * 0.4));
-      _sendParam(DefaultParameterID.paramEyeBallY, 0.08 * math.cos(phase * 0.33));
-    }
-  }
+  // No Dart-driven head/body/gaze motion here, on purpose: the model's own
+  // idle motion already animates those parameters, and sending them from
+  // Dart every 120 ms fought the motion curves -- the rendered value
+  // flickered between the two and the whole character vibrated. The
+  // original live2d example likewise lets the model own its motion and
+  // only drives the mouth (plus discrete expression changes) from code.
 
   /// Maps the current expression to standard Cubism face parameters.
   /// Only MouthForm, eye opening and cheek (blush) are used: they exist on

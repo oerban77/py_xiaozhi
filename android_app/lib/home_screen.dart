@@ -393,13 +393,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildLiveTextArea(),
-                        // Live audio waveform (oscilloscope-style) directly
-                        // above the composer: at the very bottom, never
-                        // covering the chat box or the subtitle above it,
-                        // shown while the mic is active (listening) or the
-                        // assistant is speaking (TTS).
-                        if (widget.controller.deviceState != DeviceState.idle)
-                          _buildAudioVisualizer(),
+                        // The waveform now lives behind the avatar in the
+                        // stage Stack (see _buildAvatarStage), not here.
                         _chromeFade(child: _buildComposer()),
                       ],
                     ),
@@ -658,6 +653,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+            // Audio waveform behind the animation: the wave is the
+            // mic/TTS level backdrop, so it lives in the stage Stack
+            // under the avatar (never drawn over her), low on the
+            // stage like before, and visible in every state -- in idle
+            // it shows the live mic level, which is what makes it a
+            // true mic-path indicator.
+            Align(
+              alignment: const Alignment(0.0, 0.55),
+              child: _buildAudioVisualizer(),
+            ),
             AnimatedSlide(
           // While idle the avatar strolls around the stage (see
           // _pickWanderTarget); in any other state it eases back to the
@@ -702,7 +707,6 @@ class _HomeScreenState extends State<HomeScreen> {
   /// takes focus the composer rises above the keyboard instead of
   /// hiding behind it, in both orientations.
   Widget _buildLandscapeLayout() {
-    final controller = widget.controller;
     return Row(
       children: [
         // Left: animation, full height.
@@ -732,10 +736,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildHeader(),
                   _buildStatusBar(),
                   Expanded(child: _buildLandscapeTextArea()),
-                  // Waveform directly above the composer, same rule as
-                  // portrait: at the bottom, never covering anything.
-                  if (controller.deviceState != DeviceState.idle)
-                    _buildAudioVisualizer(),
+                  // The waveform now lives behind the avatar in the
+                  // stage Stack (see _buildAvatarStage), not here.
                   _buildComposer(),
                 ],
               ),

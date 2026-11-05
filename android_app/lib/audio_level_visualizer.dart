@@ -41,11 +41,15 @@ class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
   void initState() {
     super.initState();
     _subscription = widget.audioLevelStream.listen(_onLevel);
-    // Ticks drive the animation so the waveform keeps oscillating.
+    // Ticks drive the animation so the waveform keeps oscillating, but
+    // only while there is a visible level: in silence the wave is a flat
+    // line regardless of phase, so repeating forever would burn frames
+    // (and block pumpAndSettle in widget tests) for nothing. _onLevel
+    // starts and stops the ticker as the level rises and falls.
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
-    )..repeat();
+    );
   }
 
   @override
@@ -65,6 +69,14 @@ class _AudioLevelVisualizerState extends State<AudioLevelVisualizer>
       final double amplified = (level * _kLevelGain).clamp(0.0, 1.0);
       _level = _level * 0.6 + amplified * 0.4;
     });
+    // Run the oscillation ticker only while the wave is visible; a flat
+    // line needs no phase updates, and a stopped ticker lets the widget
+    // tree settle (widget tests, backgrounded app).
+    if (_level > 0.01) {
+      if (!_controller.isAnimating) _controller.repeat();
+    } else if (_controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   /// Gain applied to the raw RMS level before smoothing. True 16-bit PCM
