@@ -791,7 +791,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const RadioListTile<String>(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Kustom (URL model3.json)'),
+                            title: Text('Kustom (URL model3.json)'),
                             value: 'Kustom',
                           ),
                           if (_characterPreset == 'Kustom') ...[
