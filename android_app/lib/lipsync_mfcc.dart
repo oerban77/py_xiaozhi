@@ -249,6 +249,35 @@ class LipSyncAnalyzer {
     return LipSyncFrame.fromWeights(weighted);
   }
 
+  /// True when any 64 ms window in the last [lookbackSamples] of PCM
+  /// looks like human vowels. A single latest window is the wrong
+  /// thing to check for a keyword: the spotter fires after the phrase
+  /// ends (trailing blanks + decode latency), so the latest 64 ms is
+  /// already silence even when the user just spoke -- checking only it
+  /// made the wake word silently ignored (device report). Scanning the
+  /// last second catches the phrase itself. Short input returns false;
+  /// callers that must not block on too little data fail open before
+  /// calling this.
+  bool containsSpeech(
+    List<double> pcm16k, {
+    int lookbackSamples = 16000,
+  }) {
+    if (pcm16k.length < windowSamples) return false;
+    final start = pcm16k.length - lookbackSamples < 0
+        ? 0
+        : pcm16k.length - lookbackSamples;
+    // 64 ms windows, 32 ms hop. Stops at the first vowel-like window.
+    var offset = start;
+    while (offset + windowSamples <= pcm16k.length) {
+      if (analyze(pcm16k.sublist(offset, offset + windowSamples))
+          .isSpeechLike) {
+        return true;
+      }
+      offset += windowSamples ~/ 2;
+    }
+    return false;
+  }
+
   /// Linear-interpolation resampling (used to bring 24 kHz TTS PCM
   /// down to the analyzer's 16 kHz). Same rate returns a copy.
   static List<double> resampleLinear(
@@ -345,13 +374,27 @@ class LipSyncAnalyzer {
     List<double> data,
     List<double> taps,
   ) {
+    // The sinc FIR is symmetric around its center (taps[j] ==
+    // taps[n-1-j], because sin(ang)/ang is even in i - (n-1)/2), so
+    // each pair of taps shares one multiply: y[i] = sum_j taps[j] *
+    // (x[i-j] + x[i-(n-1-j)]). Same filter, half the multiplies --
+    // the MFCC parity test pins the output against the Python
+    // reference, so a mistake here fails loudly.
     final out = List<double>.filled(data.length, 0.0);
     final n = taps.length;
+    final half = n ~/ 2;
     for (var i = 0; i < data.length; i++) {
       var sum = 0.0;
-      final jMax = i < n - 1 ? i : n - 1;
-      for (var j = 0; j <= jMax; j++) {
-        sum += taps[j] * data[i - j];
+      for (var j = 0; j < half; j++) {
+        final a = i - j;
+        final b = i - (n - 1 - j);
+        final xa = a >= 0 ? data[a] : 0.0;
+        final xb = b >= 0 ? data[b] : 0.0;
+        sum += taps[j] * (xa + xb);
+      }
+      if (n % 2 == 1) {
+        final c = i - half;
+        if (c >= 0) sum += taps[half] * data[c];
       }
       out[i] = sum;
     }

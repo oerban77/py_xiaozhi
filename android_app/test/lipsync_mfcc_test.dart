@@ -240,4 +240,39 @@ void main() {
     expect(frame.dominant, 'ou');
     expect(frame.isSpeechLike, isTrue);
   });
+
+  test('containsSpeech finds a vowel even after it ends in silence', () {
+    // Regression: the wake-word gate checked only the latest 64 ms,
+    // but the spotter fires after the phrase ends, so the latest
+    // window was already silence and the wake word was ignored.
+    // A 1 s buffer with a vowel in the first half and silence after
+    // (the phrase, then the pause) must still count as speech.
+    final analyzer = LipSyncAnalyzer();
+    final vowelHalf = List<double>.generate(8000, (i) {
+      final t = i / 16000;
+      return 0.5 * math.sin(2 * math.pi * 180 * t) +
+          0.3 * math.sin(2 * math.pi * 540 * t) +
+          0.2 * math.sin(2 * math.pi * 900 * t) +
+          0.1 * math.sin(2 * math.pi * 1500 * t);
+    });
+    final phraseThenSilence = [...vowelHalf, ...List.filled(8000, 0.0)];
+    expect(analyzer.containsSpeech(phraseThenSilence), isTrue);
+    // And the latest window alone would have said silence -- that is
+    // exactly what the old check got wrong.
+    expect(analyzer.analyze(phraseThenSilence).isSpeechLike, isFalse);
+    // Silence-only and noise-only buffers still fail.
+    expect(
+      analyzer.containsSpeech(List<double>.filled(16000, 0.0)),
+      isFalse,
+    );
+    final rng = math.Random(7);
+    final noise = List<double>.generate(
+      16000,
+      (_) => (rng.nextDouble() * 2 - 1) * 0.18,
+    );
+    expect(analyzer.containsSpeech(noise), isFalse);
+    // Too little audio fails closed here (the controller fails open
+    // before calling this).
+    expect(analyzer.containsSpeech(const [0.1, -0.1]), isFalse);
+  });
 }

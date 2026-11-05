@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,41 @@ class DebugScreen extends StatefulWidget {
 
 class _DebugScreenState extends State<DebugScreen> {
   double _dragExtent = 0;
+
+  /// Refreshes the live values (audio level, lip-sync vowel) four
+  /// times a second; the screen otherwise only rebuilds on navigation,
+  /// so a snapshot would go stale mid-utterance.
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(
+      const Duration(milliseconds: 250),
+      (_) {
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Latest lip-sync frame as one line: which vowel the analyzer
+  /// thinks it hears, how wide the mouth is open, and the form shift.
+  /// Compare it with the spoken word while testing: if the vowel shown
+  /// is wrong (e.g. 'ou' while the voice says 'a'), the generic
+  /// templates misread this TTS voice and need calibration.
+  String _lipSyncText() {
+    final frame = widget.controller.lastLipSyncFrame;
+    if (frame == null) return '(no frame yet)';
+    return '${frame.dominant} open=${frame.openness.toStringAsFixed(2)} '
+        'form=${frame.formDelta.toStringAsFixed(2)} '
+        'sil=${frame.silence.toStringAsFixed(2)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +156,10 @@ class _DebugScreenState extends State<DebugScreen> {
             const SizedBox(height: 20),
             _buildDebugSection('Audio Level', [
               'Audio Level: ${widget.controller.audioLevel}',
+            ]),
+            const SizedBox(height: 20),
+            _buildDebugSection('Lip-sync', [
+              'Vowel: ${_lipSyncText()}',
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('Pending Attachments', [

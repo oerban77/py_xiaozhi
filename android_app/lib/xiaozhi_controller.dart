@@ -325,7 +325,12 @@ class XiaozhiController extends ChangeNotifier {
 
   /// 16 kHz PCM accumulator for the lip-sync analyzer (64 ms windows).
   final List<double> _lipSyncPcm = <double>[];
-  DateTime _lastLipSyncAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Latest emitted lip-sync frame, for the debug screen (no
+  /// notifyListeners -- it is polled, so a 50 Hz frame rate does not
+  /// rebuild the UI 50 times a second).
+  LipSyncFrame? _lastLipSyncFrame;
+  LipSyncFrame? get lastLipSyncFrame => _lastLipSyncFrame;
 
   /// Temporal smoothing for the vowel frames (see LipSyncSmoother):
   /// without it the winner-take-all vowel flips every frame and the
@@ -1923,17 +1928,20 @@ class XiaozhiController extends ChangeNotifier {
     });
   }
 
-  /// True when the most recent mic audio looks like human vowels
-  /// (MFCC vowel match, see [LipSyncFrame.isSpeechLike]). The energy
-  /// gates alone cannot tell speech from music or noise -- both are
-  /// loud -- so the barge-in trigger and the wake-word callback both
-  /// ask this before responding. Runs one 64 ms analysis per check,
-  /// only when a trigger is already pending, so it costs nothing in
-  /// silence. Too little buffered audio fails open (the detector needs
-  /// ~1 s to fire anyway, so the buffer is full by then in practice).
+  /// True when the recent mic audio looks like human vowels (MFCC
+  /// vowel match, see [LipSyncFrame.isSpeechLike]). The energy gates
+  /// alone cannot tell speech from music or noise -- both are loud --
+  /// so the barge-in trigger and the wake-word callback both ask this
+  /// before responding. It scans the last second of the ring buffer,
+  /// not just the latest window: the spotter fires after the phrase
+  /// ends, so the latest 64 ms is already silence. Runs a few 64 ms
+  /// analyses per check, only when a trigger is already pending, so it
+  /// costs nothing in silence. Too little buffered audio fails open
+  /// (the detector needs ~1 s to fire anyway, so the buffer is full by
+  /// then in practice).
   bool _micIsSpeechLike() {
     if (_micRingPcm.length < LipSyncAnalyzer.windowSamples) return true;
-    return _lipSyncAnalyzer.analyze(_micRingPcm).isSpeechLike;
+    return _lipSyncAnalyzer.containsSpeech(_micRingPcm);
   }
 
   /// Gemini/ChatGPT-style barge-in on user SPEECH (not just the wake
@@ -2208,11 +2216,20 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   /// Analyzes the TTS burst's vowels and emits one [LipSyncFrame] per
-  /// 64 ms window, delayed by the player-buffer latency like
-  /// [_emitTtsLevelsDelayed]. Windows overlap by 50% (512 samples), so
-  /// a frame is produced roughly every 32 ms, matching the avatar's
-  /// 30 Hz mouth ticker. A stale timer firing after an interrupt is
-  /// harmless: the avatar closes the mouth when not speaking.
+  /// 20 ms TTS frame, delayed by the player-buffer latency like
+  /// [_emitTtsLevelsDelayed]. Each analysis reads the last 64 ms window
+  /// (one-frame hop: the oldest frame's samples are dropped after each
+  /// analysis), so consecutive windows overlap by ~70% and the vowel
+  /// changes smoothly instead of jumping.
+  ///
+  /// Cadence matters: the previous version throttled analyses to one
+  /// per 33 ms of wall-clock time, but a burst's 6 frames are processed
+  /// within ~1 ms, so only one analysis ran per 120 ms burst (~8 Hz).
+  /// At 8 Hz the smoother's lag was ~300 ms (mouth behind the voice)
+  /// and the target jumped every 120 ms (mouth stepping/vibrating) --
+  /// exactly the device report on the previous build. One analysis per
+  /// frame (~50 Hz) brings the smoother lag to ~50 ms and the target
+  /// moves every 20 ms, smoother than the avatar's 30 Hz ticker.
   void _emitLipSyncDelayed(List<Int16List> frames) {
     final rate = effectiveOutputSampleRate;
     if (rate <= 0 || frames.isEmpty) return;
@@ -2224,30 +2241,25 @@ class XiaozhiController extends ChangeNotifier {
         frame.length,
         (i) => frame[i] / 32768.0,
       );
-      _lipSyncPcm.addAll(
-        LipSyncAnalyzer.resampleLinear(floats, rate, 16000),
-      );
+      final resampled = LipSyncAnalyzer.resampleLinear(floats, rate, 16000);
+      _lipSyncPcm.addAll(resampled);
       // Keep the accumulator bounded: the analyzer only ever reads the
       // last 64 ms, so anything older than two windows is dead weight.
       if (_lipSyncPcm.length > 4096) {
         _lipSyncPcm.removeRange(0, _lipSyncPcm.length - 4096);
       }
-      final now = DateTime.now();
-      if (_lipSyncPcm.length >= LipSyncAnalyzer.windowSamples &&
-          now.difference(_lastLipSyncAt).inMilliseconds >= 33) {
-        _lastLipSyncAt = now;
+      if (_lipSyncPcm.length >= LipSyncAnalyzer.windowSamples) {
         final window = _lipSyncPcm.sublist(
           _lipSyncPcm.length - LipSyncAnalyzer.windowSamples,
         );
         // Smooth the vowel weights before emitting: the raw match is
         // winner-take-all and flips every frame, which made the mouth
         // vibrate (see LipSyncSmoother).
-        final lipFrame = _lipSyncSmoother.smooth(_lipSyncAnalyzer.analyze(window));
+        final lipFrame =
+            _lipSyncSmoother.smooth(_lipSyncAnalyzer.analyze(window));
         // The analyzed window is 64 ms long and ends with this frame;
         // its audible moment is its center, 32 ms earlier than the
-        // frame end, so subtract half the window. The previous code
-        // scheduled the frame at the frame end, which put the mouth
-        // ~50 ms behind the audible vowel.
+        // frame end, so subtract half the window.
         const windowCenterMs =
             LipSyncAnalyzer.windowSamples * 1000 ~/ 16000 ~/ 2;
         final delayMs =
@@ -2255,11 +2267,12 @@ class XiaozhiController extends ChangeNotifier {
         Timer(Duration(milliseconds: delayMs < 0 ? 0 : delayMs), () {
           if (!_lipSyncController.isClosed) {
             _lipSyncController.add(lipFrame);
+            _lastLipSyncFrame = lipFrame;
           }
         });
-        // 50% overlap: drop the oldest half-window so the next analysis
-        // reads fresh audio instead of re-analyzing the same window.
-        _lipSyncPcm.removeRange(0, LipSyncAnalyzer.windowSamples ~/ 2);
+        // One-frame hop: drop the oldest frame's samples so the next
+        // analysis slides the window by exactly 20 ms.
+        _lipSyncPcm.removeRange(0, resampled.length);
       }
       offsetMs += frame.length * 1000 ~/ rate;
     }
