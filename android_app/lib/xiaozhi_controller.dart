@@ -378,6 +378,11 @@ class XiaozhiController extends ChangeNotifier {
   /// Increased from 4 to 6 frames (80ms -> 120ms) to reduce feed frequency and
   /// improve resilience to network jitter.
   static const int _ttsFeedFrames = 6;
+
+  /// One player buffer in bytes (see _startPlayerStream). The player sounds
+  /// fed audio roughly one buffer after it is fed, so mouth/waveform levels
+  /// are delayed by this long (see _emitTtsLevelsDelayed).
+  static const int _playerBufferBytes = 8192;
   /// Mirrors _TTS_FIFO_MAX_S = 10.0 in src/audio_codecs/audio_codec.py. This is a
   /// safety valve for a stalled consumer, not a jitter target: it has to be large
   /// that a slow feed never drops the *head* of an utterance. Dropping the head is
@@ -1839,7 +1844,7 @@ class XiaozhiController extends ChangeNotifier {
         // prevents "brebet" / choppy playback when frames arrive unevenly. The
         // prebuffer (_ttsPrebufferFrames = 12 frames = 240ms) ensures the buffer
         // is well-filled before playback starts, so the added latency is minimal.
-        bufferSize: 8192,
+        bufferSize: _playerBufferBytes,
       );
       _playerStarted = true;
     });
@@ -1950,6 +1955,25 @@ class XiaozhiController extends ChangeNotifier {
     // through TTS (only the uplink is suppressed), so user speech
     // during an answer can be caught here as well as by the keyword.
     _checkSpeechBargeIn(data, suppressedUntil);
+    if (!isRecording && !isSpeaking && _wakeWordMicActive) {
+      // Idle wake-word mic is live: show its level on the waveform even
+      // though nothing is being recorded. The waveform is the mic-path
+      // indicator -- flat in silence while the path is open, dancing with
+      // any sound -- so a path that died after goodbye shows up as a dead
+      // line instead of hiding behind "idle shows nothing". During TTS
+      // this stays off: the mic hears the speaker (no AEC) and must not
+      // pollute the TTS waveform.
+      if (data.length >= 2 && data.offsetInBytes % 2 == 0) {
+        final samples = Int16List.view(
+          data.buffer,
+          data.offsetInBytes,
+          data.length ~/ 2,
+        );
+        if (!_audioLevelController.isClosed) {
+          _audioLevelController.add(_rmsLevel(samples));
+        }
+      }
+    }
     if (!isRecording) return;
     _pendingMicBytes.addAll(data);
     const frameBytes = 320 * 2;
@@ -2062,13 +2086,12 @@ class XiaozhiController extends ChangeNotifier {
           // What was just played, for the speech barge-in echo guard.
           _lastTtsOutputRms = _rmsLevel(merged);
           _lastTtsOutputAt = DateTime.now();
-          // Mouth + waveform follow what is actually playing now: emit the
-          // level of the burst just fed to the player (6 frames = 120 ms
-          // of audio), not the decode-time level.
+          // Mouth + waveform follow the sound that is actually playing:
+          // one delayed level per frame (see _emitTtsLevelsDelayed),
+          // not one immediate level per burst. _ttsLevel keeps the
+          // immediate burst RMS for the debug-screen getter.
           _ttsLevel = _lastTtsOutputRms;
-          if (!_audioLevelController.isClosed) {
-            _audioLevelController.add(_ttsLevel);
-          }
+          _emitTtsLevelsDelayed(burst);
           // Its audio is playing now: show the staged segment with it.
           _promoteSubtitle();
         } catch (_) {
@@ -2083,6 +2106,33 @@ class XiaozhiController extends ChangeNotifier {
       }
     } finally {
       _ttsFeeding = false;
+    }
+  }
+
+  /// Emits one mouth/waveform level per TTS frame, delayed so each level
+  /// lands when its audio actually sounds instead of when it was fed.
+  /// The player sounds fed audio roughly one buffer after the feed
+  /// (bufferSize, ~170 ms at 24 kHz), so emitting at feed time made the
+  /// mouth move ahead of the audible speech; and one level per 6-frame
+  /// burst made the mouth step every 120 ms instead of tracking syllables.
+  /// Each frame (20 ms of audio) gets its own RMS, scheduled at buffer
+  /// latency plus its offset inside the burst, reproducing the original
+  /// 20 ms cadence at the speaker. A stale timer firing after an
+  /// interrupt is harmless: the avatar closes the mouth when not speaking,
+  /// and the waveform just shows a brief tail blip.
+  void _emitTtsLevelsDelayed(List<Int16List> frames) {
+    final rate = effectiveOutputSampleRate;
+    if (rate <= 0 || frames.isEmpty) return;
+    var offsetMs = _playerBufferBytes ~/ 2 * 1000 ~/ rate;
+    for (final frame in frames) {
+      if (frame.isEmpty) continue;
+      final level = _rmsLevel(frame);
+      Timer(Duration(milliseconds: offsetMs), () {
+        if (!_audioLevelController.isClosed) {
+          _audioLevelController.add(level);
+        }
+      });
+      offsetMs += frame.length * 1000 ~/ rate;
     }
   }
 
@@ -2232,18 +2282,17 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> _flushTtsBuffer() async {
     if (_ttsBuffer.isEmpty) return;
-    final remaining = _mergeInt16(List<Int16List>.from(_ttsBuffer));
+    final frames = List<Int16List>.from(_ttsBuffer);
+    final remaining = _mergeInt16(frames);
     _ttsBuffer.clear();
     try {
       await _player.feedInt16FromStream([remaining]).timeout(_ttsFeedTimeout);
       _lastTtsOutputRms = _rmsLevel(remaining);
       _lastTtsOutputAt = DateTime.now();
-      // Tail of the utterance: same playback-time level emission as the
+      // Tail of the utterance: same delayed per-frame emission as the
       // burst feed, so the mouth follows the tail instead of freezing.
       _ttsLevel = _lastTtsOutputRms;
-      if (!_audioLevelController.isClosed) {
-        _audioLevelController.add(_ttsLevel);
-      }
+      _emitTtsLevelsDelayed(frames);
       _promoteSubtitle();
       // The drain clock must start from the moment the final PCM actually reaches
       // the player, not from the last network frame, otherwise the hold can expire
@@ -2408,6 +2457,14 @@ class XiaozhiController extends ChangeNotifier {
     if (_wasConnected) {
       _scheduleReconnect();
     }
+    // The socket died, but the wake word is local: re-arm the detector and
+    // mic here too, not only on a clean close. Without this a server
+    // time-out "bye bye" with auto-reconnect off leaves the mic path
+    // closed (detector stopped above, mic closed by _closeSocket) and no
+    // reconnect ever restores it -- the app sits idle, waveform flat,
+    // wake word deaf. Fire-and-forget so the reconnect scheduling above
+    // does not wait for a model load.
+    unawaited(_ensureWakeWordArmed());
     notifyListeners();
   }
 

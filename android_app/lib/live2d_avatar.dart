@@ -106,19 +106,20 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   /// Smoothed mouth value in [0, 1] actually sent to the model.
   double _mouth = 0.0;
 
-  /// Last value sent to the model, for throttling.
-  double _lastSentMouth = -1.0;
   DateTime _lastSentAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Slow-smoothed mouth used only for head bob/lean amplitude, so the head
+  /// does not jerk with every syllable while the mouth itself tracks fast.
+  double _motionMouth = 0.0;
 
   bool _triedFallback = false;
   bool _failed = false;
 
-  /// Mouth updates are throttled to at most one WebView call per 50 ms;
-  /// faster than that the JS bridge cost outweighs any visible difference.
+  /// Mouth updates are throttled to at most one WebView call per 50 ms,
+  /// strictly: a big jump inside the window is held to the next tick
+  /// instead of being sent immediately, so the JS bridge gets a regular
+  /// 20 Hz stream rather than bursts that make the mouth tremble.
   static const Duration _minSendInterval = Duration(milliseconds: 50);
-
-  /// A change smaller than this is invisible, so it is not sent.
-  static const double _minSendDelta = 0.03;
 
   @override
   void initState() {
@@ -163,6 +164,7 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
       // Speech just ended: close the mouth promptly instead of waiting
       // for the release smoothing to decay.
       _mouth = 0.0;
+      _motionMouth = 0.0;
       _sendMouth(force: true);
     }
     if ((oldWidget.isListening != widget.isListening ||
@@ -208,9 +210,7 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   void _sendMouth({bool force = false}) {
     if (_failed || _isFlutterTest) return;
     final now = DateTime.now();
-    if (!force &&
-        now.difference(_lastSentAt) < _minSendInterval &&
-        (_mouth - _lastSentMouth).abs() < _minSendDelta) {
+    if (!force && now.difference(_lastSentAt) < _minSendInterval) {
       return;
     }
     // Mouth shape follows the emotion (see _applyEmotion); here only the
@@ -221,7 +221,6 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthOpenY, _mouth),
     );
-    _lastSentMouth = _mouth;
     _lastSentAt = now;
   }
 
@@ -243,11 +242,15 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     if (!mounted || _failed || _isFlutterTest) return;
     final phase = DateTime.now().millisecondsSinceEpoch / 1000.0;
     if (widget.isSpeaking) {
+      // Head motion follows a slow-smoothed mouth, not the syllable-fast
+      // _mouth: the raw value jumps every level event and made the head
+      // jerk (the "bergetar" shake) even while the mouth itself was right.
+      _motionMouth = _motionMouth * 0.85 + _mouth * 0.15;
       _sendParam(
         DefaultParameterID.paramAngleX,
-        2.0 * math.sin(phase * 4.0) * (0.3 + _mouth),
+        2.0 * math.sin(phase * 4.0) * (0.3 + _motionMouth),
       );
-      _sendParam(DefaultParameterID.paramBodyAngleX, _mouth * 4.0);
+      _sendParam(DefaultParameterID.paramBodyAngleX, _motionMouth * 4.0);
       _sendParam(DefaultParameterID.paramEyeBallX, 0.1 * math.sin(phase * 1.3));
       _sendParam(DefaultParameterID.paramEyeBallY, 0.0);
     } else if (widget.isListening) {
