@@ -296,6 +296,11 @@ class XiaozhiController extends ChangeNotifier {
   bool isConnecting = false;
   bool isRecording = false;
   bool _wakeWordMicActive = false;
+  // A wake word spoken while the socket is down (the usual aftermath of the
+  // server taking the session on "bye bye"): connect() consumes this once the
+  // socket is up and starts the conversation, so the user does not have to
+  // repeat the wake word. Cleared on every connect failure and disconnect.
+  bool _pendingWakeWordStart = false;
   StreamSubscription<bool>? _musicPlaybackSubscription;
 
   /// Live audio level (0.0–1.0) for the oscilloscope-style visualizer.
@@ -774,9 +779,13 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   /// Arms the wake word detector. Mirrors WakeWordPlugin.start: the model loads
-  /// here, and the detector subscribes to the audio stream.
-  Future<void> _startWakeWordDetector() async {
-    if (!isConnected) return;
+  /// here, and the detector subscribes to the audio stream. The detector is
+  /// on-device, so [allowOffline] lets _ensureWakeWordArmed arm it while the
+  /// socket is down (after the server took the session); the plain call keeps
+  /// the old guard so a normal connect still loads the model only after the
+  /// handshake, not competing with it for CPU.
+  Future<void> _startWakeWordDetector({bool allowOffline = false}) async {
+    if (!isConnected && !allowOffline) return;
     wakeWordDetector.onDetected = _handleWakeWordDetected;
     final result = await wakeWordDetector.start(wakeWordOptions);
     switch (result) {
@@ -828,14 +837,23 @@ class XiaozhiController extends ChangeNotifier {
   /// after goodbye. The detector itself is reloaded only when it is not
   /// running at all; when it is running but the flags were reset, only
   /// the mic stream and flags are restored, so the ONNX model is not
-  /// reloaded on every session end.
+  /// reloaded on every session end. The detector is local, so arming does
+  /// not need a socket: after the server takes the session on "bye bye"
+  /// the detector and mic are armed here even while disconnected, and a
+  /// wake word spoken then reconnects (see _handleWakeWordDetected). A
+  /// listening flag alone is not trusted either: if the recorder stream
+  /// died, the mic is reopened even when the flag still says listening.
   Future<void> _ensureWakeWordArmed() async {
-    if (!isConnected || !wakeWordOptions.enabled) return;
+    if (!wakeWordOptions.enabled) return;
     if (!wakeWordDetector.isRunning) {
-      await _startWakeWordDetector();
+      await _startWakeWordDetector(allowOffline: true);
       return;
     }
-    if (wakeWordListening) return;
+    // A listening flag alone does not prove the mic is alive: if the recorder
+    // stream died (its onError/onDone nulled the subscription), the detector
+    // hears nothing while every flag still says it is listening. Reopen the
+    // mic in that case instead of returning early.
+    if (wakeWordListening && _micSubscription != null) return;
     wakeWordDetector.onDetected = _handleWakeWordDetected;
     try {
       if (!isRecording && !_wakeWordMicActive) await _openMicStream();
@@ -865,7 +883,16 @@ class XiaozhiController extends ChangeNotifier {
   /// There is no manual mode to fall back to, so the server never waits for a
   /// listen-stop that no tap will ever send.
   void _handleWakeWordDetected(String keyword) {
-    if (!isConnected) return;
+    if (!isConnected) {
+      // The wake word fired while idle and disconnected -- the usual
+      // "bye bye" aftermath when the server took the session and
+      // auto-reconnect is off. Dropping the hit here is exactly the
+      // "wake word does nothing after goodbye" symptom, so reconnect and
+      // start the conversation once the socket is up instead.
+      _pendingWakeWordStart = true;
+      unawaited(connect());
+      return;
+    }
     if (isSpeaking) {
       // AbortReason.WAKE_WORD_DETECTED + clear_audio_queue in Python.
       _sendJson(ProtocolMessages.abort(sessionId, 'wake_word_detected'));
@@ -1025,10 +1052,27 @@ class XiaozhiController extends ChangeNotifier {
           }
         }
       }
+      // A wake word that fired while disconnected asked for a conversation:
+      // the socket is up now, so start it instead of making the user repeat
+      // the wake word.
+      if (_pendingWakeWordStart) {
+        _pendingWakeWordStart = false;
+        if (wakeWordOptions.enabled) {
+          autoSessionActive = true;
+          if (!isRecording) {
+            unawaited(startVoice());
+          }
+          _sendJson(
+            ProtocolMessages.detectText(sessionId, wakeWordOptions.wakeWord),
+          );
+          _setDeviceState(DeviceState.listening);
+        }
+      }
     } catch (error) {
       await _closeSocket();
       isConnected = false;
       isConnecting = false;
+      _pendingWakeWordStart = false;
       _reportError('Gagal terhubung: ${error.toString()}');
       emotion = '';
       liveText = '';
@@ -1051,6 +1095,7 @@ class XiaozhiController extends ChangeNotifier {
     _connectivitySubscription = null;
     if (isRecording) await stopVoice();
     await _stopWakeWordDetector();
+    _pendingWakeWordStart = false;
     autoSessionActive = false;
     isConnected = false;
     isConnecting = false;
@@ -1282,7 +1327,27 @@ class XiaozhiController extends ChangeNotifier {
     }
     _pendingMicBytes.clear();
     final stream = await _recorder.startStream(_micConfig);
-    _micSubscription = stream.listen(_handleMicData);
+    _micSubscription = stream.listen(
+      _handleMicData,
+      onError: (_) => _handleMicStreamDied(),
+      onDone: () => _handleMicStreamDied(),
+    );
+  }
+
+  /// The recorder stream died underneath us (audio-focus loss, device error):
+  /// the subscription object stays non-null but delivers nothing, so drop it
+  /// and re-arm wake word if it was the listener. Without this the app looks
+  /// armed (flags up, subscription non-null) while the detector hears silence,
+  /// and _openMicStream's non-null guard blocks every reopen attempt.
+  /// A normal _closeMicStream cancels the subscription, which does not fire
+  /// onError/onDone, so this never runs on a deliberate close.
+  void _handleMicStreamDied() {
+    if (_micSubscription == null) return;
+    _micSubscription = null;
+    if (!isRecording && wakeWordOptions.enabled) {
+      _wakeWordMicActive = false;
+      unawaited(_ensureWakeWordArmed());
+    }
   }
 
   Future<void> _closeMicStream() async {
@@ -1947,10 +2012,12 @@ class XiaozhiController extends ChangeNotifier {
     try {
       final pcm = decoder.decode(input: packet);
       if (pcm.isEmpty) return;
-      _ttsLevel = _rmsLevel(pcm);
-      if (!_audioLevelController.isClosed) {
-        _audioLevelController.add(_ttsLevel);
-      }
+      // NOTE: the mouth/waveform level used to be emitted here, at decode
+      // time, but the PCM only reaches the speaker later (after the 240 ms
+      // prebuffer plus the player queue), so the mouth moved out of sync
+      // with the audible speech. The level is now emitted in
+      // _feedTtsFromBuffer/_flushTtsBuffer, at the moment the audio is
+      // actually fed to the player.
       _lastTtsFrameAt = DateTime.now();
       // Re-arm on every frame: the watchdog is a stall detector, not a hard cap on
       // utterance length. A long answer (a story, a long explanation) used to hit
@@ -1995,6 +2062,13 @@ class XiaozhiController extends ChangeNotifier {
           // What was just played, for the speech barge-in echo guard.
           _lastTtsOutputRms = _rmsLevel(merged);
           _lastTtsOutputAt = DateTime.now();
+          // Mouth + waveform follow what is actually playing now: emit the
+          // level of the burst just fed to the player (6 frames = 120 ms
+          // of audio), not the decode-time level.
+          _ttsLevel = _lastTtsOutputRms;
+          if (!_audioLevelController.isClosed) {
+            _audioLevelController.add(_ttsLevel);
+          }
           // Its audio is playing now: show the staged segment with it.
           _promoteSubtitle();
         } catch (_) {
@@ -2164,6 +2238,12 @@ class XiaozhiController extends ChangeNotifier {
       await _player.feedInt16FromStream([remaining]).timeout(_ttsFeedTimeout);
       _lastTtsOutputRms = _rmsLevel(remaining);
       _lastTtsOutputAt = DateTime.now();
+      // Tail of the utterance: same playback-time level emission as the
+      // burst feed, so the mouth follows the tail instead of freezing.
+      _ttsLevel = _lastTtsOutputRms;
+      if (!_audioLevelController.isClosed) {
+        _audioLevelController.add(_ttsLevel);
+      }
       _promoteSubtitle();
       // The drain clock must start from the moment the final PCM actually reaches
       // the player, not from the last network frame, otherwise the hold can expire
@@ -2268,6 +2348,12 @@ class XiaozhiController extends ChangeNotifier {
     _ttsFeeding = false;
     _ttsNeedsPrebuffer = true;
     _setDeviceState(DeviceState.idle);
+    // The socket is gone but the wake word is local: re-arm the detector and
+    // mic here, so idle-after-goodbye listens even when auto-reconnect is
+    // off and no reconnect ever runs. A later reconnect re-arms again
+    // harmlessly. Fire-and-forget so the reconnect scheduling below does not
+    // wait for a model load.
+    unawaited(_ensureWakeWordArmed());
     if (!(_helloCompleter?.isCompleted ?? true)) {
       _helloCompleter!.completeError(StateError('Koneksi server ditutup'));
     }
@@ -2288,6 +2374,7 @@ class XiaozhiController extends ChangeNotifier {
     isConnecting = false;
     isRecording = false;
     wakeWordListening = false;
+    _pendingWakeWordStart = false;
     _wakeWordMicActive = false;
     mcpInitialized = false;
     mcpToolsListed = false;

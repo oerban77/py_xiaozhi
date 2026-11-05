@@ -167,6 +167,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       _attachmentBytes = bytes;
     });
+    // If the chat box is not on screen when the photo comes back (the
+    // 5 s chrome timer can fire while the user is in the camera screen,
+    // leaving the composer invisible and untappable), send the photo
+    // straight away instead of leaving an invisible attachment waiting
+    // for a Send tap the user cannot see. When the composer is visible
+    // the photo stays attached so the user can add a caption first.
+    if (!_chromeVisible && mounted) {
+      await _sendAttachment();
+    }
   }
 
   Future<void> _sendText() async {
@@ -383,12 +392,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Live audio waveform (oscilloscope-style) shown
-                        // while the mic is active (listening) or the
+                        _buildLiveTextArea(),
+                        // Live audio waveform (oscilloscope-style) directly
+                        // above the composer: at the very bottom, never
+                        // covering the chat box or the subtitle above it,
+                        // shown while the mic is active (listening) or the
                         // assistant is speaking (TTS).
                         if (widget.controller.deviceState != DeviceState.idle)
                           _buildAudioVisualizer(),
-                        _buildLiveTextArea(),
                         _chromeFade(child: _buildComposer()),
                       ],
                     ),
@@ -720,9 +731,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildHeader(),
                   _buildStatusBar(),
+                  Expanded(child: _buildLandscapeTextArea()),
+                  // Waveform directly above the composer, same rule as
+                  // portrait: at the bottom, never covering anything.
                   if (controller.deviceState != DeviceState.idle)
                     _buildAudioVisualizer(),
-                  Expanded(child: _buildLandscapeTextArea()),
                   _buildComposer(),
                 ],
               ),
