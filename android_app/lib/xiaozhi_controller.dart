@@ -18,6 +18,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'chat_message.dart';
 import 'attachment_text_reader.dart';
 import 'emotion_service.dart';
+import 'lipsync_mfcc.dart';
 import 'live2d_characters.dart';
 import 'mcp_runtime.dart';
 import 'music_runtime.dart';
@@ -309,6 +310,22 @@ class XiaozhiController extends ChangeNotifier {
   final StreamController<double> _audioLevelController =
       StreamController<double>.broadcast();
   Stream<double> get audioLevelStream => _audioLevelController.stream;
+
+  /// Lip-sync phoneme analysis (MFCC + vowel templates, see
+  /// lipsync_mfcc.dart) for the Live2D mouth. The TTS PCM is analyzed
+  /// in the feed path and the resulting vowel frame is emitted on
+  /// [lipSyncStream], delayed by the same player-buffer latency as the
+  /// RMS levels, so the mouth shape lands when its audio actually
+  /// sounds. The avatar falls back to the RMS-only mouth when nothing
+  /// listens to this stream.
+  final LipSyncAnalyzer _lipSyncAnalyzer = LipSyncAnalyzer();
+  final StreamController<LipSyncFrame> _lipSyncController =
+      StreamController<LipSyncFrame>.broadcast();
+  Stream<LipSyncFrame> get lipSyncStream => _lipSyncController.stream;
+
+  /// 16 kHz PCM accumulator for the lip-sync analyzer (64 ms windows).
+  final List<double> _lipSyncPcm = <double>[];
+  DateTime _lastLipSyncAt = DateTime.fromMillisecondsSinceEpoch(0);
   /// Current audio level (0.0–1.0), reflecting the mic level while listening
   /// or the TTS level while speaking. Exposed for the debug screen.
   double get audioLevel =>
@@ -2092,6 +2109,7 @@ class XiaozhiController extends ChangeNotifier {
           // immediate burst RMS for the debug-screen getter.
           _ttsLevel = _lastTtsOutputRms;
           _emitTtsLevelsDelayed(burst);
+          _emitLipSyncDelayed(burst);
           // Its audio is playing now: show the staged segment with it.
           _promoteSubtitle();
         } catch (_) {
@@ -2132,6 +2150,55 @@ class XiaozhiController extends ChangeNotifier {
           _audioLevelController.add(level);
         }
       });
+      offsetMs += frame.length * 1000 ~/ rate;
+    }
+  }
+
+  /// Analyzes the TTS burst's vowels and emits one [LipSyncFrame] per
+  /// 64 ms window, delayed by the player-buffer latency like
+  /// [_emitTtsLevelsDelayed]. Windows overlap by 50% (512 samples), so
+  /// a frame is produced roughly every 32 ms, matching the avatar's
+  /// 30 Hz mouth ticker. A stale timer firing after an interrupt is
+  /// harmless: the avatar closes the mouth when not speaking.
+  void _emitLipSyncDelayed(List<Int16List> frames) {
+    final rate = effectiveOutputSampleRate;
+    if (rate <= 0 || frames.isEmpty) return;
+    var offsetMs = _playerBufferBytes ~/ 2 * 1000 ~/ rate;
+    for (final frame in frames) {
+      if (frame.isEmpty) continue;
+      // Resample this 20 ms frame to the analyzer's 16 kHz and append.
+      final floats = List<double>.generate(
+        frame.length,
+        (i) => frame[i] / 32768.0,
+      );
+      _lipSyncPcm.addAll(
+        LipSyncAnalyzer.resampleLinear(floats, rate, 16000),
+      );
+      // Keep the accumulator bounded: the analyzer only ever reads the
+      // last 64 ms, so anything older than two windows is dead weight.
+      if (_lipSyncPcm.length > 4096) {
+        _lipSyncPcm.removeRange(0, _lipSyncPcm.length - 4096);
+      }
+      final now = DateTime.now();
+      if (_lipSyncPcm.length >= LipSyncAnalyzer.windowSamples &&
+          now.difference(_lastLipSyncAt).inMilliseconds >= 33) {
+        _lastLipSyncAt = now;
+        final window = _lipSyncPcm.sublist(
+          _lipSyncPcm.length - LipSyncAnalyzer.windowSamples,
+        );
+        final lipFrame = _lipSyncAnalyzer.analyze(window);
+        // The window ends with this frame, so its audible moment is
+        // the buffer latency plus this frame's offset in the burst.
+        final delayMs = offsetMs + frame.length * 1000 ~/ rate;
+        Timer(Duration(milliseconds: delayMs), () {
+          if (!_lipSyncController.isClosed) {
+            _lipSyncController.add(lipFrame);
+          }
+        });
+        // 50% overlap: drop the oldest half-window so the next analysis
+        // reads fresh audio instead of re-analyzing the same window.
+        _lipSyncPcm.removeRange(0, LipSyncAnalyzer.windowSamples ~/ 2);
+      }
       offsetMs += frame.length * 1000 ~/ rate;
     }
   }
@@ -2293,6 +2360,7 @@ class XiaozhiController extends ChangeNotifier {
       // burst feed, so the mouth follows the tail instead of freezing.
       _ttsLevel = _lastTtsOutputRms;
       _emitTtsLevelsDelayed(frames);
+      _emitLipSyncDelayed(frames);
       _promoteSubtitle();
       // The drain clock must start from the moment the final PCM actually reaches
       // the player, not from the last network frame, otherwise the hold can expire

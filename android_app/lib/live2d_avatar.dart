@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:live2d/live2d.dart';
 
 import 'emotion_display.dart';
+import 'lipsync_mfcc.dart';
 import 'live2d_emotion.dart';
 
 /// Live2D avatar that replaces the old GIF/emoji [EmotionDisplay].
@@ -39,6 +40,7 @@ class Live2DAvatar extends StatefulWidget {
     required this.isSpeaking,
     this.isListening = false,
     required this.audioLevelStream,
+    this.lipSyncStream,
     this.size = 240.0,
     this.height,
     this.modelUrl = primaryModelUrl,
@@ -62,6 +64,13 @@ class Live2DAvatar extends StatefulWidget {
   /// listening). True RMS is typically 0.03-0.3, so it is amplified the
   /// same way [AudioLevelVisualizer] does (x3, clamped to [0, 1]).
   final Stream<double> audioLevelStream;
+
+  /// Lip-sync vowel frames from [XiaozhiController.lipSyncStream]
+  /// (MFCC + vowel templates, see lipsync_mfcc.dart). When provided,
+  /// the mouth opening follows the vowel being spoken and the mouth
+  /// form shifts with it, instead of the RMS-only open/close. When
+  /// null (widget tests, older callers) the RMS mouth is used.
+  final Stream<LipSyncFrame>? lipSyncStream;
 
   final double size;
 
@@ -100,6 +109,25 @@ bool get _isFlutterTest =>
 class _Live2DAvatarState extends State<Live2DAvatar> {
   late final Live2DController _controller;
   StreamSubscription<double>? _levelSubscription;
+  StreamSubscription<LipSyncFrame>? _lipSyncSubscription;
+
+  /// Latest lip-sync frame from [LipSyncFrame]; null until the first
+  /// analyzed window arrives. While speaking the mouth opening and
+  /// form come from this frame, not from the RMS level.
+  LipSyncFrame? _lipSyncFrame;
+
+  /// Smoothed mouth form in [-1, 1] actually sent to the model:
+  /// the emotion's mouth form plus the current vowel's shift.
+  double _mouthForm = 0.0;
+
+  /// Last mouth form sent to the model; the ticker only sends when
+  /// the value moved enough to be visible.
+  double _lastSentMouthForm = -2.0;
+
+  /// The emotion face's mouth form (see _applyEmotion): the baseline
+  /// the vowel shift is added to, so a smile stays a smile while
+  /// talking and the face returns to it when speech ends.
+  double _emotionMouthForm = 0.1;
 
   /// Regular ticker driving the mouth toward [_mouthTarget] (see _tickMouth):
   /// the original live2d updates the mouth in the render loop, not on
@@ -129,6 +157,12 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     _controller.onModelLoaded = (_) => _applyEmotion();
     _controller.onError = (_) => _onModelError();
     _levelSubscription = widget.audioLevelStream.listen(_onLevel);
+    final lipSyncStream = widget.lipSyncStream;
+    if (lipSyncStream != null) {
+      _lipSyncSubscription = lipSyncStream.listen((frame) {
+        if (mounted) _lipSyncFrame = frame;
+      });
+    }
     // Mouth clock: a steady 30 Hz tick advances the mouth toward the
     // latest audio level (see _tickMouth). Skipped in tests, like every
     // other parameter send.
@@ -164,9 +198,12 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     }
     if (oldWidget.isSpeaking != widget.isSpeaking && !widget.isSpeaking) {
       // Speech just ended: close the mouth promptly instead of waiting
-      // for the ticker's release smoothing to decay.
+      // for the ticker's release smoothing to decay, and return the
+      // mouth form to the emotion face.
       _mouthTarget = 0.0;
       _mouth = 0.0;
+      _lipSyncFrame = null;
+      _mouthForm = _emotionMouthForm;
       _sendMouth();
     }
   }
@@ -175,12 +212,16 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   void dispose() {
     _mouthTimer?.cancel();
     _levelSubscription?.cancel();
+    _lipSyncSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   void _onLevel(double rawLevel) {
     if (!mounted) return;
+    // Lip-sync owns the mouth when it is connected: the vowel frames
+    // carry their own opening, so the RMS level must not overwrite it.
+    if (_lipSyncSubscription != null) return;
     // Same gain as AudioLevelVisualizer: true 16-bit PCM RMS is ~0.03-0.3
     // for normal speech, so x3 maps it to a visible 0.1-0.9 mouth range
     // without saturating wide open (x10 was calibrated for the old,
@@ -194,36 +235,63 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     _mouthTarget = widget.isSpeaking ? amplified : 0.0;
   }
 
-  /// Advances the mouth toward [_mouthTarget] on the ticker clock and sends
-  /// it when it moved visibly. Time-based smoothing (attack ~45 ms, release
-  /// ~180 ms) replaces the old per-event smoothing: with a steady tick the
-  /// mouth opens on the first syllable, holds through short gaps, and
-  /// closes smoothly, instead of jumping with every audio burst.
+  /// Advances the mouth toward its target on the ticker clock and sends
+  /// it when it moved visibly. Time-based smoothing (attack ~45 ms,
+  /// release ~180 ms) replaces the old per-event smoothing: with a steady
+  /// tick the mouth opens on the first syllable, holds through short gaps,
+  /// and closes smoothly, instead of jumping with every audio burst.
+  /// The opening target comes from the latest lip-sync frame when one is
+  /// connected (vowel-driven opening), otherwise from the RMS level.
+  /// The form target is the emotion's mouth form plus the current vowel's
+  /// shift, so the shape follows the vowel while the emotion face stays
+  /// dominant; it returns to the emotion form when speech ends.
   void _tickMouth() {
     if (!mounted || _failed || _isFlutterTest) return;
     final now = DateTime.now();
     final dt = now.difference(_lastMouthTick).inMilliseconds / 1000.0;
     _lastMouthTick = now;
     if (dt <= 0) return;
-    final tau = _mouthTarget > _mouth ? 0.045 : 0.18;
-    final k = 1.0 - math.exp(-dt / tau);
-    _mouth += (_mouthTarget - _mouth) * k;
+    final openTarget = widget.isSpeaking
+        ? (_lipSyncFrame?.openness ?? _mouthTarget)
+        : 0.0;
+    final formTarget = (widget.isSpeaking
+            ? _emotionMouthForm + (_lipSyncFrame?.formDelta ?? 0.0)
+            : _emotionMouthForm)
+        .clamp(-1.0, 1.0);
+    final tauOpen = openTarget > _mouth ? 0.045 : 0.18;
+    final kOpen = 1.0 - math.exp(-dt / tauOpen);
+    _mouth += (openTarget - _mouth) * kOpen;
     if (_mouth < 0.02) _mouth = 0.0;
-    if ((_mouth - _lastSentMouth).abs() < 0.01) return;
+    // The form changes a little slower than the opening, so a vowel
+    // change reads as a shape shift rather than a flicker.
+    final kForm = 1.0 - math.exp(-dt / 0.09);
+    _mouthForm += (formTarget - _mouthForm) * kForm;
+    if ((_mouth - _lastSentMouth).abs() < 0.01 &&
+        (_mouthForm - _lastSentMouthForm).abs() < 0.01) {
+      return;
+    }
     _sendMouth();
   }
 
   void _sendMouth() {
     if (_failed || _isFlutterTest) return;
-    // Mouth shape follows the emotion (see _applyEmotion); here only the
-    // opening amount is driven, so a smile stays a smile while talking.
-    // setParameter with an id the model does not have is ignored by the
-    // Cubism core, and the package catches JS errors, so a cat model
-    // without a given parameter simply does not move that part.
+    // Opening follows the vowel (or the RMS level when no lip-sync
+    // stream is connected); the form is the emotion face plus the
+    // vowel's shift. setParameter with an id the model does not have
+    // is ignored by the Cubism core, and the package catches JS errors,
+    // so a cat model without a given parameter simply does not move
+    // that part.
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthOpenY, _mouth),
     );
+    unawaited(
+      _controller.setParameter(
+        DefaultParameterID.paramMouthForm,
+        _mouthForm,
+      ),
+    );
     _lastSentMouth = _mouth;
+    _lastSentMouthForm = _mouthForm;
   }
 
   // No Dart-driven head/body/gaze motion here, on purpose: the model's own
@@ -254,6 +322,10 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
             isListening: widget.isListening,
           )
         : Live2DEmotionFace.forEmotion(widget.emotion);
+    // The emotion form is the baseline the lip-sync vowel shift is
+    // added to (see _tickMouth); it is sent immediately here and the
+    // ticker keeps sending the combined value while speaking.
+    _emotionMouthForm = face.mouthForm;
     unawaited(
       _controller.setParameter(DefaultParameterID.paramMouthForm, face.mouthForm),
     );

@@ -685,6 +685,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isSpeaking: controller.deviceState == DeviceState.speaking,
               isListening: controller.deviceState == DeviceState.listening,
               audioLevelStream: controller.audioLevelStream,
+              lipSyncStream: controller.lipSyncStream,
               size: constraints.maxWidth,
               height: constraints.maxHeight,
               modelUrl: controller.characterModelUrl,
