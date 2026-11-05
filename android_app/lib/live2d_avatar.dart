@@ -204,7 +204,7 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
       _mouth = 0.0;
       _lipSyncFrame = null;
       _mouthForm = _emotionMouthForm;
-      _sendMouth();
+      _sendMouth(forceOpen: true, forceForm: true);
     }
   }
 
@@ -266,14 +266,16 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     // change reads as a shape shift rather than a flicker.
     final kForm = 1.0 - math.exp(-dt / 0.09);
     _mouthForm += (formTarget - _mouthForm) * kForm;
-    if ((_mouth - _lastSentMouth).abs() < 0.01 &&
-        (_mouthForm - _lastSentMouthForm).abs() < 0.01) {
-      return;
-    }
     _sendMouth();
   }
 
-  void _sendMouth() {
+  /// Sends the mouth parameters that actually moved. Each parameter is
+  /// sent only when it moved visibly (>= 0.01) -- the previous version
+  /// sent both whenever either moved, so a jittering form re-sent the
+  /// opening on every tick too, doubling the WebView bridge traffic
+  /// and contributing to the slowness. The speech-end snap in
+  /// didUpdateWidget forces both.
+  void _sendMouth({bool forceOpen = false, bool forceForm = false}) {
     if (_failed || _isFlutterTest) return;
     // Opening follows the vowel (or the RMS level when no lip-sync
     // stream is connected); the form is the emotion face plus the
@@ -281,17 +283,24 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
     // is ignored by the Cubism core, and the package catches JS errors,
     // so a cat model without a given parameter simply does not move
     // that part.
-    unawaited(
-      _controller.setParameter(DefaultParameterID.paramMouthOpenY, _mouth),
-    );
-    unawaited(
-      _controller.setParameter(
-        DefaultParameterID.paramMouthForm,
-        _mouthForm,
-      ),
-    );
-    _lastSentMouth = _mouth;
-    _lastSentMouthForm = _mouthForm;
+    if (forceOpen || (_mouth - _lastSentMouth).abs() >= 0.01) {
+      unawaited(
+        _controller.setParameter(
+          DefaultParameterID.paramMouthOpenY,
+          _mouth,
+        ),
+      );
+      _lastSentMouth = _mouth;
+    }
+    if (forceForm || (_mouthForm - _lastSentMouthForm).abs() >= 0.01) {
+      unawaited(
+        _controller.setParameter(
+          DefaultParameterID.paramMouthForm,
+          _mouthForm,
+        ),
+      );
+      _lastSentMouthForm = _mouthForm;
+    }
   }
 
   // No Dart-driven head/body/gaze motion here, on purpose: the model's own

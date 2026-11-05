@@ -129,6 +129,20 @@ class LipSyncFrame {
     return best;
   }
 
+  /// True when this window looks like human vowels rather than noise,
+  /// a tone, or silence: a clear vowel wins and the silence share is
+  /// low. Used as a speech gate for the mic (barge-in and wake word),
+  /// so music and ambient noise do not trigger a response. Measured
+  /// separation (see the gate test): a vowel scores 0.7-1.0, white
+  /// noise and a pure tone score 0.0 (silence gate), a quiet vowel
+  /// 0.72. Known limit: harmonic music (a chord) scores like a vowel
+  /// (its harmonics resemble formants) and still passes -- the gate
+  /// rejects noise and tones, not sung or chordal music.
+  bool get isSpeechLike {
+    if (silence >= 0.5 || dominant == 'silence') return false;
+    return (weights[dominant] ?? 0.0) >= 0.4;
+  }
+
   /// Builds a frame from volume-weighted phoneme weights (speech
   /// weights already multiplied by the normalized volume).
   factory LipSyncFrame.fromWeights(Map<String, double> weights) {
@@ -496,4 +510,55 @@ class LipSyncAnalyzer {
     }
     return out;
   }
+}
+
+/// Temporal smoothing for the vowel weights (the original uLipSync
+/// smooths the blendshape weights on the consumer side too -- the job
+/// itself is winner-take-all, see LipSyncJob.CalcCosineSimilarityScore
+/// with its ^100 exponent, so a single frame can flip aa -> ou on a
+/// breath. Without smoothing, the mouth form flips every 33 ms and the
+/// avatar vibrates (and the WebView bridge is hammered with a form send
+/// on every tick). A one-pole blend (alpha 0.4 at ~30 Hz, ~80 ms time
+/// constant) averages one-frame flips away while tracking real vowel
+/// changes within ~3 frames. A confidence gate damps the opening when
+/// no vowel clearly wins (uncertain windows: breaths, transitions,
+/// noise) instead of opening on a guess.
+class LipSyncSmoother {
+  LipSyncSmoother({this.alpha = 0.4, this.minConfidentWeight = 0.4});
+
+  /// Weight of the newest frame (0..1); higher tracks faster.
+  final double alpha;
+
+  /// Smoothed dominant weight below this damps the opening toward 0.
+  final double minConfidentWeight;
+
+  Map<String, double>? _smoothed;
+
+  LipSyncFrame smooth(LipSyncFrame frame) {
+    final previous = _smoothed;
+    final blended = <String, double>{};
+    for (final key in frame.weights.keys) {
+      final current = frame.weights[key] ?? 0.0;
+      final old = previous?[key] ?? 0.0;
+      blended[key] =
+          previous == null ? current : alpha * current + (1.0 - alpha) * old;
+    }
+    _smoothed = blended;
+    final smoothedFrame = LipSyncFrame.fromWeights(blended);
+    // Confidence gate: a spread-out weight distribution (no vowel
+    // clearly winning) is a breath, a transition, or noise -- damp the
+    // opening instead of opening on a guess.
+    final dominantWeight = blended[smoothedFrame.dominant] ?? 0.0;
+    final confidence =
+        (dominantWeight / minConfidentWeight).clamp(0.0, 1.0);
+    if (confidence >= 1.0) return smoothedFrame;
+    return LipSyncFrame(
+      weights: smoothedFrame.weights,
+      openness: smoothedFrame.openness * confidence,
+      formDelta: smoothedFrame.formDelta * confidence,
+      silence: smoothedFrame.silence,
+    );
+  }
+
+  void reset() => _smoothed = null;
 }

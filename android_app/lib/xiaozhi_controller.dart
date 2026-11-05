@@ -326,6 +326,20 @@ class XiaozhiController extends ChangeNotifier {
   /// 16 kHz PCM accumulator for the lip-sync analyzer (64 ms windows).
   final List<double> _lipSyncPcm = <double>[];
   DateTime _lastLipSyncAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Temporal smoothing for the vowel frames (see LipSyncSmoother):
+  /// without it the winner-take-all vowel flips every frame and the
+  /// mouth vibrates. Stateful across utterances on purpose -- the
+  /// carry-over is one or two blended frames at most.
+  final LipSyncSmoother _lipSyncSmoother = LipSyncSmoother();
+
+  /// Ring buffer of recent mic audio (16 kHz mono floats, last 1 s)
+  /// for the speech gate: barge-in and the wake word must only fire on
+  /// human vowels, not on music or ambient noise (see
+  /// [LipSyncFrame.isSpeechLike]). Filled in [_handleMicData] before
+  /// the detector is fed, so the audio that triggered a detection is
+  /// already in the buffer when the gate checks it.
+  final List<double> _micRingPcm = <double>[];
   /// Current audio level (0.0–1.0), reflecting the mic level while listening
   /// or the TTS level while speaking. Exposed for the debug screen.
   double get audioLevel =>
@@ -905,6 +919,12 @@ class XiaozhiController extends ChangeNotifier {
   /// There is no manual mode to fall back to, so the server never waits for a
   /// listen-stop that no tap will ever send.
   void _handleWakeWordDetected(String keyword) {
+    // The keyword spotter can fire on music or noise that happens to
+    // contain similar phonemes. Only act when the audio that triggered
+    // it actually contains human vowels; otherwise ignore the hit
+    // instead of answering the music. (The detector already paused
+    // itself for 300 ms; that brief pause is harmless.)
+    if (!_micIsSpeechLike()) return;
     if (!isConnected) {
       // The wake word fired while idle and disconnected -- the usual
       // "bye bye" aftermath when the server took the session and
@@ -1903,6 +1923,19 @@ class XiaozhiController extends ChangeNotifier {
     });
   }
 
+  /// True when the most recent mic audio looks like human vowels
+  /// (MFCC vowel match, see [LipSyncFrame.isSpeechLike]). The energy
+  /// gates alone cannot tell speech from music or noise -- both are
+  /// loud -- so the barge-in trigger and the wake-word callback both
+  /// ask this before responding. Runs one 64 ms analysis per check,
+  /// only when a trigger is already pending, so it costs nothing in
+  /// silence. Too little buffered audio fails open (the detector needs
+  /// ~1 s to fire anyway, so the buffer is full by then in practice).
+  bool _micIsSpeechLike() {
+    if (_micRingPcm.length < LipSyncAnalyzer.windowSamples) return true;
+    return _lipSyncAnalyzer.analyze(_micRingPcm).isSpeechLike;
+  }
+
   /// Gemini/ChatGPT-style barge-in on user SPEECH (not just the wake
   /// word) while the assistant is speaking. A trigger needs sustained
   /// speech-level energy, not a click or a noise burst, and it must
@@ -1946,6 +1979,11 @@ class XiaozhiController extends ChangeNotifier {
       _speechLoudMs += sampleCount / 16.0;
       if (_speechLoudMs >= 400) {
         _speechLoudMs = 0;
+        // Energy alone cannot tell speech from music or noise -- both
+        // are loud for 400 ms. Only interrupt when the sustained sound
+        // actually contains human vowels; otherwise reset and wait for
+        // the next 400 ms window instead of answering the music.
+        if (!_micIsSpeechLike()) return;
         unawaited(interrupt());
       }
     } else {
@@ -1954,6 +1992,21 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   void _handleMicData(Uint8List data) {
+    // Feed the speech-gate ring buffer first: the wake word and the
+    // barge-in check below both read it, and the audio that triggers a
+    // detection must already be in it when they do.
+    if (data.length >= 2) {
+      final byteData = ByteData.sublistView(data);
+      final count = data.length ~/ 2;
+      for (var i = 0; i < count; i++) {
+        _micRingPcm.add(byteData.getInt16(i * 2, Endian.little) / 32768.0);
+      }
+      // Keep the last 1 s (16 kHz); the gate only ever reads the last
+      // 64 ms, so anything older is dead weight.
+      if (_micRingPcm.length > 16000) {
+        _micRingPcm.removeRange(0, _micRingPcm.length - 16000);
+      }
+    }
     // The wake word detector taps the same 16 kHz PCM16 stream the uplink uses,
     // so no second recorder is opened. It must see the audio even while the uplink
     // is suppressed: the whole point of the wake word is to interrupt TTS, and
@@ -2186,11 +2239,20 @@ class XiaozhiController extends ChangeNotifier {
         final window = _lipSyncPcm.sublist(
           _lipSyncPcm.length - LipSyncAnalyzer.windowSamples,
         );
-        final lipFrame = _lipSyncAnalyzer.analyze(window);
-        // The window ends with this frame, so its audible moment is
-        // the buffer latency plus this frame's offset in the burst.
-        final delayMs = offsetMs + frame.length * 1000 ~/ rate;
-        Timer(Duration(milliseconds: delayMs), () {
+        // Smooth the vowel weights before emitting: the raw match is
+        // winner-take-all and flips every frame, which made the mouth
+        // vibrate (see LipSyncSmoother).
+        final lipFrame = _lipSyncSmoother.smooth(_lipSyncAnalyzer.analyze(window));
+        // The analyzed window is 64 ms long and ends with this frame;
+        // its audible moment is its center, 32 ms earlier than the
+        // frame end, so subtract half the window. The previous code
+        // scheduled the frame at the frame end, which put the mouth
+        // ~50 ms behind the audible vowel.
+        const windowCenterMs =
+            LipSyncAnalyzer.windowSamples * 1000 ~/ 16000 ~/ 2;
+        final delayMs =
+            offsetMs + frame.length * 1000 ~/ rate - windowCenterMs;
+        Timer(Duration(milliseconds: delayMs < 0 ? 0 : delayMs), () {
           if (!_lipSyncController.isClosed) {
             _lipSyncController.add(lipFrame);
           }

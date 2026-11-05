@@ -136,4 +136,108 @@ void main() {
     expect(resampled, input);
     expect(identical(resampled, input), isFalse);
   });
+
+  test('smoother averages one-frame vowel flips away', () {
+    final smoother = LipSyncSmoother();
+    Map<String, double> weights(String vowel) => {
+          'aa': vowel == 'aa' ? 1.0 : 0.0,
+          'ee': 0.0,
+          'ih': 0.0,
+          'oh': 0.0,
+          'ou': vowel == 'ou' ? 1.0 : 0.0,
+          'silence': 0.0,
+        };
+    // First frame passes through unblended.
+    final first = smoother.smooth(LipSyncFrame.fromWeights(weights('aa')));
+    expect(first.openness, 1.0);
+    // A one-frame flip to ou blends 0.4 new / 0.6 old: openness
+    // 0.6*1.0 + 0.4*0.5 = 0.8, form 0.6*0.0 + 0.4*(-0.3) = -0.12 --
+    // the mouth moves toward ou instead of jumping to it.
+    final flipped = smoother.smooth(LipSyncFrame.fromWeights(weights('ou')));
+    expect(flipped.openness, closeTo(0.8, 0.01));
+    expect(flipped.formDelta, closeTo(-0.12, 0.01));
+    // Back to aa: 0.76 aa / 0.24 ou -> openness 0.88.
+    final back = smoother.smooth(LipSyncFrame.fromWeights(weights('aa')));
+    expect(back.openness, closeTo(0.88, 0.01));
+  });
+
+  test('smoother damps the opening when no vowel clearly wins', () {
+    final smoother = LipSyncSmoother();
+    // Spread weights: every vowel 0.2, dominant 0.2 < 0.4 threshold,
+    // so confidence is 0.5 and the raw openness 0.73 is halved.
+    final spread = smoother.smooth(
+      LipSyncFrame.fromWeights({
+        'aa': 0.2,
+        'ee': 0.2,
+        'ih': 0.2,
+        'oh': 0.2,
+        'ou': 0.2,
+        'silence': 0.0,
+      }),
+    );
+    expect(spread.openness, closeTo(0.365, 0.01));
+  });
+
+  test('smoother reset passes the next frame through unblended', () {
+    final smoother = LipSyncSmoother();
+    Map<String, double> weights(String vowel) => {
+          'aa': vowel == 'aa' ? 1.0 : 0.0,
+          'ee': 0.0,
+          'ih': 0.0,
+          'oh': 0.0,
+          'ou': vowel == 'ou' ? 1.0 : 0.0,
+          'silence': 0.0,
+        };
+    smoother.smooth(LipSyncFrame.fromWeights(weights('aa')));
+    smoother.smooth(LipSyncFrame.fromWeights(weights('ou')));
+    smoother.reset();
+    final afterReset =
+        smoother.smooth(LipSyncFrame.fromWeights(weights('ou')));
+    expect(afterReset.openness, 0.5);
+    expect(afterReset.formDelta, -0.3);
+  });
+
+  test('isSpeechLike separates vowels from noise and tones', () {
+    final analyzer = LipSyncAnalyzer();
+    // Vowel (and a quiet one) pass.
+    expect(analyzer.analyze(testSignal()).isSpeechLike, isTrue);
+    final quietVowel = List<double>.generate(1024, (i) {
+      final t = i / 16000;
+      return 0.02 * math.sin(2 * math.pi * 180 * t) +
+          0.012 * math.sin(2 * math.pi * 540 * t);
+    });
+    expect(analyzer.analyze(quietVowel).isSpeechLike, isTrue);
+    // Silence, white noise and a pure tone fail.
+    expect(
+      analyzer.analyze(List<double>.filled(1024, 0.0)).isSpeechLike,
+      isFalse,
+    );
+    final rng = math.Random(42);
+    final noise = List<double>.generate(
+      1024,
+      (_) => (rng.nextDouble() * 2 - 1) * 0.18,
+    );
+    expect(analyzer.analyze(noise).isSpeechLike, isFalse);
+    final tone = List<double>.generate(
+      1024,
+      (i) => 0.4 * math.sin(2 * math.pi * 440 * i / 16000),
+    );
+    expect(analyzer.analyze(tone).isSpeechLike, isFalse);
+  });
+
+  test('harmonic music still passes the vowel gate (known limit)', () {
+    // A C-major chord's harmonics resemble vowel formants closely
+    // enough to match the ou template -- the gate rejects noise and
+    // tones, not chordal or sung music. This test pins that behavior
+    // so a future change cannot silently claim otherwise.
+    final chord = List<double>.generate(1024, (i) {
+      final t = i / 16000;
+      return 0.25 * math.sin(2 * math.pi * 262 * t) +
+          0.25 * math.sin(2 * math.pi * 330 * t) +
+          0.25 * math.sin(2 * math.pi * 392 * t);
+    });
+    final frame = LipSyncAnalyzer().analyze(chord);
+    expect(frame.dominant, 'ou');
+    expect(frame.isSpeechLike, isTrue);
+  });
 }
