@@ -94,7 +94,31 @@ function frameCamera(object) {
   // Fit the model's height into the view with a small margin, so a
   // half-body model fills the stage like Haru does and a full-body
   // model stands back far enough to be fully visible.
-  const box = new THREE.Box3().setFromObject(object);
+  //
+  // Do NOT use Box3.setFromObject here: for a SkinnedMesh it uses the
+  // cached SkinnedMesh.boundingBox, which is computed from the
+  // skeleton's bone matrices -- at load time (before the first render)
+  // those are stale, so the box comes out tiny and near the origin
+  // (x +-0.12, y -0.08..0.22 for halfBody) instead of the real model
+  // (x +-0.84, y 0.25..0.79). The camera then looks below the model
+  // and the model is out of frame -- the stage stays empty even though
+  // the model loaded and the loop runs (proven 2026-11-06: 8621
+  // triangles drawn, 0 pixels, camera at y 0.09 looking at y 0.07).
+  // Use the geometry bounding boxes (bind pose) instead: they are
+  // correct at load time and do not depend on the skeleton.
+  object.updateWorldMatrix(false, true);
+  const box = new THREE.Box3();
+  object.traverse((node) => {
+    if (node.isMesh && node.geometry) {
+      if (node.geometry.boundingBox === null) {
+        node.geometry.computeBoundingBox();
+      }
+      box.union(
+        node.geometry.boundingBox.clone().applyMatrix4(node.matrixWorld),
+      );
+    }
+  });
+  if (box.isEmpty()) return; // keep the default camera position.
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   const halfH = Math.max(size.y, 0.5) / 2;
