@@ -79,6 +79,11 @@ flutter:
     # (src/ui/gui/services/emotion_service.py). Shown in the chat header next to
     # the status and the live TTS text, exactly like the desktop GUI.
     - assets/emojis/
-    # 3D avatar viewer page (three.js, see lib/avatar_3d.dart). The
-    # .glb model itself is NOT bundled: it loads on demand from its URL.
+    # 3D avatar (see lib/avatar_3d.dart): the three.js viewer page,
+    # the r160 renderer + addons, and the default halfBody.glb model,
+    # all bundled as assets so the 3D avatar opens instantly with no
+    # download and works offline (APK grows by ~6.8 MB).
     - assets/threejs/avatar3d.html
+    - assets/threejs/three.module.min.js
+    - assets/threejs/addons/
+    - assets/threejs/models/halfBody.glb

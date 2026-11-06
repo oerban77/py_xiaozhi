@@ -24,6 +24,12 @@ import 'lipsync_mfcc.dart';
 /// name, plus skeletal clips (including separate Mixamo clip files
 /// applied to the avatar skeleton by bone name).
 ///
+/// Everything the page needs is bundled as Flutter assets (three.js
+/// r160 + addons + the default model), so the avatar opens instantly
+/// with no download and works offline. The APK grows by ~6.8 MB for
+/// it (5.9 MB model + ~0.8 MB three.js); a different model needs an
+/// app update instead of just a URL change.
+///
 /// Default model: the Ready Player Me half-body sample from the MIT
 /// `readyplayerme/visage` repo (5.9 MB, 72 morph targets incl. 15 Oculus
 /// visemes + 52 ARKit shapes, embedded `idle_eyes` clip). It is loaded
@@ -71,9 +77,12 @@ class Avatar3D extends StatefulWidget {
   final double? height;
 
   /// Default model: Ready Player Me half-body sample (visage repo, MIT).
-  /// 72 morph targets, `idle_eyes` clip, 5.9 MB, loaded on demand.
-  static const String defaultModelUrl =
-      'https://raw.githubusercontent.com/readyplayerme/visage/github-pages/public/halfBody.glb';
+  /// 72 morph targets, `idle_eyes` clip, 5.9 MB. It is BUNDLED with
+  /// the app (assets/threejs/models/halfBody.glb), so the 3D avatar
+  /// opens instantly with no download; the page resolves this relative
+  /// path against its own asset URL. A custom http(s) .glb URL still
+  /// loads on demand.
+  static const String defaultModelUrl = 'models/halfBody.glb';
 
   /// `.glb` URL of the character to display. Changing it reloads the
   /// viewer (see didUpdateWidget).

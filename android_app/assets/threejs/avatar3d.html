@@ -12,10 +12,11 @@
   reach the meshes. This page loads the model with three.js directly, so
   morph targets are first-class: mesh.morphTargetDictionary by name.
 
-  three.js is pinned to 0.160.0 on jsDelivr (the app already loads Live2D
-  models from jsDelivr, so this CDN is a known-good dependency). The page
-  needs internet for three.js + the model URL; offline it reports an
-  error to Dart through the Avatar3d JS channel.
+  three.js is bundled with the app (three.module.min.js r160 +
+  the matching GLTFLoader / RoomEnvironment / BufferGeometryUtils
+  addons, all under assets/threejs/), and so is the default model --
+  so the 3D avatar opens instantly with no download and works
+  offline. A custom model URL (http/https) still loads on demand.
 
   Dart API (window.__avatar3d):
     loadModel(url)            -- load a .glb (replaces the current model)
@@ -38,8 +39,8 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    "three": "./three.module.min.js",
+    "three/addons/": "./addons/"
   }
 }
 </script>
@@ -131,8 +132,12 @@ function playClip(name) {
 
 async function loadModel(url) {
   disposeModel();
+  // A relative URL (the bundled model) resolves against this page's
+  // own asset URL, so it loads from the app bundle with no download;
+  // an absolute http(s) URL passes through unchanged.
+  const resolved = new URL(url, window.location.href).href;
   try {
-    const gltf = await loader.loadAsync(url);
+    const gltf = await loader.loadAsync(resolved);
     model = gltf.scene;
     scene.add(model);
     frameCamera(model);
