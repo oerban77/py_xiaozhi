@@ -231,9 +231,46 @@ window.addEventListener('error', (e) => {
 // The loop runs continuously: the mixer advances here and morph weights
 // set from Dart show on the very next frame, so no explicit re-render
 // trigger is needed (unlike model-viewer, which only renders on demand).
+//
+// Visible idle life: the model's own `idle_eyes` clip only rotates the
+// eyeballs a few degrees (4 channels on the two eye bones) -- at phone
+// distance that reads as a frozen statue, which is what the first
+// device test showed. So the loop adds two things the clip cannot:
+//   (a) a slow sway + breathing bob of the whole model (rotation and
+//       position only -- no clip touches the root, so nothing fights),
+//   (b) a blink: every few seconds both eyelids close for ~180 ms via
+//       the eyeBlinkLeft/Right morphs. Dart's setMorphs only writes the
+//       mouth morphs it is given, so the blink never clashes with the
+//       talking mouth.
+let idleTime = 0;
+let nextBlinkAt = 2.5;
+let blinkT = -1;
 renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
+  idleTime += dt;
   if (mixer) mixer.update(dt);
+  if (model) {
+    model.rotation.y = Math.sin(idleTime * 0.45) * 0.04;
+    model.position.y = Math.sin(idleTime * 1.1) * 0.01;
+  }
+  if (blinkT < 0 && idleTime >= nextBlinkAt) blinkT = 0;
+  let blink = 0;
+  if (blinkT >= 0) {
+    blinkT += dt;
+    const blinkDur = 0.18;
+    blink =
+      blinkT < blinkDur ? Math.sin((blinkT / blinkDur) * Math.PI) : 0;
+    if (blinkT >= blinkDur) {
+      blinkT = -1;
+      nextBlinkAt = idleTime + 2.5 + Math.random() * 3;
+    }
+  }
+  for (const { mesh, dict } of morphMeshes) {
+    const li = dict['eyeBlinkLeft'];
+    const ri = dict['eyeBlinkRight'];
+    if (li !== undefined) mesh.morphTargetInfluences[li] = blink;
+    if (ri !== undefined) mesh.morphTargetInfluences[ri] = blink;
+  }
   renderer.render(scene, camera);
 });
 
