@@ -45,6 +45,10 @@ class _HomeScreenState extends State<HomeScreen> {
   /// persisted -- the toggle lives on the stage so the two mouths can
   /// be compared on the same build.
   bool _use3dAvatar = false;
+  /// Last 3D avatar failure, shown as a small pill on the stage so a
+  /// failed load is diagnosable from a screenshot instead of silently
+  /// falling back to the emoji. Cleared when the toggle is switched.
+  String? _avatar3dError;
   /// Idle wandering: the avatar's current stroll offset, as a fraction
   /// of its own size (AnimatedSlide units). Only used while idle;
   /// speaking and listening recenter it (see _buildAvatarStage), so the
@@ -484,8 +488,10 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: _use3dAvatar
                   ? 'Kembali ke avatar Live2D'
                   : 'Ganti ke avatar 3D',
-              onPressed: () =>
-                  setState(() => _use3dAvatar = !_use3dAvatar),
+              onPressed: () => setState(() {
+                _use3dAvatar = !_use3dAvatar;
+                _avatar3dError = null;
+              }),
               style: IconButton.styleFrom(
                 backgroundColor: _use3dAvatar
                     ? const Color(0xFF1DB9A6).withValues(alpha: 0.35)
@@ -727,6 +733,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     lipSyncStream: controller.lipSyncStream,
                     size: constraints.maxWidth,
                     height: constraints.maxHeight,
+                    onLoaded: (_, __) {
+                      if (mounted && _avatar3dError != null) {
+                        setState(() => _avatar3dError = null);
+                      }
+                    },
+                    onError: (message) {
+                      if (mounted) {
+                        setState(() => _avatar3dError = message);
+                      }
+                    },
                   )
                 : Live2DAvatar(
                     emotion: emotion,
@@ -742,6 +758,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
           ),
+            // 3D load failure, shown on the stage itself: the exact
+            // reason (page not ready / model failed / WebView error),
+            // so the next screenshot diagnoses the failure instead of
+            // just showing the emoji fallback.
+            if (_use3dAvatar && _avatar3dError != null)
+              Align(
+                alignment: const Alignment(0.0, 0.85),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Avatar 3D gagal: $_avatar3dError',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFF8A80),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },

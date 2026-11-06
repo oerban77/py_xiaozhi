@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'avatar_3d_server.dart';
 import 'emotion_display.dart';
 import 'lipsync_mfcc.dart';
 
@@ -28,15 +29,21 @@ import 'lipsync_mfcc.dart';
 /// r160 + addons + the default model), so the avatar opens instantly
 /// with no download and works offline. The APK grows by ~6.8 MB for
 /// it (5.9 MB model + ~0.8 MB three.js); a different model needs an
-/// app update instead of just a URL change.
+/// app update instead of just a URL change. The files are served to the
+/// WebView by a tiny loopback HTTP server ([Avatar3dServer]): the page
+/// cannot be loaded with `loadFlutterAsset`, because that serves it as
+/// a `file://` URL and Chrome/WebView refuses to load ES modules (and
+/// `fetch()` a .glb) from `file://` -- module fetches are
+/// CORS-checked and a `file://` page has an opaque (`null`) origin, so
+/// the import fails and the page never reports ready.
 ///
 /// Default model: the Ready Player Me half-body sample from the MIT
 /// `readyplayerme/visage` repo (5.9 MB, 72 morph targets incl. 15 Oculus
-/// visemes + 52 ARKit shapes, embedded `idle_eyes` clip). It is loaded
-/// from its raw.githubusercontent.com URL on demand, not bundled into
-/// the APK. The full-body `female.glb` (10.4 MB, same morph set, no
-/// clips) is the obvious next model; a custom .glb URL works the same
-/// way as long as it carries morph targets with these names.
+/// visemes + 52 ARKit shapes, embedded `idle_eyes` clip). It is bundled
+/// with the app (see [Avatar3D.defaultModelUrl]). The full-body
+/// `female.glb` (10.4 MB, same morph set, no clips) is the obvious next
+/// model; a custom .glb URL works the same way as long as it carries
+/// morph targets with these names.
 ///
 /// What the PoC does NOT do yet (Phase 2): map the server emotion to
 /// ARKit morphs (mouthSmile/mouthFrown/browInnerUp) -- the face stays
@@ -176,10 +183,14 @@ class _Avatar3DState extends State<Avatar3D> {
   bool _modelReady = false;
   bool _failed = false;
 
-  /// Fires if the page never reports ready (three.js CDN unreachable):
-  /// without it a dead CDN would leave the spinner up forever instead
+  /// Fires if the page never reports ready (three.js failed to load):
+  /// without it a dead page would leave the spinner up forever instead
   /// of falling back to the emoji avatar with an error.
   Timer? _pageReadyTimer;
+
+  /// Loopback server that serves the bundled page/three.js/model to
+  /// the WebView over http://127.0.0.1 (see [Avatar3dServer]).
+  final Avatar3dServer _server = Avatar3dServer();
 
   @override
   void initState() {
@@ -191,13 +202,13 @@ class _Avatar3DState extends State<Avatar3D> {
       ..addJavaScriptChannel(
         'Avatar3d',
         onMessageReceived: _onJsMessage,
-      )
-      // No onPageFinished model load: the page's <script type="module">
-      // (three.js from the CDN) executes after the page finishes, so
-      // window.__avatar3d is usually undefined at that point. The page
-      // posts {type:'ready'} once its API exists (see _onJsMessage)
-      // and the model loads only then.
-      ..loadFlutterAsset('assets/threejs/avatar3d.html');
+      );
+    // The page is NOT loaded with loadFlutterAsset: that serves it as
+    // a file:// URL, and Chrome/WebView refuses ES module imports from
+    // file:// (CORS: a file:// page has an opaque origin). The loopback
+    // server serves the same bundled files over http://127.0.0.1, where
+    // modules and fetch() work normally.
+    unawaited(_startAndLoad());
     _pageReadyTimer = Timer(
       const Duration(seconds: 20),
       _onPageReadyTimeout,
@@ -238,7 +249,29 @@ class _Avatar3DState extends State<Avatar3D> {
     _mouthTimer?.cancel();
     _pageReadyTimer?.cancel();
     _lipSyncSubscription?.cancel();
+    unawaited(_server.stop());
     super.dispose();
+  }
+
+  /// Starts the loopback server and loads the viewer page from it.
+  /// No onPageFinished model load: the page's `<script type="module">`
+  /// executes after the page finishes, so `window.__avatar3d` is
+  /// usually undefined at that point. The page posts {type:'ready'}
+  /// once its API exists (see _onJsMessage) and the model loads only
+  /// then.
+  Future<void> _startAndLoad() async {
+    try {
+      await _server.start();
+      final baseUrl = _server.baseUrl;
+      if (baseUrl == null || !mounted) return;
+      await _webViewController.loadRequest(
+        Uri.parse('${baseUrl}avatar3d.html'),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      widget.onError?.call('Server avatar 3D gagal start: $e');
+      setState(() => _failed = true);
+    }
   }
 
   void _loadModel() {

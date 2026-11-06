@@ -83,7 +83,13 @@ flutter:
     # the r160 renderer + addons, and the default halfBody.glb model,
     # all bundled as assets so the 3D avatar opens instantly with no
     # download and works offline (APK grows by ~6.8 MB).
+    # NOTE: list the addon files one by one -- a directory entry
+    # (`- assets/threejs/addons/`) silently drops them from the APK
+    # (proven by build #201, which shipped no addon files at all), so
+    # the page's GLTFLoader import 404s and the avatar never loads.
     - assets/threejs/avatar3d.html
     - assets/threejs/three.module.min.js
-    - assets/threejs/addons/
+    - assets/threejs/addons/loaders/GLTFLoader.js
+    - assets/threejs/addons/environments/RoomEnvironment.js
+    - assets/threejs/addons/utils/BufferGeometryUtils.js
     - assets/threejs/models/halfBody.glb
