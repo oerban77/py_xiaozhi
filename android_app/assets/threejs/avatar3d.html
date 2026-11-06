@@ -204,6 +204,12 @@ async function loadAnimationClip(url) {
 
 window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip };
 window.__avatar3dReady = true;
+// Tell Dart the page API exists. Dart must NOT load the model from
+// onPageFinished: <script type="module"> executes after the page
+// finishes parsing (and after the three.js CDN download), so at
+// onPageFinished time window.__avatar3d is usually still undefined --
+// that race left the PoC stuck on the spinner with no model.
+channel({ type: 'ready' });
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;

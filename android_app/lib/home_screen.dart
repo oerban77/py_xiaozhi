@@ -496,6 +496,12 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Text(
                 _use3dAvatar ? '2D' : '3D',
                 style: const TextStyle(
+                  // Explicit white: a Text does NOT inherit
+                  // IconButton.foregroundColor (that only tints Icons via
+                  // IconTheme), so without this the label rendered in the
+                  // theme's dark default text color and was unreadable
+                  // on the dark button (reported 2026-11-06).
+                  color: Colors.white,
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                 ),

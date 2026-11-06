@@ -167,6 +167,11 @@ class _Avatar3DState extends State<Avatar3D> {
   bool _modelReady = false;
   bool _failed = false;
 
+  /// Fires if the page never reports ready (three.js CDN unreachable):
+  /// without it a dead CDN would leave the spinner up forever instead
+  /// of falling back to the emoji avatar with an error.
+  Timer? _pageReadyTimer;
+
   @override
   void initState() {
     super.initState();
@@ -178,15 +183,16 @@ class _Avatar3DState extends State<Avatar3D> {
         'Avatar3d',
         onMessageReceived: _onJsMessage,
       )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) {
-            _pageReady = true;
-            _loadModel();
-          },
-        ),
-      )
+      // No onPageFinished model load: the page's <script type="module">
+      // (three.js from the CDN) executes after the page finishes, so
+      // window.__avatar3d is usually undefined at that point. The page
+      // posts {type:'ready'} once its API exists (see _onJsMessage)
+      // and the model loads only then.
       ..loadFlutterAsset('assets/threejs/avatar3d.html');
+    _pageReadyTimer = Timer(
+      const Duration(seconds: 20),
+      _onPageReadyTimeout,
+    );
     final lipSyncStream = widget.lipSyncStream;
     if (lipSyncStream != null) {
       _lipSyncSubscription = lipSyncStream.listen((frame) {
@@ -221,6 +227,7 @@ class _Avatar3DState extends State<Avatar3D> {
   @override
   void dispose() {
     _mouthTimer?.cancel();
+    _pageReadyTimer?.cancel();
     _lipSyncSubscription?.cancel();
     super.dispose();
   }
@@ -234,11 +241,23 @@ class _Avatar3DState extends State<Avatar3D> {
     );
   }
 
+  void _onPageReadyTimeout() {
+    if (!mounted || _pageReady || _failed) return;
+    widget.onError?.call('Halaman avatar 3D tidak siap (three.js gagal dimuat)');
+    setState(() => _failed = true);
+  }
+
   void _onJsMessage(JavaScriptMessage message) {
     if (!mounted) return;
     try {
       final data = jsonDecode(message.message) as Map<String, dynamic>;
       switch (data['type']) {
+        case 'ready':
+          // The page API exists now (module script executed): cancel
+          // the readiness timeout and load the model.
+          _pageReadyTimer?.cancel();
+          _pageReady = true;
+          _loadModel();
         case 'loaded':
           final animations = (data['animations'] as List<dynamic>? ?? [])
               .map((e) => e.toString())
