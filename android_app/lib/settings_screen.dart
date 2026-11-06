@@ -62,6 +62,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _characterCustomController;
   // 3D avatar character: the bundled .glb model URL (see Avatar3D.models).
   late String _character3dModelUrl;
+  // 3D avatar mouth strength (0.0-1.0): how wide the mouth opens while
+  // speaking. The model's morphs are very strong, so 1.0 still gaped
+  // wide open on the device videos; 0.5 keeps it natural.
+  late double _mouthStrength;
   late int _wakeWordNumTrailingBlanks;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
@@ -132,6 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       text: characterPreset == null ? widget.controller.characterModelUrl : '',
     );
     _character3dModelUrl = widget.controller.character3dModelUrl;
+    _mouthStrength = widget.controller.mouthStrength;
     unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
@@ -392,6 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newWakeWordNumTrailingBlanks: _wakeWordNumTrailingBlanks,
       newCharacterModelUrl: characterUrl,
       newCharacter3dModelUrl: _character3dModelUrl,
+      newMouthStrength: _mouthStrength,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -849,6 +855,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Kekuatan Mulut 3D',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Seberapa lebar mulut avatar 3D membuka saat bicara. '
+                      'Morph mulut model ini sangat kuat, jadi 100% masih '
+                      'membuka lebar seperti berteriak. Kalau mulutnya terasa '
+                      'menakutkan, turunkan ke 30-50%; kalau gerakannya terlalu '
+                      'halus dan sulit dilihat, naikkan. Berlaku langsung setelah '
+                      'disimpan.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: _mouthStrength,
+                            min: 0.0,
+                            max: 1.0,
+                            divisions: 20,
+                            label: '${(_mouthStrength * 100).round()}%',
+                            onChanged: (value) => setState(() => _mouthStrength = value),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 52,
+                          child: Text(
+                            '${(_mouthStrength * 100).round()}%',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 28),
                     const Text(

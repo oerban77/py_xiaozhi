@@ -58,6 +58,7 @@ class Avatar3D extends StatefulWidget {
     this.size = 240.0,
     this.height,
     this.modelUrl = defaultModelUrl,
+    this.mouthStrength = 0.5,
     this.onLoaded,
     this.onError,
   });
@@ -110,6 +111,15 @@ class Avatar3D extends StatefulWidget {
   /// viewer (see didUpdateWidget).
   final String modelUrl;
 
+  /// How strongly the mouth opens while speaking (0.0 = closed,
+  /// 1.0 = full). The user sets this in Settings ("Kekuatan Mulut
+  /// 3D"): the model's morphs are very strong, so even a moderate
+  /// value opens the mouth visibly, and the default 0.5 keeps it in
+  /// the natural range instead of gaping. It scales the openness
+  /// before the hard caps, so it also scales the vowel contrast
+  /// proportionally.
+  final double mouthStrength;
+
   /// Called with the model's embedded animation names and morph target
   /// names once it loads (useful for the debug screen / dance list).
   final void Function(List<String> animations, List<String> morphs)?
@@ -158,12 +168,23 @@ Map<String, double> lipSyncFrameToMorphWeights(LipSyncFrame frame) {
 /// scaled down further (0.4): the ARKit lip morphs are very strong
 /// on this model, and at full strength they turn 'ee' into a manic
 /// grin and 'uu' into a pucker that pushes the tongue out.
+///
+/// `strength` (0.0-1.0, from the user's "Kekuatan Mulut 3D" setting)
+/// scales the openness before the caps, so the user can turn the
+/// whole mouth down without losing the vowel contrast: at the
+/// default 0.5 a loud 'aa' opens the jaw to ~0.25, clearly visible
+/// but nowhere near the gaping 'O' the device videos showed at
+/// strength 1.0.
 Map<String, double> morphWeightsFor({
   required double openness,
   required double formDelta,
   required Map<String, double> vowelWeights,
+  double strength = 1.0,
 }) {
   double clamp01(double v) => v.clamp(0.0, 1.0);
+  // The user's strength setting scales the opening first, so the
+  // caps below are the absolute ceiling at strength 1.0.
+  final open = clamp01(openness * strength.clamp(0.0, 1.0));
   // Per-vowel jaw drop (fraction of the overall openness): 'aa' widest,
   // 'ih' narrowest. Weighted by the current vowel mix, so the jaw
   // follows the vowel instead of opening the same for all. Capped so
@@ -177,7 +198,7 @@ Map<String, double> morphWeightsFor({
     weightSum += w;
   }
   final jawFactor = weightSum > 0 ? jawMix / weightSum : 1.0;
-  final jaw = clamp01(openness * jawFactor).clamp(0.0, 0.6);
+  final jaw = clamp01(open * jawFactor).clamp(0.0, 0.5);
   // Sharpen the vowel weights so the dominant vowel's viseme stands
   // out instead of blending into a generic open mouth: the MFCC
   // matcher returns a soft blend (the dominant vowel is often only
@@ -193,14 +214,14 @@ Map<String, double> morphWeightsFor({
     sharpSum += s;
   }
   double viseme(String vowel) => sharpSum > 0
-      ? clamp01((sharpened[vowel]! / sharpSum) * openness).clamp(0.0, 0.6)
+      ? clamp01((sharpened[vowel]! / sharpSum) * open).clamp(0.0, 0.5)
       : 0.0;
   // formDelta lives in [-0.3, 0.3]: positive = spread/smile (ee, ih),
   // negative = rounded (oh, ou). Scaled to [0, 1] and by openness, so
   // the shape shift only shows while the mouth is actually open, then
   // scaled down 0.4x: the lip morphs are very strong on this model.
-  final smile = clamp01(formDelta / 0.3) * openness * 0.4;
-  final funnel = clamp01(-formDelta / 0.3) * openness * 0.4;
+  final smile = clamp01(formDelta / 0.3) * open * 0.4;
+  final funnel = clamp01(-formDelta / 0.3) * open * 0.4;
   return {
     'viseme_aa': viseme('aa'),
     'viseme_E': viseme('ee'),
@@ -449,6 +470,7 @@ class _Avatar3DState extends State<Avatar3D> {
       openness: _mouth,
       formDelta: _mouthForm,
       vowelWeights: _smoothedVowelWeights,
+      strength: widget.mouthStrength,
     );
     var changed = force;
     if (!changed) {

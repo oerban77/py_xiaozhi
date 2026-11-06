@@ -734,6 +734,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     size: constraints.maxWidth,
                     height: constraints.maxHeight,
                     modelUrl: controller.character3dModelUrl,
+                    mouthStrength: controller.mouthStrength,
                     onLoaded: (_, __) {
                       if (mounted && _avatar3dError != null) {
                         setState(() => _avatar3dError = null);

@@ -28,15 +28,15 @@ void main() {
         formDelta: 0.0,
       ),
     );
-    // Capped: the jaw never drops past 0.6 and no viseme past 0.6,
+    // Capped: the jaw never drops past 0.5 and no viseme past 0.5,
     // so even a loud 'aa' cannot gape the mouth wide open.
-    expect(weights['viseme_aa'], 0.6);
+    expect(weights['viseme_aa'], 0.5);
     expect(weights['viseme_E'], 0.0);
     expect(weights['viseme_I'], 0.0);
     expect(weights['viseme_O'], 0.0);
     expect(weights['viseme_U'], 0.0);
-    expect(weights['jawOpen'], 0.6);
-    expect(weights['mouthOpen'], closeTo(0.36, 1e-9));
+    expect(weights['jawOpen'], 0.5);
+    expect(weights['mouthOpen'], closeTo(0.3, 1e-9));
     expect(weights['mouthSmile'], 0.0);
     expect(weights['mouthFunnel'], 0.0);
   });
@@ -50,8 +50,8 @@ void main() {
       ),
     );
     // Pure vowel, so the sharpened viseme is the full share (1.0)
-    // times openness 0.75, capped at 0.6.
-    expect(weights['viseme_E'], 0.6);
+    // times openness 0.75, capped at 0.5.
+    expect(weights['viseme_E'], 0.5);
     // 'ee' keeps the jaw narrower than 'aa' at the same openness.
     expect(weights['jawOpen'], closeTo(0.4125, 1e-9));
     // Smile is formDelta (0.3) scaled by openness, then 0.4x:
@@ -71,7 +71,7 @@ void main() {
         formDelta: -0.3,
       ),
     );
-    // Pure vowel: 1.0 x 0.5 = 0.5, under the 0.6 viseme cap.
+    // Pure vowel: 1.0 x 0.5 = 0.5, at the 0.5 viseme cap.
     expect(weights['viseme_U'], closeTo(0.5, 1e-9));
     expect(weights['jawOpen'], closeTo(0.35, 1e-9));
     // Funnel is formDelta (-0.3) scaled by openness, then 0.4x:
@@ -90,20 +90,20 @@ void main() {
       ),
     );
     // Sharpened (w^1.5, renormalized): aa share 0.6475, oh 0.3525;
-    // each times openness 0.8 (no extra boost), under the 0.6 cap.
-    expect(weights['viseme_aa'], closeTo(0.518, 1e-3));
+    // each times openness 0.8 (no extra boost); aa hits the 0.5 cap.
+    expect(weights['viseme_aa'], closeTo(0.5, 1e-9));
     expect(weights['viseme_O'], closeTo(0.282, 1e-3));
     // Jaw follows the vowel mix (0.6 x 1.0 + 0.4 x 0.8 = 0.92) x 0.8
-    // = 0.736, capped at 0.6.
-    expect(weights['jawOpen'], closeTo(0.6, 1e-9));
+    // = 0.736, capped at 0.5.
+    expect(weights['jawOpen'], closeTo(0.5, 1e-9));
     // form -0.12 / -0.3 = 0.4 funnel share, times openness 0.8,
     // then 0.4x: 0.4 x 0.8 x 0.4 = 0.128.
     expect(weights['mouthFunnel'], closeTo(0.128, 1e-9));
   });
 
   test('jaw drop follows the vowel: aa widest, oh middle, ih narrowest', () {
-    // Openness 0.6 stays at the 0.6 jaw cap for 'aa' exactly, so the
-    // per-vowel jaw factors show directly.
+    // Openness 0.6: 'aa' hits the 0.5 jaw cap, 'oh' (0.48) and 'ih'
+    // (0.27) sit below it, so the per-vowel jaw factors still show.
     final aa = lipSyncFrameToMorphWeights(
       frame(weights: {'aa': 1.0, 'silence': 0.0}, openness: 0.6, formDelta: 0.0),
     );
@@ -113,13 +113,13 @@ void main() {
     final ih = lipSyncFrameToMorphWeights(
       frame(weights: {'ih': 1.0, 'silence': 0.0}, openness: 0.6, formDelta: 0.0),
     );
-    expect(aa['jawOpen'], closeTo(0.6, 1e-9));
+    expect(aa['jawOpen'], closeTo(0.5, 1e-9));
     expect(oh['jawOpen'], closeTo(0.48, 1e-9));
     expect(ih['jawOpen'], closeTo(0.27, 1e-9));
-    // And each pure vowel drives its own viseme (0.6 here, at cap).
-    expect(aa['viseme_aa'], closeTo(0.6, 1e-9));
-    expect(oh['viseme_O'], closeTo(0.6, 1e-9));
-    expect(ih['viseme_I'], closeTo(0.6, 1e-9));
+    // And each pure vowel drives its own viseme (0.5 here, at cap).
+    expect(aa['viseme_aa'], closeTo(0.5, 1e-9));
+    expect(oh['viseme_O'], closeTo(0.5, 1e-9));
+    expect(ih['viseme_I'], closeTo(0.5, 1e-9));
   });
 
   test('loud frames cap the mouth instead of gaping it open', () {
@@ -130,9 +130,40 @@ void main() {
         formDelta: 0.0,
       ),
     );
-    expect(weights['jawOpen'], 0.6);
-    expect(weights['viseme_aa'], 0.6);
-    expect(weights.values.every((v) => v >= 0.0 && v <= 0.6), isTrue);
+    expect(weights['jawOpen'], 0.5);
+    expect(weights['viseme_aa'], 0.5);
+    expect(weights.values.every((v) => v >= 0.0 && v <= 0.5), isTrue);
+  });
+
+  test('mouth strength scales the opening without losing the vowel', () {
+    // Default strength 0.5 (the Settings default): a loud 'aa' at
+    // openness 0.8 opens to 0.4, clearly visible but not gaping.
+    final half = morphWeightsFor(
+      openness: 0.8,
+      formDelta: 0.0,
+      vowelWeights: {'aa': 1.0, 'silence': 0.0},
+      strength: 0.5,
+    );
+    expect(half['jawOpen'], closeTo(0.4, 1e-9));
+    expect(half['viseme_aa'], closeTo(0.4, 1e-9));
+    expect(half['mouthOpen'], closeTo(0.24, 1e-9));
+    // Strength 0 closes the mouth entirely.
+    final zero = morphWeightsFor(
+      openness: 0.8,
+      formDelta: 0.0,
+      vowelWeights: {'aa': 1.0, 'silence': 0.0},
+      strength: 0.0,
+    );
+    expect(zero.values.every((v) => v == 0.0), isTrue);
+    // Strength 1.0 still respects the 0.5 caps.
+    final full = morphWeightsFor(
+      openness: 1.0,
+      formDelta: 0.0,
+      vowelWeights: {'aa': 1.0, 'silence': 0.0},
+      strength: 1.0,
+    );
+    expect(full['jawOpen'], 0.5);
+    expect(full['viseme_aa'], 0.5);
   });
 
   test('silent frame closes every morph', () {

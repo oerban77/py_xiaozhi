@@ -138,6 +138,14 @@ class XiaozhiController extends ChangeNotifier {
   /// Default mirrors Avatar3D.defaultModelUrl; the literal is kept here
   /// so this logic class does not import the 3D widget.
   String character3dModelUrl = 'models/halfBody.glb';
+
+  /// How strongly the 3D avatar's mouth opens while speaking
+  /// (0.0-1.0), chosen in Settings ("Kekuatan Mulut 3D") and
+  /// persisted as 'mouth_strength'. Default 0.5: the model's morphs
+  /// are very strong, so 1.0 still gaped wide open on the device
+  /// videos; 0.5 keeps the mouth clearly moving but natural.
+  double mouthStrength = 0.5;
+
   /// Suppress wake word detection for 2 seconds after the app resumes from
   /// background. This prevents false triggers from button clicks, volume
   /// adjustments, or other noise when switching back to the app.
@@ -518,6 +526,7 @@ class XiaozhiController extends ChangeNotifier {
     character3dModelUrl = storedCharacter3d != null && storedCharacter3d.trim().isNotEmpty
         ? storedCharacter3d.trim()
         : 'models/halfBody.glb';
+    mouthStrength = (_preferences?.getDouble('mouth_strength') ?? 0.5).clamp(0.0, 1.0);
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
@@ -650,6 +659,7 @@ class XiaozhiController extends ChangeNotifier {
     required int newWakeWordNumTrailingBlanks,
     String? newCharacterModelUrl,
     String? newCharacter3dModelUrl,
+    double? newMouthStrength,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
@@ -699,6 +709,10 @@ class XiaozhiController extends ChangeNotifier {
     if (newCharacter3dModelUrl != null && newCharacter3dModelUrl.trim().isNotEmpty) {
       character3dModelUrl = newCharacter3dModelUrl.trim();
       await _preferences?.setString('avatar_3d_model', character3dModelUrl);
+    }
+    if (newMouthStrength != null) {
+      mouthStrength = newMouthStrength.clamp(0.0, 1.0);
+      await _preferences?.setDouble('mouth_strength', mouthStrength);
     }
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.
