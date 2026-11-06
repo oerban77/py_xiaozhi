@@ -476,6 +476,32 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.camera_alt_outlined),
             ),
             const SizedBox(width: 6),
+            // PoC switch Live2D <-> 3D avatar: a third header button in
+            // the same style as camera/settings (44x44, same colors), so
+            // it never overlaps anything. The label shows what tapping
+            // switches TO; the teal tint marks when 3D is active.
+            IconButton.filledTonal(
+              tooltip: _use3dAvatar
+                  ? 'Kembali ke avatar Live2D'
+                  : 'Ganti ke avatar 3D',
+              onPressed: () =>
+                  setState(() => _use3dAvatar = !_use3dAvatar),
+              style: IconButton.styleFrom(
+                backgroundColor: _use3dAvatar
+                    ? const Color(0xFF1DB9A6).withValues(alpha: 0.35)
+                    : Colors.white.withValues(alpha: 0.10),
+                foregroundColor: Colors.white,
+                fixedSize: const Size(44, 44),
+              ),
+              icon: Text(
+                _use3dAvatar ? '2D' : '3D',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
             IconButton.filledTonal(
               tooltip: 'Pengaturan koneksi dan kamera',
               onPressed: _openSettings,
@@ -710,32 +736,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
           ),
-            // PoC switch Live2D <-> 3D avatar: a small pill at the top
-            // right of the stage, visible with the chrome (it hides with
-            // it in idle). The label shows what tapping switches TO.
-            if (_chromeVisible)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: TextButton(
-                  onPressed: () =>
-                      setState(() => _use3dAvatar = !_use3dAvatar),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.black.withValues(alpha: 0.45),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    _use3dAvatar ? '2D' : '3D',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
           ],
         );
       },
