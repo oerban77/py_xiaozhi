@@ -148,6 +148,16 @@ Map<String, double> lipSyncFrameToMorphWeights(LipSyncFrame frame) {
 /// vowel looked like the same generic open mouth (the jaw opened the
 /// same amount for all of them and the visemes were diluted by the
 /// openness factor, so the mouth never visibly matched the TTS).
+///
+/// But the opening is deliberately CAPPED: a real mouth never opens
+/// to its full range while talking, and at full jaw + full viseme
+/// the face gapes wide open (a big dark hole) and looks frightening
+/// rather than like speech. The caps keep the shapes distinct
+/// (aa still opens widest, ih narrowest) while the mouth stays in
+/// the moderate range a native speaker uses. The smile/funnel are
+/// scaled down further (0.4): the ARKit lip morphs are very strong
+/// on this model, and at full strength they turn 'ee' into a manic
+/// grin and 'uu' into a pucker that pushes the tongue out.
 Map<String, double> morphWeightsFor({
   required double openness,
   required double formDelta,
@@ -156,7 +166,8 @@ Map<String, double> morphWeightsFor({
   double clamp01(double v) => v.clamp(0.0, 1.0);
   // Per-vowel jaw drop (fraction of the overall openness): 'aa' widest,
   // 'ih' narrowest. Weighted by the current vowel mix, so the jaw
-  // follows the vowel instead of opening the same for all.
+  // follows the vowel instead of opening the same for all. Capped so
+  // the jaw never drops to its full range while talking.
   const jawFor = {'aa': 1.0, 'ee': 0.55, 'ih': 0.45, 'oh': 0.8, 'ou': 0.7};
   var jawMix = 0.0;
   var weightSum = 0.0;
@@ -166,12 +177,14 @@ Map<String, double> morphWeightsFor({
     weightSum += w;
   }
   final jawFactor = weightSum > 0 ? jawMix / weightSum : 1.0;
-  final jaw = clamp01(openness * jawFactor);
+  final jaw = clamp01(openness * jawFactor).clamp(0.0, 0.6);
   // Sharpen the vowel weights so the dominant vowel's viseme stands
   // out instead of blending into a generic open mouth: the MFCC
   // matcher returns a soft blend (the dominant vowel is often only
-  // ~0.6 of the total), so a power curve restores the contrast, then
-  // the result is boosted so the active viseme is clearly visible.
+  // ~0.6 of the total), so a power curve restores the contrast. No
+  // extra boost on top: the sharpened share times the openness is
+  // enough, and boosting it to 1.0 made the mouth gape. Capped so
+  // no single viseme ever maxes out.
   final sharpened = <String, double>{};
   var sharpSum = 0.0;
   for (final entry in jawFor.entries) {
@@ -180,13 +193,14 @@ Map<String, double> morphWeightsFor({
     sharpSum += s;
   }
   double viseme(String vowel) => sharpSum > 0
-      ? clamp01((sharpened[vowel]! / sharpSum) * openness * 1.6)
+      ? clamp01((sharpened[vowel]! / sharpSum) * openness).clamp(0.0, 0.6)
       : 0.0;
   // formDelta lives in [-0.3, 0.3]: positive = spread/smile (ee, ih),
   // negative = rounded (oh, ou). Scaled to [0, 1] and by openness, so
-  // the shape shift only shows while the mouth is actually open.
-  final smile = clamp01(formDelta / 0.3) * openness;
-  final funnel = clamp01(-formDelta / 0.3) * openness;
+  // the shape shift only shows while the mouth is actually open, then
+  // scaled down 0.4x: the lip morphs are very strong on this model.
+  final smile = clamp01(formDelta / 0.3) * openness * 0.4;
+  final funnel = clamp01(-formDelta / 0.3) * openness * 0.4;
   return {
     'viseme_aa': viseme('aa'),
     'viseme_E': viseme('ee'),
@@ -194,7 +208,7 @@ Map<String, double> morphWeightsFor({
     'viseme_O': viseme('oh'),
     'viseme_U': viseme('ou'),
     'jawOpen': jaw,
-    'mouthOpen': clamp01(jaw * 0.7),
+    'mouthOpen': clamp01(jaw * 0.6),
     'mouthSmile': smile,
     'mouthSmileLeft': smile,
     'mouthSmileRight': smile,
@@ -216,10 +230,17 @@ class _Avatar3DState extends State<Avatar3D> {
   LipSyncFrame? _lipSyncFrame;
 
   /// Smoothed mouth values actually sent (same clock as the Live2D
-  /// avatar: 30 Hz ticker, attack ~45 ms, release ~180 ms for the
+  /// avatar: 30 Hz ticker, attack ~70 ms, release ~180 ms for the
   /// opening, ~90 ms for the form).
   double _mouth = 0.0;
   double _mouthForm = 0.0;
+
+  /// Smoothed vowel weights (aa/ee/ih/oh/ou): the MFCC matcher can
+  /// jump between vowels frame to frame, and sending those raw jumps
+  /// makes the mouth shape snap instead of gliding like speech. An
+  /// exponential average (tau ~80 ms) keeps the vowel transitions
+  /// smooth while still following the TTS.
+  Map<String, double> _smoothedVowelWeights = {};
   Timer? _mouthTimer;
   DateTime _lastMouthTick = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -290,6 +311,7 @@ class _Avatar3DState extends State<Avatar3D> {
       _lipSyncFrame = null;
       _mouth = 0.0;
       _mouthForm = 0.0;
+      _smoothedVowelWeights = {};
       _sendMorphs(force: true);
     }
   }
@@ -385,6 +407,9 @@ class _Avatar3DState extends State<Avatar3D> {
   /// Advances the smoothed mouth toward the latest lip-sync frame and
   /// sends the morph weights when they moved visibly. Same timing as
   /// the Live2D avatar's ticker, so the two avatars stay comparable.
+  /// The attack is gentler than the Live2D avatar's (70 ms vs 45 ms):
+  /// the 3D mouth snapping open looked startling, so it eases open
+  /// instead.
   void _tickMouth() {
     if (!mounted || _failed || _isFlutterTest || !_modelReady) return;
     final now = DateTime.now();
@@ -397,12 +422,24 @@ class _Avatar3DState extends State<Avatar3D> {
             ? (_lipSyncFrame?.formDelta ?? 0.0)
             : 0.0)
         .clamp(-1.0, 1.0);
-    final tauOpen = openTarget > _mouth ? 0.045 : 0.18;
+    final tauOpen = openTarget > _mouth ? 0.07 : 0.18;
     final kOpen = 1.0 - math.exp(-dt / tauOpen);
     _mouth += (openTarget - _mouth) * kOpen;
     if (_mouth < 0.02) _mouth = 0.0;
     final kForm = 1.0 - math.exp(-dt / 0.09);
     _mouthForm += (formTarget - _mouthForm) * kForm;
+    // Smooth the vowel weights too: the raw frame weights jump between
+    // vowels, and without this the mouth shape snaps from one vowel
+    // to the next instead of gliding.
+    final rawWeights = _lipSyncFrame?.weights ?? const <String, double>{};
+    final kVowel = 1.0 - math.exp(-dt / 0.08);
+    final smoothed = <String, double>{};
+    for (final key in const ['aa', 'ee', 'ih', 'oh', 'ou']) {
+      final prev = _smoothedVowelWeights[key] ?? 0.0;
+      final target = widget.isSpeaking ? (rawWeights[key] ?? 0.0) : 0.0;
+      smoothed[key] = prev + (target - prev) * kVowel;
+    }
+    _smoothedVowelWeights = smoothed;
     _sendMorphs();
   }
 
@@ -411,7 +448,7 @@ class _Avatar3DState extends State<Avatar3D> {
     final weights = morphWeightsFor(
       openness: _mouth,
       formDelta: _mouthForm,
-      vowelWeights: _lipSyncFrame?.weights ?? const {},
+      vowelWeights: _smoothedVowelWeights,
     );
     var changed = force;
     if (!changed) {
