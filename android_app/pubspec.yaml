@@ -93,3 +93,4 @@ flutter:
     - assets/threejs/addons/environments/RoomEnvironment.js
     - assets/threejs/addons/utils/BufferGeometryUtils.js
     - assets/threejs/models/halfBody.glb
+    - assets/threejs/models/female.glb

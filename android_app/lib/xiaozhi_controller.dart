@@ -130,6 +130,14 @@ class XiaozhiController extends ChangeNotifier {
   /// (Karakter) and persisted as 'character_model_url'. The home screen
   /// passes it to the avatar, which reloads when it changes.
   String characterModelUrl = Live2dCharacters.defaultModelUrl;
+
+  /// `.glb` URL of the 3D avatar character, chosen in Settings
+  /// (Karakter 3D) and persisted as 'avatar_3d_model'. The 2D Live2D
+  /// characters (Haru, ...) are Cubism models and have no .glb version,
+  /// so the 3D choices are the bundled .glb models (see Avatar3D.models).
+  /// Default mirrors Avatar3D.defaultModelUrl; the literal is kept here
+  /// so this logic class does not import the 3D widget.
+  String character3dModelUrl = 'models/halfBody.glb';
   /// Suppress wake word detection for 2 seconds after the app resumes from
   /// background. This prevents false triggers from button clicks, volume
   /// adjustments, or other noise when switching back to the app.
@@ -506,6 +514,10 @@ class XiaozhiController extends ChangeNotifier {
     characterModelUrl = storedCharacter != null && storedCharacter.trim().isNotEmpty
         ? storedCharacter.trim()
         : Live2dCharacters.defaultModelUrl;
+    final storedCharacter3d = _preferences?.getString('avatar_3d_model');
+    character3dModelUrl = storedCharacter3d != null && storedCharacter3d.trim().isNotEmpty
+        ? storedCharacter3d.trim()
+        : 'models/halfBody.glb';
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
@@ -637,6 +649,7 @@ class XiaozhiController extends ChangeNotifier {
     required double newWakeWordKeywordsThreshold,
     required int newWakeWordNumTrailingBlanks,
     String? newCharacterModelUrl,
+    String? newCharacter3dModelUrl,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
@@ -682,6 +695,10 @@ class XiaozhiController extends ChangeNotifier {
     if (newCharacterModelUrl != null && newCharacterModelUrl.trim().isNotEmpty) {
       characterModelUrl = newCharacterModelUrl.trim();
       await _preferences?.setString('character_model_url', characterModelUrl);
+    }
+    if (newCharacter3dModelUrl != null && newCharacter3dModelUrl.trim().isNotEmpty) {
+      character3dModelUrl = newCharacter3dModelUrl.trim();
+      await _preferences?.setString('avatar_3d_model', character3dModelUrl);
     }
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.

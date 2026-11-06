@@ -91,6 +91,21 @@ class Avatar3D extends StatefulWidget {
   /// loads on demand.
   static const String defaultModelUrl = 'models/halfBody.glb';
 
+  /// Second bundled model: the Ready Player Me full-body woman from
+  /// the same visage repo (10.4 MB, same 72 morph targets, no clips).
+  /// She is framed head-to-waist by the viewer (see avatar3d.html),
+  /// so her face is as large on screen as the half-body man's.
+  static const String femaleModelUrl = 'models/female.glb';
+
+  /// The bundled 3D characters the user can pick in Settings
+  /// (Karakter 3D). The 2D Live2D characters (Haru, Hiyori, ...) are
+  /// Cubism models and have no .glb version, so they cannot be used
+  /// here; these are the closest 3D equivalents.
+  static const List<({String label, String url})> models = [
+    (label: 'Pria (helm)', url: defaultModelUrl),
+    (label: 'Wanita', url: femaleModelUrl),
+  ];
+
   /// `.glb` URL of the character to display. Changing it reloads the
   /// viewer (see didUpdateWidget).
   final String modelUrl;
@@ -126,25 +141,60 @@ Map<String, double> lipSyncFrameToMorphWeights(LipSyncFrame frame) {
 
 /// Same mapping, from already-smoothed openness/form values and the
 /// latest frame's vowel weights (what the mouth ticker sends).
+///
+/// The jaw and the visemes follow the VOWEL, not just the loudness:
+/// 'aa' drops the jaw wide, 'ih'/'ee' stay narrow with a smile,
+/// 'oh'/'ou' sit in between with rounded lips. Without this every
+/// vowel looked like the same generic open mouth (the jaw opened the
+/// same amount for all of them and the visemes were diluted by the
+/// openness factor, so the mouth never visibly matched the TTS).
 Map<String, double> morphWeightsFor({
   required double openness,
   required double formDelta,
   required Map<String, double> vowelWeights,
 }) {
   double clamp01(double v) => v.clamp(0.0, 1.0);
+  // Per-vowel jaw drop (fraction of the overall openness): 'aa' widest,
+  // 'ih' narrowest. Weighted by the current vowel mix, so the jaw
+  // follows the vowel instead of opening the same for all.
+  const jawFor = {'aa': 1.0, 'ee': 0.55, 'ih': 0.45, 'oh': 0.8, 'ou': 0.7};
+  var jawMix = 0.0;
+  var weightSum = 0.0;
+  for (final entry in jawFor.entries) {
+    final w = vowelWeights[entry.key] ?? 0.0;
+    jawMix += w * entry.value;
+    weightSum += w;
+  }
+  final jawFactor = weightSum > 0 ? jawMix / weightSum : 1.0;
+  final jaw = clamp01(openness * jawFactor);
+  // Sharpen the vowel weights so the dominant vowel's viseme stands
+  // out instead of blending into a generic open mouth: the MFCC
+  // matcher returns a soft blend (the dominant vowel is often only
+  // ~0.6 of the total), so a power curve restores the contrast, then
+  // the result is boosted so the active viseme is clearly visible.
+  final sharpened = <String, double>{};
+  var sharpSum = 0.0;
+  for (final entry in jawFor.entries) {
+    final s = math.pow(vowelWeights[entry.key] ?? 0.0, 1.5).toDouble();
+    sharpened[entry.key] = s;
+    sharpSum += s;
+  }
+  double viseme(String vowel) => sharpSum > 0
+      ? clamp01((sharpened[vowel]! / sharpSum) * openness * 1.6)
+      : 0.0;
   // formDelta lives in [-0.3, 0.3]: positive = spread/smile (ee, ih),
   // negative = rounded (oh, ou). Scaled to [0, 1] and by openness, so
   // the shape shift only shows while the mouth is actually open.
   final smile = clamp01(formDelta / 0.3) * openness;
   final funnel = clamp01(-formDelta / 0.3) * openness;
   return {
-    'viseme_aa': clamp01((vowelWeights['aa'] ?? 0.0) * openness),
-    'viseme_E': clamp01((vowelWeights['ee'] ?? 0.0) * openness),
-    'viseme_I': clamp01((vowelWeights['ih'] ?? 0.0) * openness),
-    'viseme_O': clamp01((vowelWeights['oh'] ?? 0.0) * openness),
-    'viseme_U': clamp01((vowelWeights['ou'] ?? 0.0) * openness),
-    'jawOpen': clamp01(openness),
-    'mouthOpen': clamp01(openness * 0.7),
+    'viseme_aa': viseme('aa'),
+    'viseme_E': viseme('ee'),
+    'viseme_I': viseme('ih'),
+    'viseme_O': viseme('oh'),
+    'viseme_U': viseme('ou'),
+    'jawOpen': jaw,
+    'mouthOpen': clamp01(jaw * 0.7),
     'mouthSmile': smile,
     'mouthSmileLeft': smile,
     'mouthSmileRight': smile,

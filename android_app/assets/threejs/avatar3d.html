@@ -92,8 +92,10 @@ let morphNames = [];
 
 function frameCamera(object) {
   // Fit the model's height into the view with a small margin, so a
-  // half-body model fills the stage like Haru does and a full-body
-  // model stands back far enough to be fully visible.
+  // half-body model fills the stage like Haru does. A full-body model
+  // is framed head-to-waist instead of whole: framed whole, its face
+  // would shrink to a fraction of the stage and the talking mouth
+  // would be too small to see.
   //
   // Do NOT use Box3.setFromObject here: for a SkinnedMesh it uses the
   // cached SkinnedMesh.boundingBox, which is computed from the
@@ -119,6 +121,13 @@ function frameCamera(object) {
     }
   });
   if (box.isEmpty()) return; // keep the default camera position.
+  // Full-body model (height > 1 m): keep only its top 40% (head to
+  // waist) in the frame, so the face stays large on screen -- close
+  // to the half-body man's -- instead of shrinking to a fraction of
+  // the stage. The bottom half is simply out of frame below.
+  if (box.max.y - box.min.y > 1.0) {
+    box.min.y = box.max.y - (box.max.y - box.min.y) * 0.4;
+  }
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   const halfH = Math.max(size.y, 0.5) / 2;

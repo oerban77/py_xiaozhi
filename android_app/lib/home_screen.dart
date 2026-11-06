@@ -733,6 +733,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     lipSyncStream: controller.lipSyncStream,
                     size: constraints.maxWidth,
                     height: constraints.maxHeight,
+                    modelUrl: controller.character3dModelUrl,
                     onLoaded: (_, __) {
                       if (mounted && _avatar3dError != null) {
                         setState(() => _avatar3dError = null);

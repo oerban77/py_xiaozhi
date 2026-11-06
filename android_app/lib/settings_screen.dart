@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'app_theme.dart';
+import 'avatar_3d.dart';
 import 'camera_screen.dart';
 import 'live2d_characters.dart';
 import 'mcp_runtime.dart';
@@ -59,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Avatar character: preset display name, or 'Kustom' for a typed URL.
   late String _characterPreset;
   late final TextEditingController _characterCustomController;
+  // 3D avatar character: the bundled .glb model URL (see Avatar3D.models).
+  late String _character3dModelUrl;
   late int _wakeWordNumTrailingBlanks;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
@@ -128,6 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _characterCustomController = TextEditingController(
       text: characterPreset == null ? widget.controller.characterModelUrl : '',
     );
+    _character3dModelUrl = widget.controller.character3dModelUrl;
     unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
@@ -387,6 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newWakeWordKeywordsThreshold: _wakeWordKeywordsThreshold,
       newWakeWordNumTrailingBlanks: _wakeWordNumTrailingBlanks,
       newCharacterModelUrl: characterUrl,
+      newCharacter3dModelUrl: _character3dModelUrl,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -807,6 +812,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Karakter 3D',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Gambar karakter animasi 3D di layar utama. Karakter 2D '
+                      '(Haru, Hiyori, ...) adalah model Live2D dan tidak punya '
+                      'versi 3D, jadi pilihannya dua model 3D yang sudah ada di '
+                      'aplikasi. Karakter baru langsung tampil setelah disimpan.',
+                      style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                    ),
+                    const SizedBox(height: 14),
+                    RadioGroup<String>(
+                      groupValue: _character3dModelUrl,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _character3dModelUrl = value);
+                      },
+                      child: Column(
+                        children: [
+                          ...Avatar3D.models.map(
+                            (model) => RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(model.label),
+                              subtitle: model.url == Avatar3D.defaultModelUrl
+                                  ? const Text('Default')
+                                  : null,
+                              value: model.url,
+                            ),
+                          ),
                         ],
                       ),
                     ),
