@@ -1,0 +1,232 @@
+<!doctype html>
+<!--
+  3D avatar viewer (PoC) for py_xiaozhi: renders a .glb character with
+  three.js and drives its face morph targets from the app's lip-sync
+  frames. Same architecture as the Live2D avatar (WebView + JS bridge),
+  but a real 3D model instead of a Cubism model.
+
+  Why not flutter_3d_controller / model-viewer: Google's model-viewer
+  public API (materials/variants only, see its scene-graph api.ts) has
+  NO morph-target access, and the runtime Model keeps the three.js scene
+  behind Symbol-keyed privates (model.ts) -- there is no stable way to
+  reach the meshes. This page loads the model with three.js directly, so
+  morph targets are first-class: mesh.morphTargetDictionary by name.
+
+  three.js is pinned to 0.160.0 on jsDelivr (the app already loads Live2D
+  models from jsDelivr, so this CDN is a known-good dependency). The page
+  needs internet for three.js + the model URL; offline it reports an
+  error to Dart through the Avatar3d JS channel.
+
+  Dart API (window.__avatar3d):
+    loadModel(url)            -- load a .glb (replaces the current model)
+    setMorphs({name: 0..1})   -- set face morph weights by target name
+    playAnimation(name?)      -- play a clip by name (first clip if omitted)
+    loadAnimationClip(url)    -- load a separate .glb of clips (e.g. Mixamo)
+                                and play its first clip on this skeleton
+  Dart is notified through the Avatar3d JavaScriptChannel:
+    {type:'loaded', animations:[...], morphs:[...]}
+    {type:'error', message:'...'}
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const channel = (msg) => {
+  try {
+    if (window.Avatar3d) window.Avatar3d.postMessage(JSON.stringify(msg));
+  } catch (e) { /* channel not attached (standalone browser test) */ }
+};
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+// Neutral studio environment so PBR skin/clothes do not look flat or
+// black without an env map (Ready Player Me models are metal-rough).
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.4, 2.4);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x1a2e2b, 0.9);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 1.2);
+key.position.set(1.5, 2.5, 2.0);
+scene.add(key);
+
+const loader = new GLTFLoader();
+const clock = new THREE.Clock();
+let model = null;
+let mixer = null;
+let morphMeshes = []; // [{mesh, dict}] cached at load; morphs set per frame.
+let morphNames = [];
+
+function frameCamera(object) {
+  // Fit the model's height into the view with a small margin, so a
+  // half-body model fills the stage like Haru does and a full-body
+  // model stands back far enough to be fully visible.
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const halfH = Math.max(size.y, 0.5) / 2;
+  const dist = (halfH / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.25;
+  camera.position.set(center.x, center.y + size.y * 0.05, center.z + dist);
+  camera.lookAt(center.x, center.y, center.z);
+  camera.updateProjectionMatrix();
+}
+
+function disposeModel() {
+  if (!model) return;
+  scene.remove(model);
+  model.traverse((node) => {
+    if (node.isMesh) {
+      node.geometry?.dispose?.();
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      mats.forEach((m) => { m?.dispose?.(); });
+    }
+  });
+  mixer = null;
+  morphMeshes = [];
+  morphNames = [];
+  model = null;
+}
+
+function playClip(name) {
+  if (!mixer || !model) return false;
+  const clips = mixer._clips ?? [];
+  const clip = name
+    ? clips.find((c) => c.name === name) ?? null
+    : clips[0] ?? null;
+  if (!clip) return false;
+  mixer.stopAllAction();
+  mixer.clipAction(clip).reset().setLoop(THREE.LoopRepeat).play();
+  return true;
+}
+
+async function loadModel(url) {
+  disposeModel();
+  try {
+    const gltf = await loader.loadAsync(url);
+    model = gltf.scene;
+    scene.add(model);
+    frameCamera(model);
+    // Cache every mesh that carries morph targets, so setMorphs never
+    // traverses the scene per frame (up to 50 calls a second).
+    morphMeshes = [];
+    const names = new Set();
+    model.traverse((node) => {
+      if (node.isMesh && node.morphTargetDictionary) {
+        morphMeshes.push({ mesh: node, dict: node.morphTargetDictionary });
+        Object.keys(node.morphTargetDictionary).forEach((n) => names.add(n));
+      }
+    });
+    morphNames = [...names];
+    // Skeletal clips embedded in the model (halfBody: idle_eyes, hand
+    // poses). A playing clip keeps the render loop meaningful and the
+    // eyes alive; prefer the idle clip when the model has one.
+    mixer = new THREE.AnimationMixer(model);
+    mixer._clips = gltf.animations || [];
+    const idle = (gltf.animations || []).find((c) => /idle/i.test(c.name));
+    if (idle) playClip(idle.name);
+    else if (gltf.animations && gltf.animations.length > 0) playClip();
+    channel({
+      type: 'loaded',
+      animations: (gltf.animations || []).map((c) => c.name),
+      morphs: morphNames,
+    });
+    return true;
+  } catch (e) {
+    channel({ type: 'error', message: 'loadModel failed: ' + (e?.message || e) });
+    return false;
+  }
+}
+
+function setMorphs(weights) {
+  if (!model || morphMeshes.length === 0) return false;
+  for (const { mesh, dict } of morphMeshes) {
+    const inf = mesh.morphTargetInfluences;
+    if (!inf) continue;
+    for (const name in weights) {
+      const idx = dict[name];
+      if (idx !== undefined) {
+        const v = weights[name];
+        inf[idx] = Math.min(1, Math.max(0, typeof v === 'number' ? v : 0));
+      }
+    }
+  }
+  return true;
+}
+
+async function loadAnimationClip(url) {
+  // A Mixamo-style .glb that holds only clips (no meshes): bind its
+  // first clip to this model's skeleton by bone name and play it. The
+  // Ready Player Me skeleton uses the same humanoid bone names as
+  // Mixamo, so the retarget is by name, no manual mapping.
+  if (!model || !mixer) return false;
+  try {
+    const gltf = await loader.loadAsync(url);
+    const clip = (gltf.animations || [])[0];
+    if (!clip) return false;
+    mixer.stopAllAction();
+    mixer.clipAction(clip, model).reset().setLoop(THREE.LoopRepeat).play();
+    return true;
+  } catch (e) {
+    channel({ type: 'error', message: 'loadAnimationClip failed: ' + (e?.message || e) });
+    return false;
+  }
+}
+
+window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip };
+window.__avatar3dReady = true;
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+window.addEventListener('error', (e) => {
+  channel({ type: 'error', message: 'page error: ' + (e?.message || e) });
+});
+
+// The loop runs continuously: the mixer advances here and morph weights
+// set from Dart show on the very next frame, so no explicit re-render
+// trigger is needed (unlike model-viewer, which only renders on demand).
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  renderer.render(scene, camera);
+});
+
+// Standalone browser test: ?model=<url> loads it without Dart.
+const params = new URLSearchParams(window.location.search);
+if (params.get('model')) loadModel(params.get('model'));
+</script>
+</body>
+</html>

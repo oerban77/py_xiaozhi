@@ -56,6 +56,12 @@ dependencies:
       url: https://github.com/Nebulino/live2d.dart.git
       ref: 17e763919a02988ac98c4e4aa3d7e21dcb84fa59
 
+  # 3D avatar PoC (see lib/avatar_3d.dart): the three.js viewer page
+  # runs in a WebView; webview_flutter is already a transitive
+  # dependency via the live2d package above, listed here directly
+  # because the app imports it.
+  webview_flutter: ^4.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -73,3 +79,6 @@ flutter:
     # (src/ui/gui/services/emotion_service.py). Shown in the chat header next to
     # the status and the live TTS text, exactly like the desktop GUI.
     - assets/emojis/
+    # 3D avatar viewer page (three.js, see lib/avatar_3d.dart). The
+    # .glb model itself is NOT bundled: it loads on demand from its URL.
+    - assets/threejs/avatar3d.html

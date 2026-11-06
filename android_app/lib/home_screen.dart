@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'audio_level_visualizer.dart';
 import 'app_theme.dart';
 import 'attachment_text_reader.dart';
+import 'avatar_3d.dart';
 import 'camera_screen.dart';
 import 'debug_screen.dart';
 import 'live2d_avatar.dart';
@@ -38,6 +39,12 @@ class _HomeScreenState extends State<HomeScreen> {
   /// bring it back, swipe up (or wait for the timeout) to hide it again.
   bool _chromeVisible = true;
   Timer? _chromeTimer;
+
+  /// PoC switch for the 3D avatar: false = Live2D (Haru, the default),
+  /// true = the three.js .glb avatar (Avatar3D). Runtime-only, not
+  /// persisted -- the toggle lives on the stage so the two mouths can
+  /// be compared on the same build.
+  bool _use3dAvatar = false;
   /// Idle wandering: the avatar's current stroll offset, as a fraction
   /// of its own size (AnimatedSlide units). Only used while idle;
   /// speaking and listening recenter it (see _buildAvatarStage), so the
@@ -680,18 +687,55 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 1.0,
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOut,
-            child: Live2DAvatar(
-              emotion: emotion,
-              isSpeaking: controller.deviceState == DeviceState.speaking,
-              isListening: controller.deviceState == DeviceState.listening,
-              audioLevelStream: controller.audioLevelStream,
-              lipSyncStream: controller.lipSyncStream,
-              size: constraints.maxWidth,
-              height: constraints.maxHeight,
-              modelUrl: controller.characterModelUrl,
-            ),
+            child: _use3dAvatar
+                ? Avatar3D(
+                    emotion: emotion,
+                    isSpeaking:
+                        controller.deviceState == DeviceState.speaking,
+                    lipSyncStream: controller.lipSyncStream,
+                    size: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                  )
+                : Live2DAvatar(
+                    emotion: emotion,
+                    isSpeaking:
+                        controller.deviceState == DeviceState.speaking,
+                    isListening:
+                        controller.deviceState == DeviceState.listening,
+                    audioLevelStream: controller.audioLevelStream,
+                    lipSyncStream: controller.lipSyncStream,
+                    size: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    modelUrl: controller.characterModelUrl,
+                  ),
           ),
           ),
+            // PoC switch Live2D <-> 3D avatar: a small pill at the top
+            // right of the stage, visible with the chrome (it hides with
+            // it in idle). The label shows what tapping switches TO.
+            if (_chromeVisible)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: TextButton(
+                  onPressed: () =>
+                      setState(() => _use3dAvatar = !_use3dAvatar),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.45),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _use3dAvatar ? '2D' : '3D',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
           ],
         );
       },
