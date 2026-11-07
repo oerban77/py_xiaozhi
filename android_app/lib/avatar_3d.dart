@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'avatar_3d_emotion.dart';
 import 'avatar_3d_server.dart';
 import 'emotion_display.dart';
 import 'lipsync_mfcc.dart';
@@ -45,10 +46,11 @@ import 'lipsync_mfcc.dart';
 /// model; a custom .glb URL works the same way as long as it carries
 /// morph targets with these names.
 ///
-/// What the PoC does NOT do yet (Phase 2): map the server emotion to
-/// ARKit morphs (mouthSmile/mouthFrown/browInnerUp) -- the face stays
-/// neutral except for the talking mouth -- and dance (needs a Mixamo
-/// clip merged in or loaded via `loadAnimationClip`).
+/// What the PoC does NOT do yet: dance (needs a Mixamo clip merged in
+/// or loaded via `loadAnimationClip`). The server emotion IS mapped to
+/// ARKit morphs (see [Avatar3DEmotionFace]): the face shows happy/sad/
+/// angry/surprised/etc. from the `llm` message's `emotion` field, merged
+/// into the 30 Hz mouth ticker so the expression persists while talking.
 class Avatar3D extends StatefulWidget {
   const Avatar3D({
     super.key,
@@ -65,9 +67,10 @@ class Avatar3D extends StatefulWidget {
   });
 
   /// Normalized emotion name from the server (same values as
-  /// [EmotionService.bundled]). Only used for the [EmotionDisplay]
-  /// fallback when the model fails to load; the 3D face itself does
-  /// not map emotions to morphs yet (Phase 2).
+  /// [EmotionService.bundled]). Mapped to ARKit morphs by
+  /// [Avatar3DEmotionFace] and merged into the mouth ticker, so the
+  /// 3D face shows the server's emotion (happy/sad/angry/...). Also
+  /// used for the [EmotionDisplay] fallback when the model fails to load.
   final String emotion;
 
   /// True only while TTS is playing ([XiaozhiController.isSpeaking]).
@@ -258,6 +261,27 @@ class _Avatar3DState extends State<Avatar3D> {
   /// Latest lip-sync frame; null until the first analyzed window.
   LipSyncFrame? _lipSyncFrame;
 
+  /// Current emotion's ARKit morph weights (see [Avatar3DEmotionFace]).
+  /// Recomputed when the server emotion or the speaking state changes;
+  /// merged into the 30 Hz mouth ticker's weights in [_sendMorphs] so
+  /// the expression persists instead of being clobbered on the next
+  /// tick (the ticker rewrites mouth morphs every 33 ms).
+  Map<String, double> _emotionMorphs = const {};
+
+  /// Resolve the current face: a server emotion wins; when none is
+  /// active (empty or 'neutral') the device state supplies a gentle
+  /// smile while talking so the face is not flat between emotions.
+  Map<String, double> _resolveEmotionMorphs() {
+    final emotion = widget.emotion.trim();
+    if (emotion.isNotEmpty && emotion.toLowerCase() != 'neutral') {
+      return Avatar3DEmotionFace.forEmotion(emotion).weights;
+    }
+    return Avatar3DEmotionFace.forDeviceState(
+      isSpeaking: widget.isSpeaking,
+      isListening: false,
+    ).weights;
+  }
+
   /// Smoothed mouth values actually sent (same clock as the Live2D
   /// avatar: 30 Hz ticker, attack ~70 ms, release ~180 ms for the
   /// opening, ~90 ms for the form).
@@ -295,6 +319,7 @@ class _Avatar3DState extends State<Avatar3D> {
   @override
   void initState() {
     super.initState();
+    _emotionMorphs = _resolveEmotionMorphs();
     if (_isFlutterTest) return;
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -337,6 +362,13 @@ class _Avatar3DState extends State<Avatar3D> {
       _modelReady = false;
       _failed = false;
       _loadModel();
+    }
+    if (oldWidget.emotion != widget.emotion ||
+        oldWidget.isSpeaking != widget.isSpeaking) {
+      // Server emotion (or the speaking-state fallback) changed:
+      // recompute the expression morphs and push them on the next tick.
+      _emotionMorphs = _resolveEmotionMorphs();
+      _sendMorphs(force: true);
     }
     if (oldWidget.isSpeaking != widget.isSpeaking && !widget.isSpeaking) {
       // Speech just ended: close the mouth promptly instead of waiting
@@ -484,7 +516,19 @@ class _Avatar3DState extends State<Avatar3D> {
       formDelta: _mouthForm,
       vowelWeights: _smoothedVowelWeights,
       strength: widget.mouthStrength,
-    );    var changed = force;
+    );
+    // Merge the emotion face: morphs the mouth ticker already writes
+    // (mouthSmile, jawOpen, mouthOpen) ADD to the ticker's value and
+    // clamp to 1.0, so a happy avatar talking smiles wider than a
+    // neutral one talking instead of the two fighting; emotion-only
+    // morphs (brow, frown, squint) are used as-is.
+    for (final entry in _emotionMorphs.entries) {
+      final existing = weights[entry.key];
+      weights[entry.key] = existing == null
+          ? entry.value
+          : (existing + entry.value).clamp(0.0, 1.0);
+    }
+    var changed = force;
     if (!changed) {
       for (final entry in weights.entries) {
         if (((_lastSentMorphs[entry.key] ?? -1.0) - entry.value).abs() >=
