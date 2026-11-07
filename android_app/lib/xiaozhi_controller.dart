@@ -23,6 +23,7 @@ import 'emotion_service.dart';
 import 'lipsync_mfcc.dart';
 import 'live2d_characters.dart';
 import 'mcp_runtime.dart';
+import 'mic_buffers.dart';
 import 'music_runtime.dart';
 import 'protocol_messages.dart';
 import 'wake_word_detector.dart';
@@ -56,7 +57,26 @@ class XiaozhiController extends ChangeNotifier {
   final AudioRecorder _recorder = AudioRecorder();
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
   final List<ChatMessage> messages = [];
-  final List<int> _pendingMicBytes = [];
+
+  /// Maximum chat messages kept in memory. The list only ever grew:
+  /// a very long session with long TTS answers accumulates megabytes
+  /// of text. The UI shows the recent conversation; older messages are
+  /// dropped (the server keeps the full history).
+  static const maxChatMessages = 200;
+
+  /// Add a chat message, dropping the oldest ones past [maxChatMessages].
+  void _addChatMessage(ChatMessage message) {
+    messages.add(message);
+    if (messages.length > maxChatMessages) {
+      messages.removeRange(0, messages.length - maxChatMessages);
+    }
+  }
+
+  /// Test-only entry point for [_addChatMessage].
+  @visibleForTesting
+  void addChatMessageForTest(ChatMessage message) => _addChatMessage(message);
+
+  final MicFrameQueue _pendingMicBytes = MicFrameQueue();
   final WakeWordDetector wakeWordDetector = WakeWordDetector();
 
   WebSocketChannel? _channel;
@@ -413,7 +433,12 @@ class XiaozhiController extends ChangeNotifier {
   /// [LipSyncFrame.isSpeechLike]). Filled in [_handleMicData] before
   /// the detector is fed, so the audio that triggered a detection is
   /// already in the buffer when the gate checks it.
-  final List<double> _micRingPcm = <double>[];
+  ///
+  /// A fixed circular buffer ([MicRingBuffer]): the previous
+  /// `List<double>` + removeRange(0, excess) shifted up to 16000 doubles
+  /// on every mic chunk. Readers use [MicRingBuffer.snapshot] (a copy,
+  /// but only on wake-word/barge-in checks) or [MicRingBuffer.recentRms].
+  final MicRingBuffer _micRing = MicRingBuffer();
   /// Current audio level (0.0–1.0), reflecting the mic level while listening
   /// or the TTS level while speaking. Exposed for the debug screen.
   double get audioLevel =>
@@ -1064,7 +1089,7 @@ class XiaozhiController extends ChangeNotifier {
     // TV in the background cannot cut the answer off.
     if (!shouldAcceptWakeWordHit(
       filterEnabled: externalSoundFilter,
-      hasEnoughAudio: _micRingPcm.length >= LipSyncAnalyzer.windowSamples,
+      hasEnoughAudio: _micRing.length >= LipSyncAnalyzer.windowSamples,
       recentRms: _micRecentRms(),
       closeThreshold: closeSpeechThreshold,
     )) {
@@ -1433,7 +1458,7 @@ class XiaozhiController extends ChangeNotifier {
     final hasAttachment =
         pendingText != null || pendingPdf != null || imageBytes != null;
     _pendingAttachmentName = hasAttachment ? attachmentName : null;
-    messages.add(ChatMessage(text: displayText, isUser: true));
+    _addChatMessage(ChatMessage(text: displayText, isUser: true));
     // The conversation is continuous, so a text send keeps the session alive and
     // the state stays listening while the answer is being prepared.
     autoSessionActive = true;
@@ -1798,7 +1823,7 @@ class XiaozhiController extends ChangeNotifier {
       final text = data['text'];
       if (text is String && text.trim().isNotEmpty) {
         if (messages.isEmpty || !messages.last.isUser || messages.last.text != text) {
-          messages.add(ChatMessage(text: text, isUser: true));
+          _addChatMessage(ChatMessage(text: text, isUser: true));
         }
         // Mirrors UiPresenter.show_protocol_message: stt text also updates the
         // live chat panel line (mainModel.ttsText) in the desktop GUI.
@@ -1881,7 +1906,7 @@ class XiaozhiController extends ChangeNotifier {
   void _appendAssistantText(String text) {
     if (_assistantMessageIndex == null || _assistantMessageIndex! >= messages.length) {
       _assistantText = text;
-      messages.add(ChatMessage(text: _assistantText, isUser: false));
+      _addChatMessage(ChatMessage(text: _assistantText, isUser: false));
       _assistantMessageIndex = messages.length - 1;
     } else {
       _assistantText = appendTtsSegment(_assistantText, text);
@@ -2157,8 +2182,8 @@ class XiaozhiController extends ChangeNotifier {
   /// (the detector needs ~1 s to fire anyway, so the buffer is full by
   /// then in practice).
   bool _micIsSpeechLike() {
-    if (_micRingPcm.length < LipSyncAnalyzer.windowSamples) return true;
-    return _lipSyncAnalyzer.containsSpeech(_micRingPcm);
+    if (_micRing.length < LipSyncAnalyzer.windowSamples) return true;
+    return _lipSyncAnalyzer.containsSpeech(_micRing.snapshot());
   }
 
   /// Whether a wake-word hit counts as the user speaking close by,
@@ -2184,12 +2209,7 @@ class XiaozhiController extends ChangeNotifier {
   /// TV audio is speech too (so it passes the vowel gate above), but
   /// it is usually much quieter at the mic than the user.
   double _micRecentRms() {
-    if (_micRingPcm.isEmpty) return 0.0;
-    var sumSq = 0.0;
-    for (final v in _micRingPcm) {
-      sumSq += v * v;
-    }
-    return sqrt(sumSq / _micRingPcm.length);
+    return _micRing.recentRms();
   }
 
   /// Gemini/ChatGPT-style barge-in on user SPEECH (not just the wake
@@ -2254,17 +2274,14 @@ class XiaozhiController extends ChangeNotifier {
     _lastMicDataAt = DateTime.now();
     // Feed the speech-gate ring buffer first: the wake word and the
     // barge-in check below both read it, and the audio that triggers a
-    // detection must already be in it when they do.
+    // detection must already be in it when they do. The ring keeps
+    // the last 1 s (16 kHz) and overwrites the oldest samples, so no
+    // trimming is needed here.
     if (data.length >= 2) {
       final byteData = ByteData.sublistView(data);
       final count = data.length ~/ 2;
       for (var i = 0; i < count; i++) {
-        _micRingPcm.add(byteData.getInt16(i * 2, Endian.little) / 32768.0);
-      }
-      // Keep the last 1 s (16 kHz); the gate only ever reads the last
-      // 64 ms, so anything older is dead weight.
-      if (_micRingPcm.length > 16000) {
-        _micRingPcm.removeRange(0, _micRingPcm.length - 16000);
+        _micRing.add(byteData.getInt16(i * 2, Endian.little) / 32768.0);
       }
     }
     // The wake word detector taps the same 16 kHz PCM16 stream the uplink uses,
@@ -2308,8 +2325,10 @@ class XiaozhiController extends ChangeNotifier {
     _pendingMicBytes.addAll(data);
     const frameBytes = 320 * 2;
     while (_pendingMicBytes.length >= frameBytes) {
-      final bytes = Uint8List.fromList(_pendingMicBytes.take(frameBytes).toList());
-      _pendingMicBytes.removeRange(0, frameBytes);
+      // takeFrame returns a view into the queue's backing store (no
+      // copy): read it fully (RMS + Opus encode, both synchronous)
+      // before consuming it, and never hold it past this loop body.
+      final bytes = _pendingMicBytes.takeFrame(frameBytes)!;
       final samples = Int16List.view(bytes.buffer, bytes.offsetInBytes, 320);
       _micLevel = _rmsLevel(samples);
       if (!_audioLevelController.isClosed) {
@@ -2319,6 +2338,7 @@ class XiaozhiController extends ChangeNotifier {
       // During the post-TTS silence period the speaker is still draining; sending mic
       // audio now makes the assistant hear and answer itself in realtime mode.
       if (packet != null && isConnected && !_suppressMic) _channel?.sink.add(packet);
+      _pendingMicBytes.consume(frameBytes);
     }
   }
 

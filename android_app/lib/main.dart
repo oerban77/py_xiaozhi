@@ -11,23 +11,95 @@ import 'reminder_runtime.dart';
 import 'xiaozhi_controller.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([]);
-  // Full-screen stage: system bars (status + navigation) hide
-  // automatically (immersive sticky) and reappear on an edge swipe,
-  // then hide again after a timeout. Transparent bars so they overlay
-  // the stage instead of pushing the content when they show.
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  // A global error handler so an uncaught async error never kills the
+  // app silently (and never shows a red screen in release): log it and
+  // keep running. Without this, a single fire-and-forget failure (the
+  // app has dozens of unawaited() calls) can leave a feature dead with
+  // no message — the exact shape of the "mic tidak direspon" /
+  // "TTS tidak keluar" reports.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+  };
+  await runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await SystemChrome.setPreferredOrientations([]);
+      // Full-screen stage: system bars (status + navigation) hide
+      // automatically (immersive sticky) and reappear on an edge swipe,
+      // then hide again after a timeout. Transparent bars so they overlay
+      // the stage instead of pushing the content when they show.
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ));
 
-  final controller = XiaozhiController();
-  await controller.initialize();
-  runApp(XiaozhiApp(controller: controller));
+      final controller = XiaozhiController();
+      try {
+        await controller.initialize();
+      } catch (e) {
+        // Init failed (corrupt preferences, audio session unavailable,
+        // storage full): show an error screen instead of crashing at
+        // launch with no UI at all.
+        runApp(_InitErrorApp(error: e));
+        return;
+      }
+      runApp(XiaozhiApp(controller: controller));
+    },
+    (error, stack) {
+      // Uncaught async error outside the Flutter framework: log it.
+      // In release this keeps the app alive; the failing feature is
+      // reported through the controller's own error channel when it
+      // has one.
+      debugPrint('Uncaught async error: $error\n$stack');
+    },
+  );
+}
+
+/// Shown when [XiaozhiController.initialize] throws at startup, so the
+/// user sees what went wrong instead of a crash with no UI.
+class _InitErrorApp extends StatelessWidget {
+  const _InitErrorApp({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'Xiaozhi',
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: AppColors.paper,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Xiaozhi gagal dimulai',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$error',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Coba tutup aplikasi lalu buka lagi. Kalau terus gagal, '
+                    'hapus data aplikasi dan masukkan lagi pengaturan server.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class XiaozhiApp extends StatefulWidget {

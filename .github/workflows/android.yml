@@ -233,6 +233,23 @@ jobs:
                   1,
               )
 
+          # CAPTURE_AUDIO_OUTPUT is a signature/system permission no normal
+          # app can hold; an audio plugin's manifest pulls it in and it is
+          # dead weight (and confusing in Play Store review). Remove it in
+          # both spellings: the merged manifest carries it as
+          # 'Manifest.permission.CAPTURE_AUDIO_OUTPUT' (the literal string
+          # from the plugin manifest), not 'android.permission.…'.
+          for _name in (
+              'android.permission.CAPTURE_AUDIO_OUTPUT',
+              'Manifest.permission.CAPTURE_AUDIO_OUTPUT',
+          ):
+              if f'android:name="{_name}"' not in text:
+                  text = text.replace(
+                      '</manifest>',
+                      f'    <uses-permission android:name="{_name}" tools:node="remove" />\n</manifest>',
+                      1,
+                  )
+
           manifest_path.write_text(text, encoding='utf-8')
 
           # Keep Android libraries on the same supported SDK without editing cached packages.

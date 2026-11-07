@@ -15,6 +15,7 @@
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:py_xiaozhi_android/chat_message.dart';
 import 'package:py_xiaozhi_android/xiaozhi_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -307,6 +308,21 @@ void main() {
         ),
         isTrue,
       );
+    });
+  });
+
+  group('chat message cap', () {
+    test('keeps only the newest 200 messages', () {
+      final controller = XiaozhiController();
+      for (var i = 0; i < 250; i++) {
+        controller.addChatMessageForTest(
+          ChatMessage(text: 'msg $i', isUser: i.isEven),
+        );
+      }
+      expect(controller.messages.length, XiaozhiController.maxChatMessages);
+      expect(controller.messages.first.text, 'msg 50');
+      expect(controller.messages.last.text, 'msg 249');
+      controller.dispose();
     });
   });
 }
