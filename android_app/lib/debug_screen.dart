@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'mcp_runtime.dart';
 import 'xiaozhi_controller.dart';
 
 class DebugScreen extends StatefulWidget {
@@ -45,6 +46,28 @@ class _DebugScreenState extends State<DebugScreen> {
   /// Compare it with the spoken word while testing: if the vowel shown
   /// is wrong (e.g. 'ou' while the voice says 'a'), the generic
   /// templates misread this TTS voice and need calibration.
+  /// Tools actually served to the server in the most recent
+  /// `tools/list` response. The avatar_gesture line is the diagnostic
+  /// for the "gesture not available" reports: if it says NO here, the
+  /// server never received the tool (forwarding/caching gap); if YES
+  /// but the LLM still says unavailable, the tool was listed but the
+  /// LLM never called it. The full name list shows exactly what the
+  /// server got, so a missing or filtered tool is visible at a glance.
+  List<String> _toolsListText() {
+    final names = McpRuntime.lastListedToolNames;
+    if (names.isEmpty) {
+      return const ['(no tools/list served yet -- connect first)'];
+    }
+    final at = McpRuntime.lastToolsListAt;
+    final time = at == null
+        ? ''
+        : ' (${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}:${at.second.toString().padLeft(2, '0')})';
+    return [
+      'avatar_gesture listed: ${names.contains('avatar_gesture') ? 'YES' : 'NO'}',
+      'Total tools: ${names.length}$time',
+      'Tools: ${names.join(', ')}',
+    ];
+  }
   String _lipSyncText() {
     final frame = widget.controller.lastLipSyncFrame;
     if (frame == null) return '(no frame yet)';
@@ -161,6 +184,8 @@ class _DebugScreenState extends State<DebugScreen> {
             _buildDebugSection('Lip-sync', [
               'Vowel: ${_lipSyncText()}',
             ]),
+            const SizedBox(height: 20),
+            _buildDebugSection('MCP Tools (tools/list)', _toolsListText()),
             const SizedBox(height: 20),
             _buildDebugSection('Pending Attachments', [
               'Text Attachment: ${widget.controller.pendingTextAttachment != null ? 'YES' : 'NO'}',

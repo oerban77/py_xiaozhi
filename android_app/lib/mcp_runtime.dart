@@ -28,6 +28,17 @@ class McpRuntime {
   /// no avatar is available instead of failing.
   static void Function(String gesture, int durationMs)? onAvatarGesture;
 
+  /// Tool names served by the most recent `tools/list` response, in
+  /// order (including the prepended manage_document). The debug screen
+  /// shows this so the user can confirm from the phone whether
+  /// `avatar_gesture` actually reached the server -- when the LLM says
+  /// the gesture feature is "not available", this tells us whether
+  /// the tool was even listed (server forwarding gap) or was listed
+  /// but never called (LLM choice). Empty until the first list is
+  /// served; [lastToolsListAt] records when that was.
+  static List<String> lastListedToolNames = const [];
+  static DateTime? lastToolsListAt;
+
   /// Handle an `avatar_gesture` tool call: normalize the requested
   /// gesture, forward it to the avatar, and return a short
   /// confirmation for the LLM. Unknown names are reported back so the
@@ -412,6 +423,10 @@ class McpRuntime {
           // The MCP client may cache tools/list at connection time, so this tool
           // must remain available when a later chat message becomes pending text.
           tools.insert(0, attachmentTool);
+          lastListedToolNames = tools
+              .map((tool) => tool['name'] as String)
+              .toList(growable: false);
+          lastToolsListAt = DateTime.now();
           return _result(id, {'tools': tools});
         case 'tools/call':
           final params = request['params'];

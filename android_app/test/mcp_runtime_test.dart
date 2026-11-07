@@ -48,6 +48,22 @@ void main() {
     expect(names, contains('self.camera.get_facing'));
   });
 
+  test('tools/list records the served names incl. avatar_gesture', () async {
+    final response = await McpRuntime.handle(
+      {'jsonrpc': '2.0', 'id': 10, 'method': 'tools/list'},
+      disabledModules: <String>{},
+    );
+    final result = response!['result'] as Map<String, dynamic>;
+    final tools = result['tools'] as List<dynamic>;
+    final names = tools.map((tool) => (tool as Map)['name'] as String).toList();
+
+    // The debug screen reads this snapshot to show whether the server
+    // actually received avatar_gesture; it must match the response.
+    expect(McpRuntime.lastListedToolNames, names);
+    expect(McpRuntime.lastListedToolNames, contains('avatar_gesture'));
+    expect(McpRuntime.lastToolsListAt, isNotNull);
+  });
+
   test('hides disabled prayer module tools', () async {
     final response = await McpRuntime.handle(
       {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'},
