@@ -121,4 +121,73 @@ class AvatarExpression {
     if (names.contains(key)) return key;
     return _aliases[key];
   }
+
+  /// Detect the expression for the assistant's reply [text], from the
+  /// text itself — no server needed. The server does NOT send the
+  /// expression, so the app reads what the assistant is saying and
+  /// picks the face that matches: laughter, emojis, and emotion words
+  /// in the reply. Returns null when the text carries no emotion cue
+  /// (the face stays as it is, usually neutral).
+  ///
+  /// Cues are scored per emotion (an emoji counts double — it is an
+  /// explicit face the author chose) and the highest score wins. A
+  /// tie keeps the earlier emotion in [_textCues] order, so the most
+  /// distinctive faces (laughing, crying, angry) win over generic
+  /// ones. The scan is case-insensitive.
+  static String? fromText(String text) {
+    final lower = text.toLowerCase();
+    String? bestEmotion;
+    var bestScore = 0;
+    for (final entry in _textCues.entries) {
+      var score = 0;
+      for (final cue in entry.value) {
+        if (cue.startsWith('emoji:')) {
+          if (lower.contains(cue.substring(6))) score += 2;
+        } else if (lower.contains(cue)) {
+          score += 1;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestEmotion = entry.key;
+      }
+    }
+    return bestScore > 0 ? bestEmotion : null;
+  }
+
+  /// Emotion cues in the assistant's reply text, strongest first.
+  /// Emoji cues are prefixed with `emoji:` and count double.
+  static const Map<String, List<String>> _textCues = <String, List<String>>{
+    'laughing': <String>[
+      'emoji:😂', 'emoji:🤣', 'haha', 'hehe', 'hihi', 'wkwk',
+      'ngakak', 'tertawa', 'ketawa',
+    ],
+    'crying': <String>['emoji:😭', 'menangis', 'nangis'],
+    'angry': <String>['emoji:😠', 'emoji:😡', 'marah', 'kesal', 'menyebalkan'],
+    'surprised': <String>[
+      'emoji:😮', 'emoji:😲', 'astaga', 'wah', 'wow',
+      'benarkah', 'serius?',
+    ],
+    'shocked': <String>['emoji:😱', 'kaget banget'],
+    'sad': <String>[
+      'emoji:😢', 'emoji:😔', 'sedih', 'maaf', 'sayang sekali',
+    ],
+    'loving': <String>['emoji:❤️', 'emoji:😍', 'sayang', 'cinta'],
+    'happy': <String>[
+      'emoji:😊', 'emoji:😄', 'senang', 'gembira', 'bagus',
+      'hebat', 'mantap', 'asyik', 'yeay',
+    ],
+    'funny': <String>['lucu'],
+    'thinking': <String>['emoji:🤔', 'hmm', 'mungkin', 'menurutku'],
+    'confused': <String>['emoji:😕', 'bingung', 'tidak paham'],
+    'cool': <String>['emoji:😎', 'keren'],
+    'confident': <String>['pasti', 'tentu', 'yakin'],
+    'relaxed': <String>['emoji:😌', 'santai'],
+    'sleepy': <String>['emoji:😴', 'ngantuk', 'capek', 'lelah'],
+    'silly': <String>['emoji:😜', 'konyol'],
+    'embarrassed': <String>['emoji:😳', 'malu'],
+    'delicious': <String>['emoji:😋', 'enak', 'lezat', 'nikmat'],
+    'kissy': <String>['emoji:😘', 'cium'],
+    'winking': <String>['emoji:😉'],
+  };
 }

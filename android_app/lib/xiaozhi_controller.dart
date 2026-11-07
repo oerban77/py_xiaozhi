@@ -318,6 +318,13 @@ class XiaozhiController extends ChangeNotifier {
   Timer? _subtitleHideTimer;
   String sessionId = '';
   String _assistantText = '';
+  bool _serverEmotionInReply = false;
+
+  /// True when the server sent an `emotion` for the current reply.
+  /// The expression is made INTERNALLY (from the reply text), not from
+  /// the server — but if the server does send one, it is explicit and
+  /// wins over the text detection for that reply. Reset when a new
+  /// reply starts (tts start).
   String? _pendingTextAttachment;
   /// Mirrors the question passed to set_pending_document in
   /// src/mcp/mcp_server.py: surfaced to the LLM as
@@ -1887,6 +1894,7 @@ class XiaozhiController extends ChangeNotifier {
         _subtitleHideTimer = null;
         _assistantText = '';
         _assistantMessageIndex = null;
+        _serverEmotionInReply = false;
         // Mirrors ConversationSession._handle_tts_start: the device is speaking
         // unless a continuous realtime session keeps the mic open. Android has no
         // AEC, so the mic is always gated during playback and the state is always
@@ -1910,6 +1918,10 @@ class XiaozhiController extends ChangeNotifier {
       if (text is String && text.isNotEmpty) {
         _appendAssistantText(text);
         liveText = _assistantText;
+        // The expression is made internally from the reply text, not
+        // from the server: read what the assistant is saying and show
+        // the matching face while it speaks.
+        _applyInternalEmotion();
         // Staged, not shown yet: _promoteSubtitle displays it when its
         // audio reaches the player, which is what keeps the subtitle in
         // sync with the voice.
@@ -1936,6 +1948,7 @@ class XiaozhiController extends ChangeNotifier {
       // updates the animation shown next to the chat text.
       final value = data['emotion'];
       if (value is String && value.trim().isNotEmpty) {
+        _serverEmotionInReply = true;
         emotion = EmotionService.normalize(value);
         // Reset the watchdog on LLM emotion: for very long responses the server
         // may have gaps between TTS text chunks. LLM messages prove the server
@@ -1950,6 +1963,24 @@ class XiaozhiController extends ChangeNotifier {
       _reportError((data['message'] ?? data['error'] ?? 'Kesalahan server').toString());
     }
     notifyListeners();
+  }
+
+  /// Set the avatar's expression from the assistant's own reply
+  /// text. The server does NOT send the expression, so the app makes
+  /// it internally: the reply is scanned for laughter, emojis, and
+  /// emotion words, and the matching face is shown while the avatar
+  /// speaks. A server emotion (when one is sent) wins for the reply
+  /// and this does nothing; otherwise the detected face applies, and
+  /// it follows the reply as more text arrives (a later "haha" turns
+  /// a neutral opening into laughing). Only updates when the detected
+  /// face changes, so the expression never flickers between segments.
+  void _applyInternalEmotion() {
+    if (_serverEmotionInReply) return;
+    final detected = AvatarExpression.fromText(_assistantText);
+    if (detected != null && detected != emotion) {
+      emotion = detected;
+      notifyListeners();
+    }
   }
 
   void _appendAssistantText(String text) {

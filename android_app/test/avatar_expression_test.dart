@@ -49,6 +49,41 @@ void main() {
     });
   });
 
+  group('AvatarExpression.fromText', () {
+    test('detects laughter and funny replies', () {
+      expect(AvatarExpression.fromText('Haha, itu lucu sekali!'), 'laughing');
+      expect(AvatarExpression.fromText('Wkwkwk ngakak!'), 'laughing');
+      expect(AvatarExpression.fromText('Itu lucu 😂'), 'laughing');
+      expect(AvatarExpression.fromText('Hehe, iya juga ya.'), 'laughing');
+    });
+
+    test('detects sad, angry, and surprised replies', () {
+      expect(AvatarExpression.fromText('Maaf ya, saya sedih mendengarnya.'), 'sad');
+      expect(AvatarExpression.fromText('Aduh, saya marah sekali!'), 'angry');
+      expect(AvatarExpression.fromText('Wah, benarkah itu? 😮'), 'surprised');
+      expect(AvatarExpression.fromText('Astaga!'), 'surprised');
+    });
+
+    test('detects happy and loving replies', () {
+      expect(AvatarExpression.fromText('Saya senang sekali! 😊'), 'happy');
+      expect(AvatarExpression.fromText('Bagus, hebat!'), 'happy');
+      expect(AvatarExpression.fromText('Aku sayang kamu ❤️'), 'loving');
+    });
+
+    test('returns null when the text carries no emotion cue', () {
+      expect(AvatarExpression.fromText('Berikut adalah jadwalnya.'), isNull);
+      expect(AvatarExpression.fromText(''), isNull);
+      expect(AvatarExpression.fromText('Cuaca hari ini cerah.'), isNull);
+    });
+
+    test('the strongest cue wins', () {
+      // Laughing outranks a mild happy word in the same reply.
+      expect(AvatarExpression.fromText('Senang sekali, haha!'), 'laughing');
+      // An emoji counts double, so it beats a single keyword.
+      expect(AvatarExpression.fromText('Maaf, tapi 😂'), 'laughing');
+    });
+  });
+
   group('AvatarExpression.names', () {
     test('covers the 21 bundled emotions', () {
       expect(AvatarExpression.names, hasLength(21));
