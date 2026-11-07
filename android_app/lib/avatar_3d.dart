@@ -55,6 +55,7 @@ class Avatar3D extends StatefulWidget {
     required this.emotion,
     required this.isSpeaking,
     this.lipSyncStream,
+    this.gestureStream,
     this.size = 240.0,
     this.height,
     this.modelUrl = defaultModelUrl,
@@ -78,6 +79,12 @@ class Avatar3D extends StatefulWidget {
   /// mouth stays closed (the PoC has no RMS-only fallback: the point
   /// is the vowel-driven mouth).
   final Stream<LipSyncFrame>? lipSyncStream;
+
+  /// Gesture requests from [XiaozhiController.avatarGestureStream]
+  /// (MCP `avatar_gesture` tool). Each event is a canonical gesture
+  /// name; the widget forwards it to the three.js page's playGesture.
+  /// When null, gestures are ignored (no MCP tool is wired).
+  final Stream<String>? gestureStream;
 
   final double size;
 
@@ -246,6 +253,7 @@ bool get _isFlutterTest => Platform.environment['FLUTTER_TEST'] == 'true';
 class _Avatar3DState extends State<Avatar3D> {
   late final WebViewController _webViewController;
   StreamSubscription<LipSyncFrame>? _lipSyncSubscription;
+  StreamSubscription<String>? _gestureSubscription;
 
   /// Latest lip-sync frame; null until the first analyzed window.
   LipSyncFrame? _lipSyncFrame;
@@ -311,6 +319,10 @@ class _Avatar3DState extends State<Avatar3D> {
         if (mounted) _lipSyncFrame = frame;
       });
     }
+    final gestureStream = widget.gestureStream;
+    if (gestureStream != null) {
+      _gestureSubscription = gestureStream.listen(_playGesture);
+    }
     _lastMouthTick = DateTime.now();
     _mouthTimer = Timer.periodic(
       const Duration(milliseconds: 33),
@@ -342,6 +354,7 @@ class _Avatar3DState extends State<Avatar3D> {
     _mouthTimer?.cancel();
     _pageReadyTimer?.cancel();
     _lipSyncSubscription?.cancel();
+    _gestureSubscription?.cancel();
     unawaited(_server.stop());
     super.dispose();
   }
@@ -471,8 +484,7 @@ class _Avatar3DState extends State<Avatar3D> {
       formDelta: _mouthForm,
       vowelWeights: _smoothedVowelWeights,
       strength: widget.mouthStrength,
-    );
-    var changed = force;
+    );    var changed = force;
     if (!changed) {
       for (final entry in weights.entries) {
         if (((_lastSentMorphs[entry.key] ?? -1.0) - entry.value).abs() >=
@@ -487,6 +499,19 @@ class _Avatar3DState extends State<Avatar3D> {
     unawaited(
       _webViewController.runJavaScript(
         'window.__avatar3d.setMorphs(${jsonEncode(weights)})',
+      ),
+    );
+  }
+
+  /// Play a gesture on the 3D model (MCP `avatar_gesture`). The page's
+  /// playGesture returns false for an unknown name or when no model is
+  /// loaded; that is ignored here (the name was already normalized by
+  /// the controller, and a missing model is reported via onError).
+  void _playGesture(String gesture) {
+    if (_failed || _isFlutterTest || !_modelReady) return;
+    unawaited(
+      _webViewController.runJavaScript(
+        'window.__avatar3d.playGesture(${jsonEncode(gesture)})',
       ),
     );
   }

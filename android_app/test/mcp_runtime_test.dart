@@ -670,4 +670,49 @@ void main() {
       expect(McpRuntime.isTextReadingQuestion('Describe this photo'), isFalse);
     });
   });
+
+  group('avatar_gesture tool', () {
+    tearDown(() {
+      // The callback is a static field: never leave a test's closure
+      // behind for the next test.
+      McpRuntime.onAvatarGesture = null;
+    });
+
+    test('forwards a known gesture to the avatar callback', () {
+      var received = '';
+      McpRuntime.onAvatarGesture = (gesture, durationMs) {
+        received = '$gesture:$durationMs';
+      };
+      final result = McpRuntime.callAvatarGestureForTest(
+        {'gesture': 'lambaian'},
+      );
+      expect(result, contains('wave'));
+      expect(received, 'wave:2000');
+    });
+
+    test('accepts an explicit duration', () {
+      var duration = 0;
+      McpRuntime.onAvatarGesture = (_, durationMs) => duration = durationMs;
+      McpRuntime.callAvatarGestureForTest(
+        {'gesture': 'nod', 'duration_ms': 5000},
+      );
+      expect(duration, 5000);
+    });
+
+    test('reports an unknown gesture instead of failing', () {
+      final result = McpRuntime.callAvatarGestureForTest(
+        {'gesture': 'terbang'},
+      );
+      expect(result, contains('Unknown gesture'));
+      expect(result, contains('wave'));
+    });
+
+    test('reports when no avatar is wired', () {
+      McpRuntime.onAvatarGesture = null;
+      final result = McpRuntime.callAvatarGestureForTest(
+        {'gesture': 'wave'},
+      );
+      expect(result, contains('No avatar is on screen'));
+    });
+  });
 }

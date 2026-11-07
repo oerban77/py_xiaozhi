@@ -18,6 +18,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'chat_message.dart';
 import 'attachment_text_reader.dart';
+import 'avatar_gesture.dart';
 import 'emotion_service.dart';
 import 'lipsync_mfcc.dart';
 import 'live2d_characters.dart';
@@ -371,6 +372,26 @@ class XiaozhiController extends ChangeNotifier {
       StreamController<LipSyncFrame>.broadcast();
   Stream<LipSyncFrame> get lipSyncStream => _lipSyncController.stream;
 
+  /// Avatar gesture requests (MCP `avatar_gesture` tool): the LLM asks
+  /// the avatar to perform a movement (wave, nod, happy, ...). Emitted
+  /// as the canonical gesture name; both the 3D avatar and the Live2D
+  /// avatar subscribe and play their own version of it. Broadcast so
+  /// the tool can fire even when only one avatar is on screen.
+  final StreamController<String> _avatarGestureController =
+      StreamController<String>.broadcast();
+  Stream<String> get avatarGestureStream => _avatarGestureController.stream;
+
+  /// Request the avatar to perform [gesture] (canonical name or an
+  /// alias; unknown names are ignored by the avatar). Called by the
+  /// MCP `avatar_gesture` tool and by the UI.
+  void requestAvatarGesture(String gesture) {
+    final name = AvatarGesture.normalize(gesture);
+    if (name == null) return;
+    if (!_avatarGestureController.isClosed) {
+      _avatarGestureController.add(name);
+    }
+  }
+
   /// 16 kHz PCM accumulator for the lip-sync analyzer (64 ms windows).
   final List<double> _lipSyncPcm = <double>[];
 
@@ -520,6 +541,12 @@ class XiaozhiController extends ChangeNotifier {
 
   Future<void> initialize() async {
     await McpRuntime.initializeNotifications();
+    // Wire the MCP avatar_gesture tool to the avatar: when the LLM
+    // calls it, the gesture is emitted on avatarGestureStream and the
+    // on-screen avatar (3D or Live2D) plays it.
+    McpRuntime.onAvatarGesture = (gesture, durationMs) {
+      requestAvatarGesture(gesture);
+    };
     _preferences = await SharedPreferences.getInstance();
     final storedEndpoint = _preferences?.getString('server_url')?.trim() ?? '';
     endpoint = storedEndpoint.isEmpty ? defaultEndpoint : storedEndpoint;
@@ -2873,6 +2900,7 @@ class XiaozhiController extends ChangeNotifier {
     unawaited(_micSubscription?.cancel());
     unawaited(_channel?.sink.close());
     unawaited(McpRuntime.dispose());
+    _avatarGestureController.close();
     _recorder.dispose();
     unawaited(_player.closePlayer());
     _encoder?.destroy();

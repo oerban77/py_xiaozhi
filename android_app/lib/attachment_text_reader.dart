@@ -39,6 +39,15 @@ class AttachmentTextReader {
   /// practical cap used by pdf-mcp's pdf_search (default 10, max 100).
   static const pdfSearchMaxResults = 10;
 
+  /// How many PDF pages are extracted per batch in [extractPdf]. The old
+  /// code loaded every page concurrently with `Future.wait` — for a
+  /// thousands-page PDF that is thousands of simultaneous native page
+  /// loads, which spikes memory, freezes the UI, and saturates the main
+  /// isolate so the WebSocket ping timer cannot fire and the server
+  /// closes the "idle" socket mid-extraction. Bounded batches keep the
+  /// peak load flat regardless of document size.
+  static const pdfExtractBatchSize = 16;
+
   /// Default context window (chars) around each search hit. Mirrors
   /// pdf-mcp's pdf_search context_chars default.
   static const pdfSearchContextChars = 200;
@@ -185,16 +194,37 @@ class AttachmentTextReader {
   /// Parses every page of the PDF and keeps the per-page text, so later reads
   /// can slice it by page (mirrors _extract_pdf_text in
   /// src/mcp/tools/documents/service.py, which re-parses the file on disk).
+  ///
+  /// Pages are extracted sequentially in bounded batches of
+  /// [pdfExtractBatchSize] instead of all at once: a thousands-page PDF
+  /// extracts completely without the memory spike and UI freeze of loading
+  /// every page concurrently, and the event loop yields between batches so
+  /// the UI stays responsive and the WebSocket ping timer keeps firing
+  /// while the extraction runs — the socket stays connected to the server
+  /// instead of being closed as idle mid-job. [onProgress] is called after
+  /// each batch with (pagesDone, pageCount) so the UI can show progress.
   static Future<PdfExtraction> extractPdf({
     required String fileName,
     required Uint8List bytes,
+    void Function(int pagesDone, int pageCount)? onProgress,
   }) async {
     await pdfrxFlutterInitialize();
     final document = await PdfDocument.openData(bytes, sourceName: fileName);
     try {
-      final pageTexts = await Future.wait(
-        document.pages.map((page) async => (await page.loadText())?.fullText ?? ''),
-      );
+      final pageCount = document.pages.length;
+      final pageTexts = <String>[];
+      onProgress?.call(0, pageCount);
+      for (var start = 0; start < pageCount; start += pdfExtractBatchSize) {
+        final end = (start + pdfExtractBatchSize).clamp(0, pageCount);
+        for (var i = start; i < end; i++) {
+          pageTexts.add((await document.pages[i].loadText())?.fullText ?? '');
+        }
+        onProgress?.call(pageTexts.length, pageCount);
+        // Yield to the event loop so the UI and the WebSocket ping timer
+        // get a turn between batches; without this a huge PDF still
+        // monopolises the isolate until every page is done.
+        await Future<void>.delayed(Duration.zero);
+      }
       if (pageTexts.every((page) => page.trim().isEmpty)) {
         throw const FormatException(
           'PDF tidak memiliki teks yang dapat diekstrak. PDF hasil scan memerlukan OCR.',

@@ -32,6 +32,11 @@ class _HomeScreenState extends State<HomeScreen> {
   PlatformFile? _attachment;
   Uint8List? _attachmentBytes;
   bool _sendingAttachment = false;
+  // Progress text while a large PDF is being extracted
+  // ("Membaca PDF: 120/2000 halaman"), shown in place of the file name in
+  // the attachment chip so the user sees the job advancing instead of a
+  // frozen spinner. Null when no extraction is running.
+  String? _attachmentProgress;
   double _dragExtent = 0;
 
   /// App chrome (header, status bar, composer) visibility. Hidden chrome
@@ -261,6 +266,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   pdf: await AttachmentTextReader.extractPdf(
                     fileName: file.name,
                     bytes: bytes,
+                    // A thousands-page PDF takes a while to extract; show
+                    // the page count as it goes so the user sees progress
+                    // instead of a frozen spinner. Extraction runs in
+                    // bounded batches that yield to the event loop, so the
+                    // WebSocket ping keeps the server connection alive
+                    // while this runs.
+                    onProgress: (pagesDone, pageCount) {
+                      if (!mounted) return;
+                      setState(() => _attachmentProgress =
+                          'Membaca PDF: $pagesDone/$pageCount halaman');
+                    },
                   ),
                 )
               : await widget.controller.sendTextAttachment(
@@ -284,7 +300,12 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text('Lampiran gagal dikirim: $error')),
       );
     } finally {
-      if (mounted) setState(() => _sendingAttachment = false);
+      if (mounted) {
+        setState(() {
+          _sendingAttachment = false;
+          _attachmentProgress = null;
+        });
+      }
     }
   }
 
@@ -731,6 +752,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     isSpeaking:
                         controller.deviceState == DeviceState.speaking,
                     lipSyncStream: controller.lipSyncStream,
+                    gestureStream: controller.avatarGestureStream,
                     size: constraints.maxWidth,
                     height: constraints.maxHeight,
                     modelUrl: controller.character3dModelUrl,
@@ -754,6 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         controller.deviceState == DeviceState.listening,
                     audioLevelStream: controller.audioLevelStream,
                     lipSyncStream: controller.lipSyncStream,
+                    gestureStream: controller.avatarGestureStream,
                     size: constraints.maxWidth,
                     height: constraints.maxHeight,
                     modelUrl: controller.characterModelUrl,
@@ -975,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _attachment!.name,
+                        _attachmentProgress ?? _attachment!.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Colors.white, fontSize: 13),

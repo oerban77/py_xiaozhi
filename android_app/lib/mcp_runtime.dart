@@ -12,6 +12,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:xml/xml.dart';
 
+import 'avatar_gesture.dart';
 import 'camera_runtime.dart';
 import 'attachment_text_reader.dart';
 import 'music_runtime.dart';
@@ -19,6 +20,40 @@ import 'reminder_runtime.dart';
 import 'volume_runtime.dart';
 
 class McpRuntime {
+  /// Callback the host (XiaozhiController) sets so the MCP
+  /// `avatar_gesture` tool can make the on-screen avatar move. The
+  /// controller forwards the gesture to its avatarGestureStream, which
+  /// both the 3D avatar and the Live2D avatar subscribe to. Null when
+  /// no avatar is wired (e.g. in tests): the tool then reports that
+  /// no avatar is available instead of failing.
+  static void Function(String gesture, int durationMs)? onAvatarGesture;
+
+  /// Handle an `avatar_gesture` tool call: normalize the requested
+  /// gesture, forward it to the avatar, and return a short
+  /// confirmation for the LLM. Unknown names are reported back so the
+  /// LLM can pick a valid one instead of silently doing nothing.
+  static String _callAvatarGesture(Map<String, dynamic> arguments) {    final raw = '${arguments['gesture'] ?? ''}';
+    final gesture = AvatarGesture.normalize(raw);
+    if (gesture == null) {
+      return 'Unknown gesture "$raw". Available: ${AvatarGesture.names.join(', ')} '
+          '(Indonesian names work too: lambaian, angguk, geleng, senang, ...).';
+    }
+    final durationMs = arguments['duration_ms'] is int
+        ? (arguments['duration_ms'] as int).clamp(400, 10000)
+        : 2000;
+    final callback = onAvatarGesture;
+    if (callback == null) {
+      return 'No avatar is on screen right now, so "$gesture" could not be played.';
+    }
+    callback(gesture, durationMs);
+    return 'Avatar is performing "$gesture".';
+  }
+
+  /// Test-only entry point for [_callAvatarGesture].
+  @visibleForTesting
+  static String callAvatarGestureForTest(Map<String, dynamic> arguments) =>
+      _callAvatarGesture(arguments);
+
   static const _baseUrl = 'https://equran.id/api/v2/shalat';
   static const _holidayBaseUrl = 'https://api.kemendesa.link/libur-nasional';
   static String _discoveredSmartHomeBroker = '';
@@ -220,6 +255,24 @@ class McpRuntime {
           'deviceIndex': {'type': 'integer', 'minimum': 1, 'maximum': 128},
         },
         'required': ['deviceIndex'],
+      },
+    },
+    {
+      'name': 'avatar_gesture',
+      'description': 'Make the on-screen avatar perform a movement or expression. '
+          'Use this when the user asks the avatar to move, or to make a reply livelier: '
+          'wave hello, nod in agreement, shake the head for "no", bow, look around, or show an emotion. '
+          'Gestures: wave (lambaian), nod (angguk), shake (geleng), bow (membungkuk), happy (senang), '
+          'sad (sedih), surprised (terkejut), angry (marah), think (berpikir), look_left (lihat_kiri), '
+          'look_right (lihat_kanan), look_up (lihat_atas), look_down (lihat_bawah), dance (menari). '
+          'Indonesian names work too. The gesture plays on the avatar currently on screen (3D or Live2D).',
+      'inputSchema': {
+        'type': 'object',
+        'properties': {
+          'gesture': {'type': 'string', 'description': 'Gesture name (see description).'},
+          'duration_ms': {'type': 'integer', 'minimum': 400, 'maximum': 10000, 'default': 2000},
+        },
+        'required': ['gesture'],
       },
     },
     ...MusicRuntime.tools,
@@ -608,6 +661,7 @@ class McpRuntime {
         attachedQuestion: pendingImageQuestion,
       );
     }
+    if (name == 'avatar_gesture') return _callAvatarGesture(arguments);
     if (name == 'qrcode_read_file') return _readQrCode(arguments);
     if (MusicRuntime.toolNames.contains(name)) {
       return MusicRuntime.call(name, arguments);

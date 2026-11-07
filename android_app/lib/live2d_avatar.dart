@@ -41,6 +41,7 @@ class Live2DAvatar extends StatefulWidget {
     this.isListening = false,
     required this.audioLevelStream,
     this.lipSyncStream,
+    this.gestureStream,
     this.size = 240.0,
     this.height,
     this.modelUrl = primaryModelUrl,
@@ -71,6 +72,12 @@ class Live2DAvatar extends StatefulWidget {
   /// form shifts with it, instead of the RMS-only open/close. When
   /// null (widget tests, older callers) the RMS mouth is used.
   final Stream<LipSyncFrame>? lipSyncStream;
+
+  /// Gesture requests from [XiaozhiController.avatarGestureStream]
+  /// (MCP `avatar_gesture` tool). Each event is a canonical gesture
+  /// name; the widget plays Haru's built-in motion for it, or animates
+  /// the head/expression parameters directly.
+  final Stream<String>? gestureStream;
 
   final double size;
 
@@ -110,6 +117,11 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   late final Live2DController _controller;
   StreamSubscription<double>? _levelSubscription;
   StreamSubscription<LipSyncFrame>? _lipSyncSubscription;
+  StreamSubscription<String>? _gestureSubscription;
+
+  /// 30 Hz ticker that animates a gesture's head/expression parameters
+  /// (see [_playGesture]). Null when no gesture is running.
+  Timer? _gestureTimer;
 
   /// Latest lip-sync frame from [LipSyncFrame]; null until the first
   /// analyzed window arrives. While speaking the mouth opening and
@@ -163,6 +175,10 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
         if (mounted) _lipSyncFrame = frame;
       });
     }
+    final gestureStream = widget.gestureStream;
+    if (gestureStream != null) {
+      _gestureSubscription = gestureStream.listen(_playGesture);
+    }
     // Mouth clock: a steady 30 Hz tick advances the mouth toward the
     // latest audio level (see _tickMouth). Skipped in tests, like every
     // other parameter send.
@@ -211,8 +227,10 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
   @override
   void dispose() {
     _mouthTimer?.cancel();
+    _gestureTimer?.cancel();
     _levelSubscription?.cancel();
     _lipSyncSubscription?.cancel();
+    _gestureSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -349,6 +367,148 @@ class _Live2DAvatarState extends State<Live2DAvatar> {
         _controller.setParameter(DefaultParameterID.paramCheek, face.cheek),
       );
     }
+  }
+
+  /// Play a gesture (MCP `avatar_gesture`). Haru's built-in motions
+  /// cover the wave (`Tap` group = greeting wave) and the idle dance;
+  /// the rest are parameter animations driven by a 30 Hz ticker with
+  /// the same envelope as the 3D avatar (rise, hold, fall). The
+  /// ticker restores the emotion face when the gesture ends, so a
+  /// gesture never leaves the face stuck. Parameter ranges follow the
+  /// Cubism defaults: angles in degrees (-30..30), smiles/brows in
+  /// 0..1, mouth form in -1..1.
+  void _playGesture(String gesture) {
+    if (_failed || _isFlutterTest) return;
+    _gestureTimer?.cancel();
+    // Built-in motions first: Haru's Tap is a greeting wave.
+    if (gesture == 'wave') {
+      unawaited(_controller.startMotion('Tap', index: 0, priority: 3));
+      return;
+    }
+    if (gesture == 'dance') {
+      unawaited(_controller.startMotion('Idle', index: 1, priority: 3));
+    }
+    final start = DateTime.now();
+    const duration = Duration(milliseconds: 2000);
+    _gestureTimer = Timer.periodic(
+      const Duration(milliseconds: 33),
+      (timer) {
+        final elapsed = DateTime.now().difference(start);
+        final p = elapsed.inMilliseconds / duration.inMilliseconds;
+        if (p >= 1) {
+          timer.cancel();
+          _gestureTimer = null;
+          _applyEmotion();
+          return;
+        }
+        // Envelope: smooth rise (0-20%), hold, smooth fall (80-100%).
+        double envelope(double t) {
+          double smooth(double x) => x * x * (3 - 2 * x);
+          if (t < 0.2) return smooth(t / 0.2);
+          if (t > 0.8) return smooth((1 - t) / 0.2);
+          return 1;
+        }
+        double osc(double t, int cycles) =>
+            math.sin(t * cycles * math.pi * 2) * envelope(t);
+        final e = envelope(p);
+        // Head angles and expression params for this gesture.
+        double angleX = 0, angleY = 0, angleZ = 0;
+        double eyeSmile = 0, browUp = 0, browDown = 0, mouthForm = 0;
+        switch (gesture) {
+          case 'nod':
+            angleY = 15 * osc(p, 2);
+            break;
+          case 'shake':
+            angleX = 20 * osc(p, 2);
+            break;
+          case 'bow':
+            angleY = 18 * e;
+            break;
+          case 'happy':
+            eyeSmile = 0.9 * e;
+            mouthForm = 0.8 * e;
+            angleZ = 5 * e;
+            break;
+          case 'sad':
+            browUp = 0.7 * e;
+            mouthForm = -0.7 * e;
+            angleY = 6 * e;
+            break;
+          case 'surprised':
+            browUp = 0.8 * e;
+            mouthForm = 0.4 * e;
+            angleY = -5 * e;
+            break;
+          case 'angry':
+            browDown = 0.8 * e;
+            mouthForm = -0.5 * e;
+            break;
+          case 'think':
+            browUp = 0.5 * e;
+            angleZ = 10 * e;
+            break;
+          case 'look_left':
+            angleX = 25 * e;
+            break;
+          case 'look_right':
+            angleX = -25 * e;
+            break;
+          case 'look_up':
+            angleY = -15 * e;
+            break;
+          case 'look_down':
+            angleY = 15 * e;
+            break;
+          case 'dance':
+            angleZ = 8 * osc(p, 2);
+            angleX = 10 * osc(p, 2);
+            break;
+        }
+        unawaited(
+          _controller.setParameter(DefaultParameterID.paramAngleX, angleX),
+        );
+        unawaited(
+          _controller.setParameter(DefaultParameterID.paramAngleY, angleY),
+        );
+        unawaited(
+          _controller.setParameter(DefaultParameterID.paramAngleZ, angleZ),
+        );
+        if (eyeSmile > 0) {
+          unawaited(
+            _controller.setParameter(
+                DefaultParameterID.paramEyeLSmile, eyeSmile),
+          );
+          unawaited(
+            _controller.setParameter(
+                DefaultParameterID.paramEyeRSmile, eyeSmile),
+          );
+        }
+        if (browUp > 0) {
+          unawaited(
+            _controller.setParameter(DefaultParameterID.paramBrowLY, browUp),
+          );
+          unawaited(
+            _controller.setParameter(DefaultParameterID.paramBrowRY, browUp),
+          );
+        }
+        if (browDown > 0) {
+          unawaited(
+            _controller.setParameter(
+                DefaultParameterID.paramBrowLAngle, -browDown),
+          );
+          unawaited(
+            _controller.setParameter(
+                DefaultParameterID.paramBrowRAngle, -browDown),
+          );
+        }
+        if (mouthForm != 0) {
+          unawaited(
+            _controller.setParameter(
+                DefaultParameterID.paramMouthForm, mouthForm),
+          );
+        }
+      },
+    );
   }
 
   void _onModelError() {

@@ -397,4 +397,43 @@ void main() {
       expect(first, contains('ends before the next numbered entry'));
     });
   });
+
+  group('thousands of pages (large PDF)', () {
+    test('paging covers a 2000-page document end to end', () {
+      final extraction = PdfExtraction(
+        List<String>.generate(2000, (index) => 'Isi halaman ${index + 1}'),
+      );
+      expect(extraction.pageCount, 2000);
+      final first = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1);
+      expect(first, contains('Read pages 1-4 of 2000.'));
+      expect(first, contains('Continue with page_start=5, page_end=8.'));
+      final last = AttachmentTextReader.slicePdf(extraction: extraction, pageStart: 1997);
+      expect(last, contains('halaman 1997'));
+      expect(last, contains('halaman 2000'));
+      expect(last, contains('Read pages 1997-2000 of 2000.'));
+      expect(last, isNot(contains('Continue with')));
+    });
+
+    test('search scans the whole document, including late pages', () {
+      final pages = List<String>.generate(2000, (index) => 'Isi halaman ${index + 1}');
+      pages[1998] = 'Isi halaman 1999 dengan kata kunci UNIKXYZ di tengah.';
+      final extraction = PdfExtraction(pages);
+      final result = AttachmentTextReader.searchPdf(
+        extraction: extraction,
+        query: 'unikxyz',
+      );
+      expect(result, contains('Page 1999'));
+      expect(result, contains('Found 1 match(es)'));
+      expect(result, contains('Read pages 1999-1999'));
+    });
+
+    test('a 2000-page document joins to full text without truncation', () {
+      final extraction = PdfExtraction(
+        List<String>.generate(2000, (index) => 'Halaman ${index + 1}'),
+      );
+      final text = extraction.text;
+      expect(text, contains('Halaman 1'));
+      expect(text, contains('Halaman 2000'));
+    });
+  });
 }

@@ -34,6 +34,11 @@
     playAnimation(name?)      -- play a clip by name (first clip if omitted)
     loadAnimationClip(url)    -- load a separate .glb of clips (e.g. Mixamo)
                                 and play its first clip on this skeleton
+    playGesture(name, ms?)    -- play a named gesture (see GESTURES):
+                                wave, nod, shake, bow, happy, sad,
+                                surprised, angry, think, look_left,
+                                look_right, look_up, look_down, dance.
+                                Returns true if the gesture exists.
   Dart is notified through the Avatar3d JavaScriptChannel:
     {type:'loaded', animations:[...], morphs:[...]}
     {type:'error', message:'...'}
@@ -150,6 +155,8 @@ function disposeModel() {
   mixer = null;
   morphMeshes = [];
   morphNames = [];
+  gestureBones = {};
+  activeGesture = null;
   model = null;
 }
 
@@ -187,6 +194,9 @@ async function loadModel(url) {
       }
     });
     morphNames = [...names];
+    // Cache the bones gestures rotate (Head, arms, spine) with their
+    // base rotations, so a gesture can offset them and restore them.
+    _cacheGestureBones();
     // Skeletal clips embedded in the model (halfBody: idle_eyes, hand
     // poses). A playing clip keeps the render loop meaningful and the
     // eyes alive; prefer the idle clip when the model has one.
@@ -223,6 +233,223 @@ function setMorphs(weights) {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Gestures (MCP avatar_gesture): named movements the LLM can trigger.
+// A gesture is a function of progress p (0..1) returning {morphs, bones}:
+//   morphs: {targetName: 0..1} -- face expression morphs, written every
+//     frame in the render loop while the gesture is active, so they win
+//     over Dart's 30 Hz mouth ticker (which writes mouth morphs only).
+//   bones: {boneName: {x, y, z}} -- rotation offsets in radians, added
+//     to the bone's base (bind-pose) rotation.
+// The envelope rises in the first 20%, holds, and falls in the last
+// 20%; oscillating gestures (nod/shake/wave/dance) multiply a sine by
+// it. Bones are found by name at load time; a gesture part is skipped
+// silently when its bone does not exist (e.g. a half-body model has no
+// legs, and the wave degrades to a head tilt + smile instead of
+// failing). When the gesture ends, bones return to their base rotation
+// and expression morphs return to 0.
+// ---------------------------------------------------------------------------
+let gestureBones = {}; // {Head, Neck, Spine, RightShoulder, RightArm, RightForeArm, LeftArm, ...}
+let activeGesture = null; // {name, start, duration}
+
+const _smooth = (t) => t * t * (3 - 2 * t); // smoothstep 0..1
+function _envelope(p) {
+  if (p < 0.2) return _smooth(p / 0.2);
+  if (p > 0.8) return _smooth((1 - p) / 0.2);
+  return 1;
+}
+function _osc(p, cycles) {
+  return Math.sin(p * cycles * Math.PI * 2) * _envelope(p);
+}
+
+const GESTURES = {
+  // Wave: right arm raised up beside the head, forearm waving, slight
+  // head tilt + smile. (Proven by axis test: the shoulder's local X
+  // raises the arm sideways/up; Z swings it forward, not up. +1.7
+  // puts the hand beside the head; +2.1 bends the elbow awkwardly.)
+  wave: (p) => ({
+    morphs: { mouthSmile: 0.7 * _envelope(p), cheekSquintLeft: 0.4 * _envelope(p), cheekSquintRight: 0.4 * _envelope(p) },
+    bones: {
+      RightShoulder: { x: 1.7 * _envelope(p), y: 0, z: 0 },
+      RightArm: { x: 0.3 * _envelope(p), y: 0, z: 0 },
+      RightForeArm: { x: 0, y: 0, z: 0.6 * _osc(p, 3) },
+      Head: { x: 0, y: 0, z: 0.12 * _envelope(p) },
+    },
+  }),
+  // Nod: head down/up twice.
+  nod: (p) => ({
+    morphs: {},
+    bones: { Head: { x: 0.28 * _osc(p, 2), y: 0, z: 0 } },
+  }),
+  // Shake: head left/right twice.
+  shake: (p) => ({
+    morphs: {},
+    bones: { Head: { x: 0, y: 0.4 * _osc(p, 2), z: 0 } },
+  }),
+  // Bow: spine + head forward, then back.
+  bow: (p) => ({
+    morphs: {},
+    bones: {
+      Spine: { x: 0.45 * _envelope(p), y: 0, z: 0 },
+      Head: { x: 0.2 * _envelope(p), y: 0, z: 0 },
+    },
+  }),
+  // Happy: big smile, squinted eyes, slight head tilt.
+  happy: (p) => ({
+    morphs: {
+      mouthSmile: 0.85 * _envelope(p),
+      mouthSmileLeft: 0.85 * _envelope(p),
+      mouthSmileRight: 0.85 * _envelope(p),
+      eyeSquintLeft: 0.5 * _envelope(p),
+      eyeSquintRight: 0.5 * _envelope(p),
+      cheekSquintLeft: 0.5 * _envelope(p),
+      cheekSquintRight: 0.5 * _envelope(p),
+    },
+    bones: { Head: { x: 0, y: 0, z: 0.1 * _envelope(p) } },
+  }),
+  // Sad: frown, inner brows raised, head slightly down.
+  sad: (p) => ({
+    morphs: {
+      mouthFrown: 0.7 * _envelope(p),
+      browInnerUp: 0.6 * _envelope(p),
+      mouthFrownLeft: 0.6 * _envelope(p),
+      mouthFrownRight: 0.6 * _envelope(p),
+    },
+    bones: { Head: { x: 0.12 * _envelope(p), y: 0, z: 0 } },
+  }),
+  // Surprised: wide eyes, raised brows, jaw dropped.
+  surprised: (p) => ({
+    morphs: {
+      eyeWideLeft: 0.8 * _envelope(p),
+      eyeWideRight: 0.8 * _envelope(p),
+      browInnerUp: 0.7 * _envelope(p),
+      jawOpen: 0.4 * _envelope(p),
+      mouthOpen: 0.3 * _envelope(p),
+    },
+    bones: { Head: { x: -0.08 * _envelope(p), y: 0, z: 0 } },
+  }),
+  // Angry: brows down, frown, squinted eyes.
+  angry: (p) => ({
+    morphs: {
+      browDownLeft: 0.8 * _envelope(p),
+      browDownRight: 0.8 * _envelope(p),
+      mouthFrown: 0.5 * _envelope(p),
+      eyeSquintLeft: 0.4 * _envelope(p),
+      eyeSquintRight: 0.4 * _envelope(p),
+    },
+    bones: {},
+  }),
+  // Think: one brow raised, lips pursed, head tilted.
+  think: (p) => ({
+    morphs: {
+      browInnerUp: 0.5 * _envelope(p),
+      mouthPucker: 0.3 * _envelope(p),
+    },
+    bones: { Head: { x: 0, y: 0, z: 0.18 * _envelope(p) } },
+  }),
+  // Look directions: head turns, holds, returns.
+  look_left: (p) => ({
+    morphs: {},
+    bones: { Head: { x: 0, y: 0.55 * _envelope(p), z: 0 } },
+  }),
+  look_right: (p) => ({
+    morphs: {},
+    bones: { Head: { x: 0, y: -0.55 * _envelope(p), z: 0 } },
+  }),
+  look_up: (p) => ({
+    morphs: {},
+    bones: { Head: { x: -0.3 * _envelope(p), y: 0, z: 0 } },
+  }),
+  look_down: (p) => ({
+    morphs: {},
+    bones: { Head: { x: 0.3 * _envelope(p), y: 0, z: 0 } },
+  }),
+  // Dance: whole-model sway + head bob + arms out.
+  dance: (p) => ({
+    morphs: { mouthSmile: 0.6 * _envelope(p) },
+    bones: {
+      Head: { x: 0, y: 0, z: 0.15 * _osc(p, 2) },
+      Spine: { x: 0, y: 0, z: 0.12 * _osc(p, 2) },
+      LeftArm: { x: 0.9 * _envelope(p), y: 0, z: 0 },
+      RightArm: { x: 0.9 * _envelope(p), y: 0, z: 0 },
+    },
+  }),
+};
+
+const GESTURE_ALIASES = {
+  lambaian: 'wave', angguk: 'nod', geleng: 'shake', membungkuk: 'bow',
+  senang: 'happy', sedih: 'sad', terkejut: 'surprised', marah: 'angry',
+  berpikir: 'think', lihat_kiri: 'look_left', lihat_kanan: 'look_right',
+  lihat_atas: 'look_up', lihat_bawah: 'look_down', menari: 'dance',
+  // English aliases
+  lookleft: 'look_left', lookright: 'look_right', lookup: 'look_up',
+  lookdown: 'look_down',
+};
+
+function playGesture(name, durationMs) {
+  if (!model) return false;
+  const key = String(name || '').toLowerCase().replace(/[\s-]+/g, '_');
+  const canonical = GESTURES[key] ? key : GESTURE_ALIASES[key];
+  if (!canonical || !GESTURES[canonical]) return false;
+  const duration = Math.min(10000, Math.max(400, durationMs || 2000));
+  activeGesture = { name: canonical, start: performance.now(), duration };
+  return true;
+}
+
+function _applyGesture(now) {
+  if (!activeGesture) return;
+  const p = (now - activeGesture.start) / activeGesture.duration;
+  if (p >= 1) {
+    // Gesture finished: restore bones to base rotation and clear the
+    // expression morphs it wrote. Mouth morphs are left alone: Dart's
+    // ticker rewrites them every 33 ms anyway.
+    for (const [boneName, base] of Object.entries(gestureBones)) {
+      const bone = base.bone;
+      bone.rotation.set(base.x, base.y, base.z);
+    }
+    const def = GESTURES[activeGesture.name];
+    if (def) {
+      const done = def(1);
+      if (done.morphs) {
+        const zeroed = {};
+        for (const k of Object.keys(done.morphs)) zeroed[k] = 0;
+        setMorphs(zeroed);
+      }
+    }
+    activeGesture = null;
+    return;
+  }
+  const def = GESTURES[activeGesture.name];
+  if (!def) { activeGesture = null; return; }
+  const pose = def(p);
+  if (pose.morphs) setMorphs(pose.morphs);
+  if (pose.bones) {
+    for (const [boneName, rot] of Object.entries(pose.bones)) {
+      const base = gestureBones[boneName];
+      if (!base) continue;
+      base.bone.rotation.set(
+        base.x + (rot.x || 0),
+        base.y + (rot.y || 0),
+        base.z + (rot.z || 0),
+      );
+    }
+  }
+}
+
+function _cacheGestureBones() {
+  gestureBones = {};
+  if (!model) return;
+  const wanted = ['Head', 'Neck', 'Spine', 'Hips', 'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand'];
+  model.traverse((node) => {
+    if (node.isBone && wanted.includes(node.name)) {
+      gestureBones[node.name] = {
+        bone: node,
+        x: node.rotation.x, y: node.rotation.y, z: node.rotation.z,
+      };
+    }
+  });
+}
+
 async function loadAnimationClip(url) {
   // A Mixamo-style .glb that holds only clips (no meshes): bind its
   // first clip to this model's skeleton by bone name and play it. The
@@ -242,7 +469,31 @@ async function loadAnimationClip(url) {
   }
 }
 
-window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip };
+window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip, playGesture };
+// Debug probe (used by the headless render tests only): exposes the
+// cached gesture bones and the active gesture so a test can confirm a
+// gesture actually rotated a bone.
+window.__avatar3dDebug = {
+  gestureBones: () => Object.keys(gestureBones),
+  boneRotation: (name) => {
+    const b = gestureBones[name];
+    if (!b) return null;
+    return { x: b.bone.rotation.x, y: b.bone.rotation.y, z: b.bone.rotation.z };
+  },
+  // Set a bone rotation directly (absolute, radians) for axis tests.
+  setBone: (name, x, y, z) => {
+    const b = gestureBones[name];
+    if (!b) return false;
+    b.bone.rotation.set(x, y, z);
+    return true;
+  },
+  baseRotation: (name) => {
+    const b = gestureBones[name];
+    if (!b) return null;
+    return { x: b.x, y: b.y, z: b.z };
+  },
+  activeGesture: () => (activeGesture ? activeGesture.name : null),
+};
 window.__avatar3dReady = true;
 // Tell Dart the page API exists. Dart must NOT load the model from
 // onPageFinished: <script type="module"> executes after the page
@@ -286,6 +537,10 @@ renderer.setAnimationLoop(() => {
     model.rotation.y = Math.sin(idleTime * 0.45) * 0.04;
     model.position.y = Math.sin(idleTime * 1.1) * 0.01;
   }
+  // A gesture overrides the head/body bones and expression morphs
+  // while it runs; it restores them when it ends. It runs after the
+  // mixer so it wins over the idle clip on the bones it touches.
+  _applyGesture(performance.now());
   if (blinkT < 0 && idleTime >= nextBlinkAt) blinkT = 0;
   let blink = 0;
   if (blinkT >= 0) {
