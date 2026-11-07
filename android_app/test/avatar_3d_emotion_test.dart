@@ -5,11 +5,11 @@ void main() {
   group('Avatar3DEmotionFace', () {
     test('happy smiles with squinting cheeks and eyes', () {
       final face = Avatar3DEmotionFace.forEmotion('happy');
-      expect(face.weights['mouthSmile'], 0.7);
-      expect(face.weights['mouthSmileLeft'], 0.7);
-      expect(face.weights['mouthSmileRight'], 0.7);
-      expect(face.weights['cheekSquintLeft'], 0.4);
-      expect(face.weights['eyeSquintLeft'], 0.3);
+      expect(face.weights['mouthSmile'], 0.35);
+      expect(face.weights['mouthSmileLeft'], 0.35);
+      expect(face.weights['mouthSmileRight'], 0.35);
+      expect(face.weights['cheekSquintLeft'], 0.2);
+      expect(face.weights['eyeSquintLeft'], 0.15);
       // No frown or brow-down on a happy face.
       expect(face.weights.containsKey('mouthFrown'), isFalse);
       expect(face.weights.containsKey('browDownLeft'), isFalse);
@@ -18,31 +18,31 @@ void main() {
     test('sad/crying frowns with raised inner brows', () {
       for (final name in ['sad', 'crying']) {
         final face = Avatar3DEmotionFace.forEmotion(name);
-        expect(face.weights['mouthFrown'], 0.7, reason: name);
-        expect(face.weights['browInnerUp'], 0.6, reason: name);
+        expect(face.weights['mouthFrown'], 0.35, reason: name);
+        expect(face.weights['browInnerUp'], 0.3, reason: name);
       }
     });
 
     test('angry lowers the brows and frowns', () {
       final face = Avatar3DEmotionFace.forEmotion('angry');
-      expect(face.weights['browDownLeft'], 0.7);
-      expect(face.weights['browDownRight'], 0.7);
-      expect(face.weights['mouthFrown'], 0.5);
-      expect(face.weights['jawForward'], 0.3);
+      expect(face.weights['browDownLeft'], 0.35);
+      expect(face.weights['browDownRight'], 0.35);
+      expect(face.weights['mouthFrown'], 0.25);
+      expect(face.weights['jawForward'], 0.15);
     });
 
     test('surprised widens the eyes and drops the jaw', () {
       for (final name in ['shocked', 'surprised']) {
         final face = Avatar3DEmotionFace.forEmotion(name);
-        expect(face.weights['browInnerUp'], 0.7, reason: name);
-        expect(face.weights['jawOpen'], 0.3, reason: name);
-        expect(face.weights['eyeWideLeft'], 0.5, reason: name);
+        expect(face.weights['browInnerUp'], 0.35, reason: name);
+        expect(face.weights['jawOpen'], 0.15, reason: name);
+        expect(face.weights['eyeWideLeft'], 0.25, reason: name);
       }
     });
 
     test('winking squints only the right eye', () {
       final face = Avatar3DEmotionFace.forEmotion('winking');
-      expect(face.weights['eyeSquintRight'], 0.6);
+      expect(face.weights['eyeSquintRight'], 0.3);
       expect(face.weights.containsKey('eyeSquintLeft'), isFalse);
     });
 
@@ -56,7 +56,7 @@ void main() {
         isSpeaking: true,
         isListening: false,
       );
-      expect(speaking.weights['mouthSmile'], 0.25);
+      expect(speaking.weights['mouthSmile'], 0.12);
       final idle = Avatar3DEmotionFace.forDeviceState(
         isSpeaking: false,
         isListening: false,

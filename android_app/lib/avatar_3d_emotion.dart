@@ -8,22 +8,37 @@
 /// (halfBody.glb and female.glb).
 ///
 /// This is the 3D counterpart of [Live2DEmotionFace] (which maps the
-/// same emotions to Cubism MouthForm/EyeOpen/Cheek). The values are
-/// deliberately strong enough to read at a glance on a phone screen:
-/// a smile goes to 0.7, a frown to 0.7, sad brows to 0.6.
+/// same emotions to Cubism MouthForm/EyeOpen/Cheek).
+///
+/// The values are deliberately MODEST: this model's morphs are very
+/// strong (the same reason the talking mouth needed caps of 0.5 and
+/// the smile/funnel scaled 0.4x). The first version used 0.7 smiles
+/// and produced a manic grin that ignored the user's mouth-strength
+/// setting — frightening, not friendly. A happy smile is now 0.35
+/// before the strength scaling, a sad frown 0.35, angry brows 0.35.
 ///
 /// How the weights are applied: [Avatar3D] merges them into the
 /// 30 Hz mouth ticker's weights before sending them to the page, so
 /// the expression persists (the ticker rewrites mouth morphs every
 /// 33 ms; sending the emotion separately would be clobbered on the
-/// next tick). Morphs the mouth ticker already writes (mouthSmile,
-/// jawOpen, mouthOpen) are ADDED to the ticker's value and clamped
-/// to 1.0, so a happy avatar talking smiles wider than a neutral one
-/// talking, instead of the two fighting.
+/// next tick). Critically, the emotion's MOUTH morphs (smile, frown,
+/// jaw, lip shapes) are suppressed while the avatar is speaking: the
+/// mouth belongs to the vowels then, and a held smile/frown on top of
+/// the vowel shape is what made talking look like a wide grin (and a
+/// held-open surprised jaw masked the articulation, so the mouth
+/// looked frozen). While talking the emotion shows only in the upper
+/// face (brows, eyes, cheeks); when NOT speaking the full emotion
+/// (including the mouth) shows. ALL emotion weights are scaled by the
+/// user's
+/// "Kekuatan Mulut 3D" setting ([Avatar3D.mouthStrength], default
+/// 0.5) before merging, so the expression intensity follows the same
+/// setting as the mouth opening — the face never overpowers the
+/// mouth setting the user chose.
 class Avatar3DEmotionFace {
   const Avatar3DEmotionFace(this.weights);
 
   /// Morph-target weights for this emotion (ARKit names -> 0..1).
+  /// These are the values BEFORE the mouth-strength scaling.
   final Map<String, double> weights;
 
   static Avatar3DEmotionFace forEmotion(String emotion) {
@@ -35,99 +50,99 @@ class Avatar3DEmotionFace {
       case 'funny':
       case 'silly':
         return const Avatar3DEmotionFace({
-          'mouthSmile': 0.7,
-          'mouthSmileLeft': 0.7,
-          'mouthSmileRight': 0.7,
-          'cheekSquintLeft': 0.4,
-          'cheekSquintRight': 0.4,
-          'eyeSquintLeft': 0.3,
-          'eyeSquintRight': 0.3,
+          'mouthSmile': 0.35,
+          'mouthSmileLeft': 0.35,
+          'mouthSmileRight': 0.35,
+          'cheekSquintLeft': 0.2,
+          'cheekSquintRight': 0.2,
+          'eyeSquintLeft': 0.15,
+          'eyeSquintRight': 0.15,
         });
       case 'loving':
       case 'kissy':
       case 'delicious':
         return const Avatar3DEmotionFace({
-          'mouthSmile': 0.5,
-          'mouthSmileLeft': 0.5,
-          'mouthSmileRight': 0.5,
-          'cheekSquintLeft': 0.3,
-          'cheekSquintRight': 0.3,
-          'eyeSquintLeft': 0.2,
-          'eyeSquintRight': 0.2,
+          'mouthSmile': 0.25,
+          'mouthSmileLeft': 0.25,
+          'mouthSmileRight': 0.25,
+          'cheekSquintLeft': 0.15,
+          'cheekSquintRight': 0.15,
+          'eyeSquintLeft': 0.1,
+          'eyeSquintRight': 0.1,
         });
       case 'winking':
         return const Avatar3DEmotionFace({
-          'mouthSmile': 0.4,
-          'mouthSmileLeft': 0.4,
-          'mouthSmileRight': 0.4,
-          'eyeSquintRight': 0.6,
-          'cheekSquintRight': 0.3,
+          'mouthSmile': 0.2,
+          'mouthSmileLeft': 0.2,
+          'mouthSmileRight': 0.2,
+          'eyeSquintRight': 0.3,
+          'cheekSquintRight': 0.15,
         });
       case 'sad':
       case 'crying':
         return const Avatar3DEmotionFace({
-          'mouthFrown': 0.7,
-          'mouthFrownLeft': 0.6,
-          'mouthFrownRight': 0.6,
-          'browInnerUp': 0.6,
-          'mouthLowerDownLeft': 0.3,
-          'mouthLowerDownRight': 0.3,
+          'mouthFrown': 0.35,
+          'mouthFrownLeft': 0.3,
+          'mouthFrownRight': 0.3,
+          'browInnerUp': 0.3,
+          'mouthLowerDownLeft': 0.15,
+          'mouthLowerDownRight': 0.15,
         });
       case 'angry':
         return const Avatar3DEmotionFace({
-          'browDownLeft': 0.7,
-          'browDownRight': 0.7,
-          'mouthFrown': 0.5,
-          'mouthFrownLeft': 0.5,
-          'mouthFrownRight': 0.5,
-          'jawForward': 0.3,
-          'eyeSquintLeft': 0.3,
-          'eyeSquintRight': 0.3,
+          'browDownLeft': 0.35,
+          'browDownRight': 0.35,
+          'mouthFrown': 0.25,
+          'mouthFrownLeft': 0.25,
+          'mouthFrownRight': 0.25,
+          'jawForward': 0.15,
+          'eyeSquintLeft': 0.15,
+          'eyeSquintRight': 0.15,
         });
       case 'embarrassed':
         return const Avatar3DEmotionFace({
-          'mouthSmile': 0.3,
-          'mouthSmileLeft': 0.3,
-          'mouthSmileRight': 0.3,
-          'cheekSquintLeft': 0.5,
-          'cheekSquintRight': 0.5,
-          'browInnerUp': 0.3,
+          'mouthSmile': 0.15,
+          'mouthSmileLeft': 0.15,
+          'mouthSmileRight': 0.15,
+          'cheekSquintLeft': 0.25,
+          'cheekSquintRight': 0.25,
+          'browInnerUp': 0.15,
         });
       case 'shocked':
       case 'surprised':
         return const Avatar3DEmotionFace({
-          'browInnerUp': 0.7,
-          'browOuterUpLeft': 0.4,
-          'browOuterUpRight': 0.4,
-          'jawOpen': 0.3,
-          'mouthOpen': 0.2,
-          'eyeWideLeft': 0.5,
-          'eyeWideRight': 0.5,
+          'browInnerUp': 0.35,
+          'browOuterUpLeft': 0.2,
+          'browOuterUpRight': 0.2,
+          'jawOpen': 0.15,
+          'mouthOpen': 0.1,
+          'eyeWideLeft': 0.25,
+          'eyeWideRight': 0.25,
         });
       case 'thinking':
       case 'confused':
         return const Avatar3DEmotionFace({
-          'browInnerUp': 0.4,
-          'browOuterUpLeft': 0.2,
-          'mouthFrown': 0.2,
-          'mouthFrownLeft': 0.2,
-          'mouthFrownRight': 0.2,
+          'browInnerUp': 0.2,
+          'browOuterUpLeft': 0.1,
+          'mouthFrown': 0.1,
+          'mouthFrownLeft': 0.1,
+          'mouthFrownRight': 0.1,
         });
       case 'sleepy':
         return const Avatar3DEmotionFace({
-          'eyeSquintLeft': 0.5,
-          'eyeSquintRight': 0.5,
-          'browInnerUp': 0.2,
-          'jawOpen': 0.1,
-          'mouthOpen': 0.1,
+          'eyeSquintLeft': 0.25,
+          'eyeSquintRight': 0.25,
+          'browInnerUp': 0.1,
+          'jawOpen': 0.05,
+          'mouthOpen': 0.05,
         });
       case 'relaxed':
         return const Avatar3DEmotionFace({
-          'mouthSmile': 0.3,
-          'mouthSmileLeft': 0.3,
-          'mouthSmileRight': 0.3,
-          'eyeSquintLeft': 0.1,
-          'eyeSquintRight': 0.1,
+          'mouthSmile': 0.15,
+          'mouthSmileLeft': 0.15,
+          'mouthSmileRight': 0.15,
+          'eyeSquintLeft': 0.05,
+          'eyeSquintRight': 0.05,
         });
       case 'neutral':
       default:
@@ -145,18 +160,18 @@ class Avatar3DEmotionFace {
   }) {
     if (isSpeaking) {
       return const Avatar3DEmotionFace({
-        'mouthSmile': 0.25,
-        'mouthSmileLeft': 0.25,
-        'mouthSmileRight': 0.25,
-        'cheekSquintLeft': 0.1,
-        'cheekSquintRight': 0.1,
+        'mouthSmile': 0.12,
+        'mouthSmileLeft': 0.12,
+        'mouthSmileRight': 0.12,
+        'cheekSquintLeft': 0.05,
+        'cheekSquintRight': 0.05,
       });
     }
     if (isListening) {
       return const Avatar3DEmotionFace({
-        'mouthSmile': 0.15,
-        'mouthSmileLeft': 0.15,
-        'mouthSmileRight': 0.15,
+        'mouthSmile': 0.08,
+        'mouthSmileLeft': 0.08,
+        'mouthSmileRight': 0.08,
       });
     }
     return const Avatar3DEmotionFace({});

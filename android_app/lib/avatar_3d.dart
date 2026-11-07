@@ -509,6 +509,18 @@ class _Avatar3DState extends State<Avatar3D> {
     _sendMorphs();
   }
 
+  /// Morph targets that shape the mouth/lips/jaw. While the avatar is
+  /// speaking these belong to the vowel lip-sync; the emotion's mouth
+  /// shape is suppressed then (see [_sendMorphs]). Everything else
+  /// (brows, eyes, cheeks, nose) is upper-face and stays visible
+  /// while talking, so the emotion still reads.
+  static bool _isMouthMorph(String name) {
+    if (name.startsWith('mouth') || name.startsWith('jaw')) return true;
+    if (name.startsWith('viseme')) return true;
+    if (name == 'tongueOut') return true;
+    return false;
+  }
+
   void _sendMorphs({bool force = false}) {
     if (_failed || _isFlutterTest || !_modelReady) return;
     final weights = morphWeightsFor(
@@ -517,16 +529,33 @@ class _Avatar3DState extends State<Avatar3D> {
       vowelWeights: _smoothedVowelWeights,
       strength: widget.mouthStrength,
     );
-    // Merge the emotion face: morphs the mouth ticker already writes
-    // (mouthSmile, jawOpen, mouthOpen) ADD to the ticker's value and
-    // clamp to 1.0, so a happy avatar talking smiles wider than a
-    // neutral one talking instead of the two fighting; emotion-only
-    // morphs (brow, frown, squint) are used as-is.
+    // Merge the emotion face. The emotion's MOUTH morphs (smile,
+    // frown, jaw, lip shapes) are suppressed while speaking: the
+    // mouth belongs to the vowels then, and a held smile/frown on top
+    // of the vowel shape is what made talking look like a wide grin
+    // (and a held-open surprised jaw masked the articulation, so the
+    // mouth looked frozen). A real person talking moves their lips
+    // with the vowels; the emotion shows in the upper face (brows,
+    // eyes, cheeks) instead. When NOT speaking the full emotion
+    // (including the mouth) shows, so a sad/happy idle face still
+    // reads. All emotion weights are scaled by the user's
+    // mouth-strength setting first, so the expression intensity
+    // follows the same setting as the mouth opening.
+    final strength = widget.mouthStrength.clamp(0.0, 1.0);
+    final speaking = widget.isSpeaking;
     for (final entry in _emotionMorphs.entries) {
+      var scaled = entry.value * strength;
+      if (speaking && _isMouthMorph(entry.key)) {
+        // Talking: the vowel mouth articulates alone. Suppress the
+        // emotion's mouth shape entirely (not even a fraction: any
+        // held smile/frown on top of the vowels reads as a grin).
+        scaled = 0.0;
+      }
+      if (scaled == 0.0) continue;
       final existing = weights[entry.key];
       weights[entry.key] = existing == null
-          ? entry.value
-          : (existing + entry.value).clamp(0.0, 1.0);
+          ? scaled
+          : (existing + scaled).clamp(0.0, 1.0);
     }
     var changed = force;
     if (!changed) {
