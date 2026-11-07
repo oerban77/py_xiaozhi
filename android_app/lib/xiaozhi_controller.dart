@@ -19,6 +19,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'chat_message.dart';
 import 'attachment_text_reader.dart';
 import 'avatar_gesture.dart';
+import 'avatar_expression.dart';
 import 'emotion_service.dart';
 import 'lipsync_mfcc.dart';
 import 'live2d_characters.dart';
@@ -430,6 +431,30 @@ class XiaozhiController extends ChangeNotifier {
     }
   }
 
+  /// Request the avatar to show [expression] (canonical name or an
+  /// alias; unknown names are ignored). Called by the MCP
+  /// `avatar_expression` tool. Sets [emotion] so the on-screen avatar
+  /// (3D or Live2D) renders it, like a server `llm` emotion. When
+  /// [durationMs] is positive the expression holds only that long and
+  /// then returns to 'neutral' — but only if the emotion has not
+  /// changed since (a newer server emotion is never clobbered). With
+  /// 0 it holds until the next server emotion or device-state change,
+  /// exactly like a normal server emotion.
+  void requestAvatarExpression(String expression, [int durationMs = 0]) {
+    final name = AvatarExpression.normalize(expression);
+    if (name == null) return;
+    emotion = name;
+    notifyListeners();
+    if (durationMs > 0) {
+      Timer(Duration(milliseconds: durationMs), () {
+        if (emotion == name) {
+          emotion = 'neutral';
+          notifyListeners();
+        }
+      });
+    }
+  }
+
   /// 16 kHz PCM accumulator for the lip-sync analyzer (64 ms windows).
   final List<double> _lipSyncPcm = <double>[];
 
@@ -589,6 +614,12 @@ class XiaozhiController extends ChangeNotifier {
     // on-screen avatar (3D or Live2D) plays it.
     McpRuntime.onAvatarGesture = (gesture, durationMs) {
       requestAvatarGesture(gesture);
+    };
+    // Wire the MCP avatar_expression tool to the avatar: when the LLM
+    // calls it, the expression is set on the controller and the
+    // on-screen avatar (3D or Live2D) shows it.
+    McpRuntime.onAvatarExpression = (expression, durationMs) {
+      requestAvatarExpression(expression, durationMs);
     };
     _preferences = await SharedPreferences.getInstance();
     final storedEndpoint = _preferences?.getString('server_url')?.trim() ?? '';

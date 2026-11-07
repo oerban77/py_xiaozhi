@@ -13,6 +13,7 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:xml/xml.dart';
 
 import 'avatar_gesture.dart';
+import 'avatar_expression.dart';
 import 'camera_runtime.dart';
 import 'attachment_text_reader.dart';
 import 'music_runtime.dart';
@@ -27,6 +28,14 @@ class McpRuntime {
   /// no avatar is wired (e.g. in tests): the tool then reports that
   /// no avatar is available instead of failing.
   static void Function(String gesture, int durationMs)? onAvatarGesture;
+
+  /// Callback the host (XiaozhiController) sets so the MCP
+  /// `avatar_expression` tool can change the on-screen avatar's face.
+  /// The controller sets its emotion, which both the 3D avatar and the
+  /// Live2D avatar render. Null when no avatar is wired (e.g. in
+  /// tests): the tool then reports that no avatar is available instead
+  /// of failing.
+  static void Function(String expression, int durationMs)? onAvatarExpression;
 
   /// Tool names served by the most recent `tools/list` response, in
   /// order (including the prepended manage_document). The debug screen
@@ -64,6 +73,36 @@ class McpRuntime {
   @visibleForTesting
   static String callAvatarGestureForTest(Map<String, dynamic> arguments) =>
       _callAvatarGesture(arguments);
+
+  /// Handle an `avatar_expression` tool call: normalize the requested
+  /// expression, forward it to the avatar, and return a short
+  /// confirmation for the LLM. Unknown names are reported back so the
+  /// LLM can pick a valid one instead of silently doing nothing.
+  /// [durationMs] is 0 by default: the expression holds until the next
+  /// server emotion or device-state change (like a normal server
+  /// emotion); a positive value holds it only that long.
+  static String _callAvatarExpression(Map<String, dynamic> arguments) {
+    final raw = '${arguments['expression'] ?? ''}';
+    final expression = AvatarExpression.normalize(raw);
+    if (expression == null) {
+      return 'Unknown expression "$raw". Available: ${AvatarExpression.names.join(', ')} '
+          '(Indonesian names work too: tertawa, senang, sedih, marah, terkejut, ...).';
+    }
+    final durationMs = arguments['duration_ms'] is int
+        ? (arguments['duration_ms'] as int).clamp(0, 30000)
+        : 0;
+    final callback = onAvatarExpression;
+    if (callback == null) {
+      return 'No avatar is on screen right now, so "$expression" could not be shown.';
+    }
+    callback(expression, durationMs);
+    return 'Avatar is showing "$expression".';
+  }
+
+  /// Test-only entry point for [_callAvatarExpression].
+  @visibleForTesting
+  static String callAvatarExpressionForTest(Map<String, dynamic> arguments) =>
+      _callAvatarExpression(arguments);
 
   static const _baseUrl = 'https://equran.id/api/v2/shalat';
   static const _holidayBaseUrl = 'https://api.kemendesa.link/libur-nasional';
@@ -284,6 +323,26 @@ class McpRuntime {
           'duration_ms': {'type': 'integer', 'minimum': 400, 'maximum': 10000, 'default': 2000},
         },
         'required': ['gesture'],
+      },
+    },
+    {
+      'name': 'avatar_expression',
+      'description': 'Show an expression on the on-screen avatar\'s face. '
+          'Use this when the user asks the avatar to show an emotion, or to make a reply livelier: '
+          'laughing, happy, sad, angry, surprised, thinking, loving, and the rest. '
+          'Expressions: laughing (tertawa), happy (senang), funny (lucu), sad (sedih), crying (menangis), '
+          'angry (marah), surprised (terkejut), shocked (kaget), thinking (berpikir), confused (bingung), '
+          'loving (sayang), kissy (cium), cool (keren), confident (percaya diri), relaxed (santai), '
+          'sleepy (ngantuk), silly (konyol), embarrassed (malu), delicious (enak), winking (kedip), neutral (netral). '
+          'Indonesian names work too. The expression shows on the avatar currently on screen (3D or Live2D). '
+          'Without duration_ms the expression holds until the next emotion or state change.',
+      'inputSchema': {
+        'type': 'object',
+        'properties': {
+          'expression': {'type': 'string', 'description': 'Expression name (see description).'},
+          'duration_ms': {'type': 'integer', 'minimum': 0, 'maximum': 30000, 'default': 0},
+        },
+        'required': ['expression'],
       },
     },
     ...MusicRuntime.tools,
@@ -677,6 +736,7 @@ class McpRuntime {
       );
     }
     if (name == 'avatar_gesture') return _callAvatarGesture(arguments);
+    if (name == 'avatar_expression') return _callAvatarExpression(arguments);
     if (name == 'qrcode_read_file') return _readQrCode(arguments);
     if (MusicRuntime.toolNames.contains(name)) {
       return MusicRuntime.call(name, arguments);

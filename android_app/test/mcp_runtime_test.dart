@@ -731,4 +731,61 @@ void main() {
       expect(result, contains('No avatar is on screen'));
     });
   });
+
+  group('avatar_expression tool', () {
+    tearDown(() {
+      // The callback is a static field: never leave a test's closure
+      // behind for the next test.
+      McpRuntime.onAvatarExpression = null;
+    });
+
+    test('forwards a known expression to the avatar callback', () {
+      var received = '';
+      McpRuntime.onAvatarExpression = (expression, durationMs) {
+        received = '$expression:$durationMs';
+      };
+      final result = McpRuntime.callAvatarExpressionForTest(
+        {'expression': 'tertawa'},
+      );
+      expect(result, contains('laughing'));
+      expect(received, 'laughing:0');
+    });
+
+    test('accepts an explicit duration', () {
+      var duration = 0;
+      McpRuntime.onAvatarExpression = (_, durationMs) => duration = durationMs;
+      McpRuntime.callAvatarExpressionForTest(
+        {'expression': 'happy', 'duration_ms': 5000},
+      );
+      expect(duration, 5000);
+    });
+
+    test('is listed in tools/list so the LLM can discover it', () async {
+      final response = await McpRuntime.handle(
+        {'jsonrpc': '2.0', 'id': 11, 'method': 'tools/list'},
+        disabledModules: <String>{},
+      );
+      final result = response!['result'] as Map<String, dynamic>;
+      final tools = result['tools'] as List<dynamic>;
+      final names = tools.map((tool) => (tool as Map)['name'] as String).toList();
+      expect(names, contains('avatar_expression'));
+      expect(McpRuntime.lastListedToolNames, contains('avatar_expression'));
+    });
+
+    test('reports an unknown expression instead of failing', () {
+      final result = McpRuntime.callAvatarExpressionForTest(
+        {'expression': 'terbang'},
+      );
+      expect(result, contains('Unknown expression'));
+      expect(result, contains('laughing'));
+    });
+
+    test('reports when no avatar is wired', () {
+      McpRuntime.onAvatarExpression = null;
+      final result = McpRuntime.callAvatarExpressionForTest(
+        {'expression': 'laughing'},
+      );
+      expect(result, contains('No avatar is on screen'));
+    });
+  });
 }
