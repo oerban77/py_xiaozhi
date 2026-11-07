@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:camera/camera.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:image/image.dart' as img;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
@@ -2030,6 +2031,57 @@ class McpRuntime {
     }
   }
 
+  /// Downscale a photo before it is uploaded for vision analysis.
+  ///
+  /// A phone photo at full resolution (12-50 MP, 3-10 MB) was sent
+  /// whole, which costs seconds of upload and VL image tokens. Most
+  /// vision models downscale internally to ~1000 px anyway, so
+  /// resizing to a 2560 px long side at JPEG quality 88 keeps the
+  /// answer quality while shrinking the upload several times over.
+  /// The cap is 2560 px on purpose: small writing, small objects and
+  /// QR codes in the photo must stay sharp enough for the server to
+  /// read them — a lower cap would blur exactly the detail the user
+  /// photographed. If the image is already small, or cannot be
+  /// decoded, the original bytes are returned unchanged.
+  ///
+  /// When [keepFullRes] is true (the user asked to read text or a QR
+  /// code), no downscaling happens at all: small writing and QR codes
+  /// need every pixel.
+  @visibleForTesting
+  static Uint8List downscaleImageForVision(Uint8List bytes, {bool keepFullRes = false}) {
+    if (keepFullRes) return bytes;
+    const maxSide = 2560;
+    const quality = 88;
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+    if (decoded.width <= maxSide && decoded.height <= maxSide) return bytes;
+    final resized = img.copyResize(
+      decoded,
+      width: decoded.width >= decoded.height ? maxSide : null,
+      height: decoded.height > decoded.width ? maxSide : null,
+    );
+    return Uint8List.fromList(img.encodeJpg(resized, quality: quality));
+  }
+
+  /// Whether the user's question asks to read writing in the photo
+  /// (OCR / transcription) or a QR/barcode. Small writing and QR codes
+  /// need full resolution, so such a question skips the downscale
+  /// entirely (see [downscaleImageForVision]). Matches Indonesian and
+  /// English phrasings for reading text, receipts, documents, notes
+  /// and QR codes.
+  @visibleForTesting
+  static bool isTextReadingQuestion(String question) {
+    final q = question.toLowerCase();
+    const keywords = [
+      'baca', 'tulis', 'teks', 'tertulis', 'bacakan', 'transkrip',
+      'struk', 'nota', 'dokumen', 'surat', 'kwitansi', 'faktur',
+      'apa isinya', 'apa yang tertulis', 'tulisan',
+      'qr', 'barcode', 'kode qr', 'kode batang', 'scan', 'pindai',
+      'read', 'ocr', 'transcri', 'receipt', 'document',
+    ];
+    return keywords.any(q.contains);
+  }
+
   static Future<String> _takePhoto(
     Map<String, dynamic> arguments,
     Map<String, Object?> config, {
@@ -2037,7 +2089,6 @@ class McpRuntime {
     String attachedQuestion = '',
   }
   ) async {
-    // Use attachedQuestion if provided (from pendingImageQuestion), otherwise fall back to arguments['question']
     final requestQuestion = attachedQuestion.trim().isNotEmpty
         ? attachedQuestion
         : (arguments['question'] as String? ?? '');
@@ -2076,10 +2127,21 @@ class McpRuntime {
     }
     if (imageBytes.isEmpty) throw StateError('Android camera returned an empty image');
 
+    // Shrink the photo before upload: full-res costs seconds of upload
+    // and VL tokens for detail the model downscales away anyway. The
+    // helper returns the original bytes when the image is already small
+    // or cannot be decoded, so this never breaks a valid capture.
+    // When the user asks to read writing in the photo, the full
+    // resolution is kept: small writing needs every pixel.
+    final visionBytes = downscaleImageForVision(
+      imageBytes,
+      keepFullRes: isTextReadingQuestion(question),
+    );
+
     final localUrl = '${config['localVlUrl'] ?? ''}'.trim();
     final localKey = '${config['vlApiKey'] ?? ''}'.trim();
     if (localUrl.isNotEmpty && localKey.isNotEmpty) {
-      return _analyzeWithVisionModel(localUrl, localKey, question, imageBytes);
+      return _analyzeWithVisionModel(localUrl, localKey, question, visionBytes);
     }
     final explainUrl = '${config['visionUrl'] ?? ''}'.trim();
     if (explainUrl.isEmpty) {
@@ -2091,7 +2153,7 @@ class McpRuntime {
       '${config['deviceId'] ?? ''}',
       '${config['clientId'] ?? ''}',
       question,
-      imageBytes,
+      visionBytes,
     );
   }
 
@@ -2110,6 +2172,10 @@ class McpRuntime {
     final body = {
       'model': 'glm-4v-plus',
       'stream': false,
+      // Cap the answer length: without a limit the model can answer at
+      // length, which costs generation time. 300 tokens is enough for the
+      // short-and-clear description the prompt asks for.
+      'max_tokens': 300,
       'messages': [
         {'role': 'system', 'content': 'You are a helpful assistant.'},
         {

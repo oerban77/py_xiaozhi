@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:py_xiaozhi_android/attachment_text_reader.dart';
+import 'package:image/image.dart' as img;
 import 'package:py_xiaozhi_android/mcp_runtime.dart';
 import 'package:py_xiaozhi_android/reminder_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -590,5 +591,83 @@ void main() {
     expect(configured.first['controllable'], isTrue);
     expect(configured.first['payloadOn'], 'START');
     expect(configured.first['payloadOff'], 'STOP');
+  });
+
+  group('downscaleImageForVision', () {
+    // Build a large photo-like JPEG with the image package itself, then
+    // verify the helper shrinks it to the 1280 px cap and stays a JPEG.
+    Uint8List makePhoto(int width, int height) {
+      final image = img.Image(width: width, height: height);
+      // A gradient so the JPEG is not trivially compressible.
+      for (var y = 0; y < height; y += 7) {
+        for (var x = 0; x < width; x += 7) {
+          image.setPixelRgb(x, y, x % 256, y % 256, (x + y) % 256);
+        }
+      }
+      return Uint8List.fromList(img.encodeJpg(image, quality: 95));
+    }
+
+    test('shrinks a large landscape photo to the 2560 px cap', () {
+      final original = makePhoto(4000, 3000);
+      final shrunk = McpRuntime.downscaleImageForVision(original);
+      final decoded = img.decodeImage(shrunk)!;
+      expect(decoded.width, 2560);
+      expect(decoded.height, 1920);
+      expect(shrunk.length, lessThan(original.length));
+    });
+
+    test('shrinks a large portrait photo by its height', () {
+      final original = makePhoto(3000, 4000);
+      final shrunk = McpRuntime.downscaleImageForVision(original);
+      final decoded = img.decodeImage(shrunk)!;
+      expect(decoded.width, 1920);
+      expect(decoded.height, 2560);
+    });
+
+    test('keeps full resolution when the question asks to read text', () {
+      final original = makePhoto(4000, 3000);
+      final result = McpRuntime.downscaleImageForVision(
+        original,
+        keepFullRes: true,
+      );
+      expect(result, original);
+    });
+
+    test('returns a small image unchanged', () {
+      final original = makePhoto(800, 600);
+      final result = McpRuntime.downscaleImageForVision(original);
+      expect(result, original);
+    });
+
+    test('returns undecodable bytes unchanged', () {
+      final garbage = Uint8List.fromList([0, 1, 2, 3, 4, 5]);
+      expect(McpRuntime.downscaleImageForVision(garbage), garbage);
+    });
+  });
+
+  group('isTextReadingQuestion', () {
+    test('detects Indonesian read-text phrasings', () {
+      expect(McpRuntime.isTextReadingQuestion('Bacakan tulisan di gambar ini'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('Apa yang tertulis di struk ini?'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('Tolong baca dokumen ini'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('Transkrip nota ini'), isTrue);
+    });
+
+    test('detects English read-text phrasings', () {
+      expect(McpRuntime.isTextReadingQuestion('Read the text in this image'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('OCR this receipt'), isTrue);
+    });
+
+    test('detects QR and barcode questions', () {
+      expect(McpRuntime.isTextReadingQuestion('Scan QR code ini'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('Apa isi kode QR ini?'), isTrue);
+      expect(McpRuntime.isTextReadingQuestion('Baca barcode ini'), isTrue);
+    });
+
+    test('does not flag a plain description request', () {
+      expect(McpRuntime.isTextReadingQuestion('Jelaskan isi gambar ini'), isFalse);
+      expect(McpRuntime.isTextReadingQuestion('Ada apa di foto ini?'), isFalse);
+      expect(McpRuntime.isTextReadingQuestion('Describe this photo'), isFalse);
+    });
   });
 }

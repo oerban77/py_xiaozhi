@@ -8,6 +8,12 @@ environment:
 
 dependencies:
   archive: ^4.3.0
+  # Image downscale before VL upload (see _downscaleImageForVision):
+  # a full-res phone photo (12-50 MP, 3-10 MB) is sent whole today,
+  # which costs seconds of upload and VL tokens. The image package is
+  # already a transitive dep (4.12.0 in pubspec.lock); pinning it direct
+  # keeps the resize/encode path explicit.
+  image: ^4.12.0
   camera: 0.11.3
   # Pinned to ^2.4.7: 2.4.8 pulls pdfrx_engine ^0.4.7, which requires meta ^1.18.0
   # and breaks version solving against the Flutter SDK's pinned meta 1.17.0.
