@@ -66,6 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // speaking. The model's morphs are very strong, so 1.0 still gaped
   // wide open on the device videos; 0.5 keeps it natural.
   late double _mouthStrength;
+  // External-sound filter (TV): a wake-word hit only counts when the
+  // mic audio is loud enough to be the user close by. TV is speech
+  // too, so it passes the vowel gate, but it is usually much quieter
+  // at the mic than the user.
+  late bool _externalSoundFilter;
+  // Minimum mic RMS for a wake-word hit to count as the user nearby.
+  late double _closeSpeechThreshold;
   late int _wakeWordNumTrailingBlanks;
   late final Set<String> _disabledMcpModules;
   bool _saving = false;
@@ -137,6 +144,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     _character3dModelUrl = widget.controller.character3dModelUrl;
     _mouthStrength = widget.controller.mouthStrength;
+    _externalSoundFilter = widget.controller.externalSoundFilter;
+    _closeSpeechThreshold = widget.controller.closeSpeechThreshold;
     unawaited(_loadReminderSound());
     // Validate the initial value once so the helper text explains what the
     // detector will actually load.
@@ -398,6 +407,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       newCharacterModelUrl: characterUrl,
       newCharacter3dModelUrl: _character3dModelUrl,
       newMouthStrength: _mouthStrength,
+      newExternalSoundFilter: _externalSoundFilter,
+      newCloseSpeechThreshold: _closeSpeechThreshold,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -769,6 +780,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       enabled: _wakeWordEnabled,
                       onChanged: (value) => setState(() => _wakeWordNumTrailingBlanks = value),
                     ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Filter Suara Luar (TV)',
+                      style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _externalSoundFilter,
+                      title: const Text('Abaikan suara dari jauh'),
+                      subtitle: const Text(
+                        'Suara TV juga berisi ucapan, jadi bisa memicu wake word. '
+                        'Kalau aktif, wake word hanya direspon bila suaranya cukup '
+                        'keras — yaitu kamu yang bicara dekat HP. Suara TV yang '
+                        'jauh dan pelan diabaikan. Ini juga berlaku saat TTS sedang '
+                        'berbicara: wake word tetap bisa menghentikan TTS bila kamu '
+                        'yang mengucapkannya dari dekat.',
+                      ),
+                      onChanged: (value) => setState(() => _externalSoundFilter = value),
+                      activeThumbColor: AppColors.green,
+                      activeTrackColor: AppColors.green.withValues(alpha: 0.35),
+                    ),
+                    if (_externalSoundFilter) ...[
+                      const SizedBox(height: 12),
+                      _buildWakeWordSlider(
+                        label: 'Ambang suara dekat',
+                        value: _closeSpeechThreshold,
+                        min: 0.01,
+                        max: 0.2,
+                        divisions: 19,
+                        precision: 2,
+                        enabled: _wakeWordEnabled,
+                        onChanged: (value) => setState(() => _closeSpeechThreshold = value),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Semakin kecil angkanya, semakin pelan suara yang masih '
+                        'direspon (TV bisa lolos). Semakin besar, semakin keras '
+                        'kamu harus bicara. Default 0.03 cocok untuk bicara normal '
+                        'dekat HP.',
+                        style: TextStyle(color: Color(0xFF71817C), height: 1.45),
+                      ),
+                    ],
                     const SizedBox(height: 28),
                     const Text(
                       'Karakter',

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -60,6 +61,23 @@ class XiaozhiController extends ChangeNotifier {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _socketSubscription;
   StreamSubscription<Uint8List>? _micSubscription;
+
+  /// When the last mic chunk arrived. The recorder stream can die
+  /// SILENTLY (audio-focus loss from a notification, device error):
+  /// the subscription stays non-null but delivers nothing, so
+  /// _handleMicStreamDied's onError/onDone never fire and the app
+  /// looks armed (flags up, waveform flat, wake word deaf) while the
+  /// detector hears silence. The watchdog below reopens the stream
+  /// when no data has arrived for a while.
+  DateTime? _lastMicDataAt;
+
+  /// Periodic watchdog for the mic stream (see [_checkMicStreamAlive]).
+  Timer? _micWatchdogTimer;
+
+  /// Audio-interruption subscription (notification/call/alarm) that
+  /// restarts the TTS player when the interruption ends; see
+  /// [_listenForAudioInterruptions].
+  StreamSubscription<AudioInterruptionEvent>? _audioInterruptionSubscription;
   Future<void> _audioEventQueue = Future<void>.value();
   SimpleOpusEncoder? _encoder;
   SimpleOpusDecoder? _decoder;
@@ -145,6 +163,20 @@ class XiaozhiController extends ChangeNotifier {
   /// are very strong, so 1.0 still gaped wide open on the device
   /// videos; 0.5 keeps the mouth clearly moving but natural.
   double mouthStrength = 0.5;
+
+  /// Filter suara luar (TV): when true, a wake-word hit only counts
+  /// when the mic audio that triggered it is loud enough to be the
+  /// user speaking close to the phone. TV audio is speech too, so the
+  /// vowel gate alone cannot tell it apart — but it is usually much
+  /// quieter at the mic than the user. Persisted as
+  /// 'external_sound_filter'.
+  bool externalSoundFilter = true;
+
+  /// Minimum mic RMS (0.0-1.0) for a wake-word hit to count as the
+  /// user speaking close by, used only when [externalSoundFilter] is
+  /// on. Normal close speech is ~0.03-0.3 RMS; TV at a distance is
+  /// usually below 0.03. Persisted as 'close_speech_threshold'.
+  double closeSpeechThreshold = 0.03;
 
   /// Suppress wake word detection for 2 seconds after the app resumes from
   /// background. This prevents false triggers from button clicks, volume
@@ -527,6 +559,9 @@ class XiaozhiController extends ChangeNotifier {
         ? storedCharacter3d.trim()
         : 'models/halfBody.glb';
     mouthStrength = (_preferences?.getDouble('mouth_strength') ?? 0.5).clamp(0.0, 1.0);
+    externalSoundFilter = _preferences?.getBool('external_sound_filter') ?? true;
+    closeSpeechThreshold =
+        (_preferences?.getDouble('close_speech_threshold') ?? 0.03).clamp(0.01, 0.2);
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';
@@ -552,12 +587,33 @@ class XiaozhiController extends ChangeNotifier {
           unawaited(_openMicStream());
         }
       } else {
-        // Music stopped - close mic if not needed for wake word
-        if (_wakeWordMicActive && (!wakeWordOptions.enabled || !wakeWordListening)) {
+        // Music stopped: the audio session changes when just_audio
+        // releases focus, and the mic stream can die in that transition
+        // (or have been closed because wakeWordListening was briefly
+        // false). Either way the mic must be re-armed here, or the app
+        // sits idle with every flag saying it listens while the
+        // detector hears nothing -- "mic tidak direspon" after stopping
+        // a song. _ensureWakeWordArmed reopens the mic when it is dead
+        // and is a no-op when it is already alive.
+        if (wakeWordOptions.enabled) {
+          unawaited(_ensureWakeWordArmed());
+        } else if (_wakeWordMicActive) {
           unawaited(_closeMicStream());
         }
       }
     });
+
+    // Listen for audio interruptions (phone notification, call, alarm).
+    // A notification takes audio focus and can leave the flutter_sound
+    // TTS player "started" but silent -- the app thinks it is speaking
+    // while nothing comes out, and the mic stream can die the same way.
+    // When the interruption ends, re-activate the session and restart
+    // the TTS player if it was playing, so the voice comes back instead
+    // of staying silent until the next utterance. The mic watchdog
+    // (see _checkMicStreamAlive) reopens a dead mic stream the same
+    // way; together they make the app recover from a notification
+    // instead of going deaf-and-mute.
+    unawaited(_listenForAudioInterruptions());
 
     // Listen for network connectivity changes to trigger reconnect when network
     // comes back (e.g., after switching WiFi, mobile data, or airplane mode).
@@ -660,6 +716,8 @@ class XiaozhiController extends ChangeNotifier {
     String? newCharacterModelUrl,
     String? newCharacter3dModelUrl,
     double? newMouthStrength,
+    bool? newExternalSoundFilter,
+    double? newCloseSpeechThreshold,
   }) async {
     await disconnect();
     endpoint = newEndpoint.trim().isEmpty ? defaultEndpoint : newEndpoint.trim();
@@ -713,6 +771,14 @@ class XiaozhiController extends ChangeNotifier {
     if (newMouthStrength != null) {
       mouthStrength = newMouthStrength.clamp(0.0, 1.0);
       await _preferences?.setDouble('mouth_strength', mouthStrength);
+    }
+    if (newExternalSoundFilter != null) {
+      externalSoundFilter = newExternalSoundFilter;
+      await _preferences?.setBool('external_sound_filter', externalSoundFilter);
+    }
+    if (newCloseSpeechThreshold != null) {
+      closeSpeechThreshold = newCloseSpeechThreshold.clamp(0.01, 0.2);
+      await _preferences?.setDouble('close_speech_threshold', closeSpeechThreshold);
     }
     // disconnect() above stopped the detector and cleared isConnected, so arm it
     // directly here; setWakeWordOptions would no-op because it sees no connection.
@@ -961,6 +1027,22 @@ class XiaozhiController extends ChangeNotifier {
     // instead of answering the music. (The detector already paused
     // itself for 300 ms; that brief pause is harmless.)
     if (!_micIsSpeechLike()) return;
+    // External-sound filter (TV): TV audio is speech too, so it passes
+    // the vowel gate above. But it is usually much quieter at the mic
+    // than the user speaking close to the phone. When the filter is on,
+    // a hit only counts when the recent mic audio is loud enough to be
+    // the user nearby; a distant TV is ignored instead of answered.
+    // This also applies while TTS is playing: the wake word still
+    // interrupts (like Gemini) when the user says it close by, but a
+    // TV in the background cannot cut the answer off.
+    if (!shouldAcceptWakeWordHit(
+      filterEnabled: externalSoundFilter,
+      hasEnoughAudio: _micRingPcm.length >= LipSyncAnalyzer.windowSamples,
+      recentRms: _micRecentRms(),
+      closeThreshold: closeSpeechThreshold,
+    )) {
+      return;
+    }
     if (!isConnected) {
       // The wake word fired while idle and disconnected -- the usual
       // "bye bye" aftermath when the server took the session and
@@ -1404,12 +1486,88 @@ class XiaozhiController extends ChangeNotifier {
       throw StateError('Izin mikrofon diperlukan');
     }
     _pendingMicBytes.clear();
+    _lastMicDataAt = DateTime.now();
     final stream = await _recorder.startStream(_micConfig);
     _micSubscription = stream.listen(
       _handleMicData,
       onError: (_) => _handleMicStreamDied(),
       onDone: () => _handleMicStreamDied(),
     );
+    _startMicWatchdog();
+  }
+
+  /// Start the mic watchdog: every 2 s it checks whether the stream
+  /// that should be open has actually delivered data recently. The
+  /// recorder can die silently (a notification taking audio focus is
+  /// the usual killer) without firing onError/onDone, so the
+  /// subscription stays non-null, _openMicStream's guard blocks every
+  /// reopen, and the app sits armed-but-deaf with a flat waveform.
+  /// The watchdog is the only thing that notices.
+  void _startMicWatchdog() {
+    _micWatchdogTimer?.cancel();
+    _micWatchdogTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _checkMicStreamAlive();
+    });
+  }
+
+  void _stopMicWatchdog() {
+    _micWatchdogTimer?.cancel();
+    _micWatchdogTimer = null;
+  }
+
+  void _checkMicStreamAlive() {
+    if (_micSubscription == null) return;
+    // Only the wake-word listener and the uplink need the mic; if
+    // neither is active there is nothing to keep alive.
+    if (!isRecording && !_wakeWordMicActive) return;
+    final last = _lastMicDataAt;
+    if (last == null) return;
+    if (DateTime.now().difference(last) < const Duration(seconds: 3)) return;
+    // No mic data for 3 s while the stream should be open: the stream
+    // died silently. Drop the dead subscription (its non-null guard is
+    // what blocked every reopen) and open a fresh one; _openMicStream
+    // restarts the watchdog, and the wake word is re-armed if it was
+    // the listener.
+    _micSubscription = null;
+    _wakeWordMicActive = false;
+    unawaited(_openMicStream());
+    if (!isRecording && wakeWordOptions.enabled) {
+      unawaited(_ensureWakeWordArmed());
+    }
+  }
+
+  /// Listen for audio interruptions (notification, call, alarm) and
+  /// recover the TTS player when they end. A notification takes audio
+  /// focus; the flutter_sound player can be left "started" but silent,
+  /// so the assistant keeps "speaking" with no sound until the next
+  /// utterance. Restarting the player stream here (the same serialized
+  /// restart the wake-word interrupt uses) brings the voice back for
+  /// the utterance that is still in flight. Best-effort: if the
+  /// audio_session plugin is unavailable the app keeps its old
+  /// behavior.
+  Future<void> _listenForAudioInterruptions() async {
+    try {
+      final session = await AudioSession.instance;
+      _audioInterruptionSubscription =
+          session.interruptionEventStream.listen((event) {
+        if (event.begin) return;
+        // Interruption ended: re-activate the session so the TTS
+        // player can reclaim focus, then restart it if it was playing.
+        unawaited(() async {
+          try {
+            await session.setActive(true);
+          } catch (_) {}
+          if (_playerStarted && isConnected) {
+            await _stopPlayerStream();
+            if (isConnected) await _startPlayerStream();
+          }
+        }());
+      });
+    } catch (_) {
+      // audio_session is best-effort; without it the app keeps the old
+      // behavior (TTS may stay silent after a notification until the
+      // next utterance).
+    }
   }
 
   /// The recorder stream died underneath us (audio-focus loss, device error):
@@ -1433,6 +1591,7 @@ class XiaozhiController extends ChangeNotifier {
     if (_wakeWordMicActive && wakeWordOptions.enabled && wakeWordListening) {
       return; // Keep mic open for wake word detector
     }
+    _stopMicWatchdog();
     _wakeWordMicActive = false;
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -1975,6 +2134,37 @@ class XiaozhiController extends ChangeNotifier {
     return _lipSyncAnalyzer.containsSpeech(_micRingPcm);
   }
 
+  /// Whether a wake-word hit counts as the user speaking close by,
+  /// for the external-sound (TV) filter. TV audio is speech too, so
+  /// it passes the vowel gate — but it is usually much quieter at the
+  /// mic than the user. When the filter is off, or there is not enough
+  /// mic audio buffered to judge, the hit is accepted (fail open, so
+  /// a fresh start never eats the first wake word).
+  static bool shouldAcceptWakeWordHit({
+    required bool filterEnabled,
+    required bool hasEnoughAudio,
+    required double recentRms,
+    required double closeThreshold,
+  }) {
+    if (!filterEnabled) return true;
+    if (!hasEnoughAudio) return true;
+    return recentRms >= closeThreshold;
+  }
+
+  /// RMS of the mic audio in the ring buffer (the last ~1 s). Used by
+  /// the external-sound filter: a wake-word hit only counts as the
+  /// user when this is loud enough to be speech close to the phone.
+  /// TV audio is speech too (so it passes the vowel gate above), but
+  /// it is usually much quieter at the mic than the user.
+  double _micRecentRms() {
+    if (_micRingPcm.isEmpty) return 0.0;
+    var sumSq = 0.0;
+    for (final v in _micRingPcm) {
+      sumSq += v * v;
+    }
+    return sqrt(sumSq / _micRingPcm.length);
+  }
+
   /// Gemini/ChatGPT-style barge-in on user SPEECH (not just the wake
   /// word) while the assistant is speaking. A trigger needs sustained
   /// speech-level energy, not a click or a noise burst, and it must
@@ -2031,6 +2221,10 @@ class XiaozhiController extends ChangeNotifier {
   }
 
   void _handleMicData(Uint8List data) {
+    // The mic watchdog (see _checkMicStreamAlive) uses this to tell a
+    // live stream from one that died silently: a subscription that
+    // delivers nothing leaves this timestamp stale.
+    _lastMicDataAt = DateTime.now();
     // Feed the speech-gate ring buffer first: the wake word and the
     // barge-in check below both read it, and the audio that triggers a
     // detection must already be in it when they do.
@@ -2665,6 +2859,10 @@ class XiaozhiController extends ChangeNotifier {
   void dispose() {
     _silencePollTimer?.cancel();
     _speakingWatchdog?.cancel();
+    _micWatchdogTimer?.cancel();
+    _micWatchdogTimer = null;
+    _audioInterruptionSubscription?.cancel();
+    _audioInterruptionSubscription = null;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _connectivitySubscription?.cancel();

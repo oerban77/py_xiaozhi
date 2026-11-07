@@ -245,4 +245,68 @@ void main() {
       expect(XiaozhiController.sampleRateForBandwidth('XX'), isNull);
     });
   });
+
+  group('shouldAcceptWakeWordHit (external-sound / TV filter)', () {
+    test('accepts a loud hit (user close by) when the filter is on', () {
+      expect(
+        XiaozhiController.shouldAcceptWakeWordHit(
+          filterEnabled: true,
+          hasEnoughAudio: true,
+          recentRms: 0.08,
+          closeThreshold: 0.03,
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects a quiet hit (distant TV) when the filter is on', () {
+      expect(
+        XiaozhiController.shouldAcceptWakeWordHit(
+          filterEnabled: true,
+          hasEnoughAudio: true,
+          recentRms: 0.01,
+          closeThreshold: 0.03,
+        ),
+        isFalse,
+      );
+    });
+
+    test('accepts a hit at exactly the threshold', () {
+      expect(
+        XiaozhiController.shouldAcceptWakeWordHit(
+          filterEnabled: true,
+          hasEnoughAudio: true,
+          recentRms: 0.03,
+          closeThreshold: 0.03,
+        ),
+        isTrue,
+      );
+    });
+
+    test('accepts any hit when the filter is off', () {
+      expect(
+        XiaozhiController.shouldAcceptWakeWordHit(
+          filterEnabled: false,
+          hasEnoughAudio: true,
+          recentRms: 0.005,
+          closeThreshold: 0.03,
+        ),
+        isTrue,
+      );
+    });
+
+    test('accepts a hit when there is not enough audio to judge', () {
+      // Fail open: a fresh start with an empty ring buffer must never
+      // eat the first wake word while the buffer is still filling.
+      expect(
+        XiaozhiController.shouldAcceptWakeWordHit(
+          filterEnabled: true,
+          hasEnoughAudio: false,
+          recentRms: 0.0,
+          closeThreshold: 0.03,
+        ),
+        isTrue,
+      );
+    });
+  });
 }
