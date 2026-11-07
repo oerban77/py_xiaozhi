@@ -56,6 +56,7 @@ class Avatar3D extends StatefulWidget {
     super.key,
     required this.emotion,
     required this.isSpeaking,
+    this.isListening = false,
     this.lipSyncStream,
     this.gestureStream,
     this.size = 240.0,
@@ -76,6 +77,11 @@ class Avatar3D extends StatefulWidget {
   /// True only while TTS is playing ([XiaozhiController.isSpeaking]).
   /// The mouth is driven only in this state; otherwise it stays closed.
   final bool isSpeaking;
+
+  /// True while the user is speaking (the avatar is listening). Drives
+  /// the conversation head motion: a slow nod that shows attention.
+  /// See [setConversationState] on the page.
+  final bool isListening;
 
   /// Lip-sync vowel frames from [XiaozhiController.lipSyncStream]
   /// (MFCC + vowel templates, see lipsync_mfcc.dart). When null the
@@ -370,6 +376,13 @@ class _Avatar3DState extends State<Avatar3D> {
       _emotionMorphs = _resolveEmotionMorphs();
       _sendMorphs(force: true);
     }
+    if (oldWidget.isSpeaking != widget.isSpeaking ||
+        oldWidget.isListening != widget.isListening) {
+      // Conversation state changed: the page nods slowly while
+      // listening and moves gently while speaking, so the avatar feels
+      // like a relaxed conversation partner instead of a statue.
+      _sendConversationState();
+    }
     if (oldWidget.isSpeaking != widget.isSpeaking && !widget.isSpeaking) {
       // Speech just ended: close the mouth promptly instead of waiting
       // for the ticker's release smoothing to decay.
@@ -446,6 +459,10 @@ class _Avatar3DState extends State<Avatar3D> {
               .map((e) => e.toString())
               .toList();
           setState(() => _modelReady = true);
+          // The model is ready: send the current conversation state so
+          // the head motion starts in the right mode (listening /
+          // speaking / idle) instead of waiting for the next change.
+          _sendConversationState();
           // Prefer the idle clip when the model has one (halfBody:
           // idle_eyes keeps the eyes alive and the render loop busy).
           final idle = animations.firstWhere(
@@ -572,6 +589,22 @@ class _Avatar3DState extends State<Avatar3D> {
     unawaited(
       _webViewController.runJavaScript(
         'window.__avatar3d.setMorphs(${jsonEncode(weights)})',
+      ),
+    );
+  }
+
+  /// Tell the page the conversation state so it can move the head
+  /// like a relaxed listener/speaker (see setConversationState in
+  /// avatar3d.html). Sent whenever the speaking/listening state
+  /// changes; the page eases the motion in and out, so no snap.
+  void _sendConversationState() {
+    if (_failed || _isFlutterTest || !_modelReady) return;
+    final state = widget.isSpeaking
+        ? 'speaking'
+        : (widget.isListening ? 'listening' : 'idle');
+    unawaited(
+      _webViewController.runJavaScript(
+        'window.__avatar3d.setConversationState(${jsonEncode(state)})',
       ),
     );
   }

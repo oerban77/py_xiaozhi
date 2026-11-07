@@ -469,7 +469,7 @@ async function loadAnimationClip(url) {
   }
 }
 
-window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip, playGesture };
+window.__avatar3d = { loadModel, setMorphs, playAnimation: playClip, loadAnimationClip, playGesture, setConversationState };
 // Debug probe (used by the headless render tests only): exposes the
 // cached gesture bones and the active gesture so a test can confirm a
 // gesture actually rotated a bone.
@@ -526,6 +526,49 @@ window.addEventListener('error', (e) => {
 //       the eyeBlinkLeft/Right morphs. Dart's setMorphs only writes the
 //       mouth morphs it is given, so the blink never clashes with the
 //       talking mouth.
+// ---------------------------------------------------------------------------
+// Conversation head motion: the avatar talks and listens like a person,
+// relaxed, not a statue. While the user is speaking (listening) the head
+// nods slowly, showing attention; while the avatar is speaking it moves
+// a little faster and smaller, like natural emphasis. Idle adds nothing
+// (the whole-model sway + breathing above already keep it alive).
+// The motion runs in the render loop on the Head bone, so it is smooth
+// at 60 FPS and never fights Dart's 30 Hz mouth ticker (which writes
+// morphs, not bones). A gesture takes priority: while one is active the
+// conversation motion pauses (the gesture owns the Head bone), and it
+// resumes when the gesture ends. The amplitude eases toward its target
+// (~0.3 s) so starting/stopping never snaps the head.
+// ---------------------------------------------------------------------------
+let conversationState = 'idle'; // 'idle' | 'listening' | 'speaking'
+let headMotionAmount = 0; // 0..1, eased toward 1 when listening/speaking
+function setConversationState(state) {
+  if (state === 'idle' || state === 'listening' || state === 'speaking') {
+    conversationState = state;
+    return true;
+  }
+  return false;
+}
+function _applyConversationHead(dt) {
+  const head = gestureBones.Head;
+  if (!head) return;
+  if (activeGesture) return; // gesture owns the Head bone while it runs
+  const target = conversationState === 'idle' ? 0 : 1;
+  headMotionAmount += (target - headMotionAmount) * Math.min(1, dt * 3);
+  if (headMotionAmount <= 0.001) {
+    // Fully eased out: restore the base rotation so no residual offset remains.
+    head.bone.rotation.set(head.x, head.y, head.z);
+    return;
+  }
+  // Listening: slow nod (attention). Speaking: slightly faster, smaller
+  // (emphasis). The yaw is half the nod frequency so the head drifts
+  // gently instead of ticking side to side.
+  const freq = conversationState === 'listening' ? 1.5 : 2.2;
+  const ampPitch = conversationState === 'listening' ? 0.05 : 0.035;
+  const ampYaw = conversationState === 'listening' ? 0.03 : 0.02;
+  head.bone.rotation.x = head.x + Math.sin(idleTime * freq) * ampPitch * headMotionAmount;
+  head.bone.rotation.y = head.y + Math.sin(idleTime * freq * 0.5) * ampYaw * headMotionAmount;
+}
+
 let idleTime = 0;
 let nextBlinkAt = 2.5;
 let blinkT = -1;
@@ -541,6 +584,10 @@ renderer.setAnimationLoop(() => {
   // while it runs; it restores them when it ends. It runs after the
   // mixer so it wins over the idle clip on the bones it touches.
   _applyGesture(performance.now());
+  // Conversation head motion (nod while listening, gentle emphasis
+  // while speaking) runs after the gesture so a gesture wins when one
+  // is active; otherwise the head moves like a relaxed listener.
+  _applyConversationHead(dt);
   if (blinkT < 0 && idleTime >= nextBlinkAt) blinkT = 0;
   let blink = 0;
   if (blinkT >= 0) {
