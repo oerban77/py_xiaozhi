@@ -195,9 +195,13 @@ class XiaozhiController extends ChangeNotifier {
 
   /// Minimum mic RMS (0.0-1.0) for a wake-word hit to count as the
   /// user speaking close by, used only when [externalSoundFilter] is
-  /// on. Normal close speech is ~0.03-0.3 RMS; TV at a distance is
-  /// usually below 0.03. Persisted as 'close_speech_threshold'.
-  double closeSpeechThreshold = 0.03;
+  /// on. Normal speech at arm's length is ~0.03-0.3 RMS, but at a
+  /// table/desk distance (~1 m) it drops to ~0.01-0.03, so the old
+  /// default 0.03 rejected legitimate wake words spoken from a
+  /// distance (the "susah" in idle). TV at a distance is usually
+  /// below 0.01, so 0.015 still filters it. Persisted as
+  /// 'close_speech_threshold'.
+  double closeSpeechThreshold = 0.015;
 
   /// Suppress wake word detection for 2 seconds after the app resumes from
   /// background. This prevents false triggers from button clicks, volume
@@ -366,6 +370,20 @@ class XiaozhiController extends ChangeNotifier {
   bool isConnecting = false;
   bool isRecording = false;
   bool _wakeWordMicActive = false;
+
+  /// True while the mic stream is open for the wake word listener.
+  /// The debug screen shows this: if the detector is running but the
+  /// mic is not active, the spotter hears nothing and the wake word
+  /// can never fire.
+  bool get wakeWordMicActive => _wakeWordMicActive;
+
+  /// RMS of the mic audio in the last ~1 s (0.0 when the mic is
+  /// silent/dead). The debug screen shows this next to
+  /// [closeSpeechThreshold]: a wake-word hit is rejected by the
+  /// external-sound filter when this is below the threshold, so a
+  /// user speaking from a distance can see the number and raise or
+  /// lower the threshold in Settings accordingly.
+  double get micRecentRms => _micRecentRms();
   // A wake word spoken while the socket is down (the usual aftermath of the
   // server taking the session on "bye bye"): connect() consumes this once the
   // socket is up and starts the conversation, so the user does not have to
@@ -613,7 +631,7 @@ class XiaozhiController extends ChangeNotifier {
     mouthStrength = (_preferences?.getDouble('mouth_strength') ?? 0.5).clamp(0.0, 1.0);
     externalSoundFilter = _preferences?.getBool('external_sound_filter') ?? true;
     closeSpeechThreshold =
-        (_preferences?.getDouble('close_speech_threshold') ?? 0.03).clamp(0.01, 0.2);
+        (_preferences?.getDouble('close_speech_threshold') ?? 0.015).clamp(0.01, 0.2);
     final storedToken = (await _secureStorage.read(key: 'access_token'))?.trim() ?? '';
     token = storedToken.isEmpty ? defaultAccessToken : storedToken;
     vlApiKey = await _secureStorage.read(key: 'camera_vl_api_key') ?? '';

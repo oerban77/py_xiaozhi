@@ -68,6 +68,24 @@ class _DebugScreenState extends State<DebugScreen> {
       'Tools: ${names.join(', ')}',
     ];
   }
+  /// Wake-word listener state. The diagnostic for "wake word susah"
+  /// in idle: if the detector is not running or the mic is not
+  /// active, the spotter hears nothing and no keyword can fire. If
+  /// both are YES but hits still do nothing, compare 'Mic RMS' with
+  /// 'Ambang dekat': a hit is rejected by the external-sound filter
+  /// when RMS is below the threshold (user speaking from a distance).
+  /// Lower the threshold in Settings, or move closer to the phone.
+  List<String> _wakeWordText() {
+    final c = widget.controller;
+    return [
+      'Detector running: ${c.wakeWordDetector.isRunning ? 'YES' : 'NO'}',
+      'Listening flag: ${c.wakeWordListening ? 'YES' : 'NO'}',
+      'Mic active: ${c.wakeWordMicActive ? 'YES' : 'NO'}',
+      'Mic RMS (last 1s): ${c.micRecentRms.toStringAsFixed(4)}',
+      'Ambang dekat: ${c.closeSpeechThreshold.toStringAsFixed(3)} (filter ${c.externalSoundFilter ? 'ON' : 'OFF'})',
+      'Error: ${c.wakeWordError.isEmpty ? '(none)' : c.wakeWordError}',
+    ];
+  }
   String _lipSyncText() {
     final frame = widget.controller.lastLipSyncFrame;
     if (frame == null) return '(no frame yet)';
@@ -186,6 +204,8 @@ class _DebugScreenState extends State<DebugScreen> {
             ]),
             const SizedBox(height: 20),
             _buildDebugSection('MCP Tools (tools/list)', _toolsListText()),
+            const SizedBox(height: 20),
+            _buildDebugSection('Wake Word', _wakeWordText()),
             const SizedBox(height: 20),
             _buildDebugSection('Pending Attachments', [
               'Text Attachment: ${widget.controller.pendingTextAttachment != null ? 'YES' : 'NO'}',
